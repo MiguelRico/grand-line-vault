@@ -30,13 +30,20 @@ function SidebarContent({ close }: { close?: () => void }) {
   const navigate = useNavigate();
   return (
     <div className="flex h-full flex-col">
-      <div className="flex h-24 items-center gap-3 px-6">
-        <div className="grid size-11 place-items-center rounded-xl bg-gradient-to-br from-violet to-indigo-500 text-xl font-black">
-          GL
-        </div>
-        <div>
-          <p className="font-black tracking-wide text-white">GRAND LINE</p>
-          <p className="text-[10px] font-bold tracking-[0.18em] text-slate-400">CARD VAULT</p>
+      <div className="flex h-24 items-center gap-2.5 px-4">
+        <img
+          src="/one-piece-logo.svg"
+          alt=""
+          aria-hidden="true"
+          className="size-12 shrink-0 object-contain brightness-0 invert"
+        />
+        <div className="min-w-0">
+          <p className="brand-title whitespace-nowrap text-[22px] leading-none text-white">
+            ONE PIECE
+          </p>
+          <p className="mt-1 whitespace-nowrap text-[9px] font-bold tracking-[0.1em] text-slate-200">
+            GRAND LINE VAULT
+          </p>
         </div>
       </div>
       <nav className="flex-1 space-y-1 px-3" aria-label="Navegación principal">

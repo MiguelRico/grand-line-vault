@@ -43,6 +43,13 @@ button {
   background: #4338ca;
 }
 
+.brand-title {
+  font-family: Impact, Haettenschweiler, "Arial Narrow Bold", "Arial Narrow", sans-serif;
+  font-stretch: condensed;
+  font-weight: 900;
+  letter-spacing: 0.025em;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
