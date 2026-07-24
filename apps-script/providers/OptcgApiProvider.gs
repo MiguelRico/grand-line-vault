@@ -9,12 +9,16 @@ OptcgApiProvider.prototype.supports = function (operation) {
   return ['search', 'getCard', 'getSets'].indexOf(operation) >= 0;
 };
 OptcgApiProvider.prototype.search = function (criteria) {
-  var response = this.client.get('/sets/filtered/', {
+  var filters = {
     card_name: criteria.query, set_id: criteria.set,
     card_color: titleCase(criteria.color), card_type: titleCase(criteria.type),
     rarity: criteria.rarity, card_cost_min: criteria.minCost, card_cost_max: criteria.maxCost,
     card_power_min: criteria.minPower, card_power_max: criteria.maxPower
+  };
+  var hasFilters = Object.keys(filters).some(function (key) {
+    return filters[key] !== undefined && filters[key] !== null && filters[key] !== '';
   });
+  var response = this.client.get(hasFilters ? '/sets/filtered/' : '/allSetCards/', hasFilters ? filters : {});
   var rows = response && Array.isArray(response.body) ? response.body : [];
   var cards = OptcgApiCardMapper.mapMany(rows);
   cards = NormalizedFilter.apply(cards, criteria);

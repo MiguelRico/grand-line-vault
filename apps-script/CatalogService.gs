@@ -27,7 +27,9 @@ var CatalogService = (function () {
         return result;
       } catch (error) {
         lastError = error;
-        CircuitBreaker.failure(provider.getProviderInfo().id);
+        if (error && error.retryable === true) {
+          CircuitBreaker.failure(provider.getProviderInfo().id);
+        }
         if (!CatalogFallbackPolicy.shouldFallback(error)) throw error;
       }
     }
