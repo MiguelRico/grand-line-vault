@@ -69,4 +69,29 @@ describe('AppsScriptCatalogRepository', () => {
     expect(result.meta.provider).toBe('OPTCG_API');
     expect(result.meta.fallbackUsed).toBe(false);
   });
+
+  it('loads every set exposed by Apps Script', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            success: true,
+            data: [
+              { code: 'OP-01', name: 'Romance Dawn' },
+              { code: 'OP-02', name: 'Paramount War' },
+            ],
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        ),
+      ),
+    );
+
+    const sets = await new AppsScriptCatalogRepository('https://example.test/exec').listSets();
+
+    expect(sets).toEqual([
+      { code: 'OP-01', name: 'Romance Dawn' },
+      { code: 'OP-02', name: 'Paramount War' },
+    ]);
+  });
 });

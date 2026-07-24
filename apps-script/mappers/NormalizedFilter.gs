@@ -6,7 +6,13 @@ var NormalizedFilter = {
         (!criteria.set || card.set.code === criteria.set) &&
         (!criteria.color || card.colors.indexOf(String(criteria.color).toUpperCase()) >= 0) &&
         (!criteria.type || card.type === String(criteria.type).toUpperCase()) &&
-        (!criteria.rarity || card.rarity === criteria.rarity);
+        (!criteria.rarity || card.rarity === criteria.rarity) &&
+        (!criteria.variant || criteria.variant === 'BASE' ||
+          card.variants.some(function (variant) { return variant.type === criteria.variant; })) &&
+        (criteria.minCost === undefined || (card.cost || 0) >= criteria.minCost) &&
+        (criteria.maxCost === undefined || (card.cost || 0) <= criteria.maxCost) &&
+        (criteria.minPower === undefined || (card.power || 0) >= criteria.minPower) &&
+        (criteria.maxPower === undefined || (card.power || 0) <= criteria.maxPower);
     });
   },
   sort: function (cards, field, direction) {

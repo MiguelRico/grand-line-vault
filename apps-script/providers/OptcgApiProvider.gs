@@ -11,9 +11,8 @@ OptcgApiProvider.prototype.supports = function (operation) {
 OptcgApiProvider.prototype.search = function (criteria) {
   var filters = {
     card_name: criteria.query, set_id: criteria.set,
-    card_color: titleCase(criteria.color), card_type: titleCase(criteria.type),
-    rarity: criteria.rarity, card_cost_min: criteria.minCost, card_cost_max: criteria.maxCost,
-    card_power_min: criteria.minPower, card_power_max: criteria.maxPower
+    color: titleCase(criteria.color), card_type: titleCase(criteria.type),
+    rarity: criteria.rarity
   };
   var hasFilters = Object.keys(filters).some(function (key) {
     return filters[key] !== undefined && filters[key] !== null && filters[key] !== '';

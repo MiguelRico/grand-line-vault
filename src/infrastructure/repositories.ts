@@ -11,6 +11,7 @@ import { initialBoxes, initialCollection, initialSalesPacks, mockCards } from '.
 export interface CatalogRepository {
   search(criteria: CatalogCriteria, signal?: AbortSignal): Promise<PaginatedResult<Card>>;
   getById(id: string, signal?: AbortSignal): Promise<Card | null>;
+  listSets(signal?: AbortSignal): Promise<Card['set'][]>;
 }
 
 export interface PrivateRepository {
@@ -95,6 +96,11 @@ export class MockCatalogRepository implements CatalogRepository {
     await delay(signal);
     return mockCards.find((card) => card.id === id) ?? null;
   }
+
+  async listSets(signal?: AbortSignal): Promise<Card['set'][]> {
+    await delay(signal);
+    return Array.from(new Map(mockCards.map((card) => [card.set.code, card.set])).values());
+  }
 }
 
 export class AppsScriptCatalogRepository implements CatalogRepository {
@@ -136,6 +142,19 @@ export class AppsScriptCatalogRepository implements CatalogRepository {
     if (!response.ok) throw new Error('No se pudo cargar la carta.');
     const payload: { success: boolean; data?: Card } = await response.json();
     return payload.data ?? null;
+  }
+
+  async listSets(signal?: AbortSignal): Promise<Card['set'][]> {
+    const response = await fetch(
+      `${this.baseUrl}?${new URLSearchParams({ resource: 'sets' })}`,
+      { signal },
+    );
+    if (!response.ok) throw new Error('No se pudieron cargar las expansiones.');
+    const payload: { success: boolean; data?: Card['set'][]; error?: { message: string } } =
+      await response.json();
+    if (!payload.success || !payload.data)
+      throw new Error(payload.error?.message ?? 'Respuesta de expansiones inválida.');
+    return payload.data;
   }
 }
 

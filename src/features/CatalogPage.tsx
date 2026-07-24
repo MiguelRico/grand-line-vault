@@ -2,7 +2,7 @@ import { Filter, SlidersHorizontal, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
-import type { CardColor, CardType, CatalogCriteria } from '../domain/models';
+import type { Card, CardColor, CardType, CardVariantType, CatalogCriteria } from '../domain/models';
 import { useServices } from '../app/providers/ServicesProvider';
 import { CardDetails } from './CardDetails';
 import { PageHeader } from '../shared/AppShell';
@@ -29,12 +29,33 @@ const defaultCriteria: CatalogCriteria = {
   pageSize: 12,
 };
 
+const rarityOptions = [
+  ['L', 'Leader'],
+  ['C', 'Common'],
+  ['UC', 'Uncommon'],
+  ['R', 'Rare'],
+  ['SR', 'Super Rare'],
+  ['SEC', 'Secret Rare'],
+  ['PR', 'Promo'],
+  ['TR', 'Treasure Rare'],
+] as const;
+
+function optionalNumberParam(value: string | null): number | undefined {
+  if (value === null || value === '') return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
 function FilterFields({
   criteria,
   setCriteria,
+  sets,
+  setsLoading,
 }: {
   criteria: CatalogCriteria;
   setCriteria: (criteria: CatalogCriteria) => void;
+  sets: Card['set'][];
+  setsLoading: boolean;
 }) {
   const update = (patch: Partial<CatalogCriteria>) =>
     setCriteria({ ...criteria, ...patch, page: 1 });
@@ -48,8 +69,13 @@ function FilterFields({
           className="mt-2 h-11 w-full rounded-lg border-slate-300 text-sm focus:border-violet focus:ring-violet"
         >
           <option value="">Todas las expansiones</option>
-          <option value="OP-01">Romance Dawn [OP-01]</option>
+          {sets.map((set) => (
+            <option key={set.code} value={set.code}>
+              {set.name} [{set.code}]
+            </option>
+          ))}
         </select>
+        {setsLoading && <span className="mt-1 block text-xs text-slate-500">Cargando expansiones…</span>}
       </label>
       <fieldset>
         <legend className="text-sm font-semibold">Color</legend>
@@ -93,7 +119,6 @@ function FilterFields({
           <option value="CHARACTER">Personaje</option>
           <option value="EVENT">Evento</option>
           <option value="STAGE">Escenario</option>
-          <option value="DON">DON!!</option>
         </select>
       </label>
       <label className="block text-sm font-semibold">
@@ -104,11 +129,23 @@ function FilterFields({
           className="mt-2 h-11 w-full rounded-lg border-slate-300 text-sm"
         >
           <option value="">Todas las rarezas</option>
-          <option value="L">Leader</option>
-          <option value="C">Common</option>
-          <option value="UC">Uncommon</option>
-          <option value="R">Rare</option>
-          <option value="SR">Super Rare</option>
+          {rarityOptions.map(([value, label]) => (
+            <option key={value} value={value}>
+              {label} [{value}]
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="block text-sm font-semibold">
+        Versión
+        <select
+          value={criteria.variant}
+          onChange={(event) => update({ variant: event.target.value as CardVariantType | '' })}
+          className="mt-2 h-11 w-full rounded-lg border-slate-300 text-sm"
+        >
+          <option value="">Todas las versiones</option>
+          <option value="BASE">Base</option>
+          <option value="PARALLEL">Paralela / arte alternativo</option>
         </select>
       </label>
       <div>
@@ -117,6 +154,7 @@ function FilterFields({
           <input
             type="number"
             min="0"
+            max="10"
             placeholder="Mín."
             value={criteria.minCost ?? ''}
             onChange={(event) =>
@@ -128,6 +166,7 @@ function FilterFields({
           <input
             type="number"
             min="0"
+            max="10"
             placeholder="Máx."
             value={criteria.maxCost ?? ''}
             onChange={(event) =>
@@ -135,6 +174,37 @@ function FilterFields({
             }
             className="h-11 rounded-lg border-slate-300 text-sm"
             aria-label="Coste máximo"
+          />
+        </div>
+      </div>
+      <div>
+        <p className="text-sm font-semibold">Poder</p>
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <input
+            type="number"
+            min="0"
+            max="13000"
+            step="1000"
+            placeholder="Mín."
+            value={criteria.minPower ?? ''}
+            onChange={(event) =>
+              update({ minPower: event.target.value ? Number(event.target.value) : undefined })
+            }
+            className="h-11 rounded-lg border-slate-300 text-sm"
+            aria-label="Poder mínimo"
+          />
+          <input
+            type="number"
+            min="0"
+            max="13000"
+            step="1000"
+            placeholder="Máx."
+            value={criteria.maxPower ?? ''}
+            onChange={(event) =>
+              update({ maxPower: event.target.value ? Number(event.target.value) : undefined })
+            }
+            className="h-11 rounded-lg border-slate-300 text-sm"
+            aria-label="Poder máximo"
           />
         </div>
       </div>
@@ -152,6 +222,15 @@ export function CatalogPage() {
   const [criteria, setCriteria] = useState<CatalogCriteria>({
     ...defaultCriteria,
     query: params.get('query') ?? '',
+    setCode: params.get('set') ?? '',
+    color: (params.get('color') as CardColor | null) ?? '',
+    type: (params.get('type') as CardType | null) ?? '',
+    rarity: params.get('rarity') ?? '',
+    variant: (params.get('variant') as CardVariantType | null) ?? '',
+    minCost: optionalNumberParam(params.get('minCost')),
+    maxCost: optionalNumberParam(params.get('maxCost')),
+    minPower: optionalNumberParam(params.get('minPower')),
+    maxPower: optionalNumberParam(params.get('maxPower')),
     page: Number(params.get('page') ?? 1),
     sort: (params.get('sort') as CatalogCriteria['sort']) ?? 'code',
   });
@@ -165,8 +244,15 @@ export function CatalogPage() {
     if (criteria.query) next.set('query', criteria.query);
     if (criteria.page > 1) next.set('page', String(criteria.page));
     if (criteria.sort !== 'code') next.set('sort', criteria.sort);
+    if (criteria.setCode) next.set('set', criteria.setCode);
     if (criteria.color) next.set('color', criteria.color);
     if (criteria.type) next.set('type', criteria.type);
+    if (criteria.rarity) next.set('rarity', criteria.rarity);
+    if (criteria.variant) next.set('variant', criteria.variant);
+    if (criteria.minCost !== undefined) next.set('minCost', String(criteria.minCost));
+    if (criteria.maxCost !== undefined) next.set('maxCost', String(criteria.maxCost));
+    if (criteria.minPower !== undefined) next.set('minPower', String(criteria.minPower));
+    if (criteria.maxPower !== undefined) next.set('maxPower', String(criteria.maxPower));
     if (selectedCard) next.set('card', selectedCard);
     setParams(next, { replace: true });
   }, [criteria, selectedCard, setParams]);
@@ -180,12 +266,26 @@ export function CatalogPage() {
     queryKey: ['collection'],
     queryFn: () => services.privateData.listCollection(),
   });
+  const sets = useQuery({
+    queryKey: ['catalog-sets'],
+    queryFn: ({ signal }) => services.catalog.listSets(signal),
+    staleTime: 24 * 60 * 60 * 1000,
+  });
   const ownedIds = useMemo(
     () => new Set(collection.data?.map((item) => item.cardId) ?? []),
     [collection.data],
   );
-  const activeFilters = [criteria.color, criteria.type, criteria.rarity, criteria.setCode].filter(Boolean)
-    .length;
+  const activeFilters = [
+    criteria.color,
+    criteria.type,
+    criteria.rarity,
+    criteria.setCode,
+    criteria.variant,
+    criteria.minCost,
+    criteria.maxCost,
+    criteria.minPower,
+    criteria.maxPower,
+  ].filter((value) => value !== '' && value !== undefined).length;
 
   return (
     <div className="mx-auto max-w-[1500px] p-4 sm:p-6 lg:p-8">
@@ -226,7 +326,12 @@ export function CatalogPage() {
               Limpiar todo
             </button>
           </div>
-          <FilterFields criteria={criteria} setCriteria={setCriteria} />
+          <FilterFields
+            criteria={criteria}
+            setCriteria={setCriteria}
+            sets={sets.data ?? []}
+            setsLoading={sets.isPending}
+          />
         </aside>
         <section>
           <div className="mb-4 flex items-center justify-between">
@@ -305,7 +410,12 @@ export function CatalogPage() {
                 <X className="size-5" />
               </button>
             </div>
-            <FilterFields criteria={criteria} setCriteria={setCriteria} />
+            <FilterFields
+              criteria={criteria}
+              setCriteria={setCriteria}
+              sets={sets.data ?? []}
+              setsLoading={sets.isPending}
+            />
             <Button onClick={() => setFiltersOpen(false)} className="mt-8 w-full">
               Ver {result.data?.total ?? 0} cartas
             </Button>

@@ -12,7 +12,7 @@ var ArjunkaiCardMapper = {
     return {
       id: CardIdentityResolver.baseId(code), code: code, name: raw.name,
       description: raw.effect || undefined, type: normalizeType(raw.category),
-      colors: (raw.colors || []).map(normalizeColor), rarity: raw.rarity || undefined,
+      colors: (raw.colors || []).map(normalizeColor).filter(Boolean), rarity: raw.rarity || undefined,
       set: { code: raw.sets && raw.sets[0] ? raw.sets[0].id : 'UNKNOWN', name: raw.sets && raw.sets[0] ? raw.sets[0].label : 'Desconocida' },
       cost: numberOrUndefined(raw.cost), power: numberOrUndefined(raw.power),
       counter: numberOrUndefined(raw.counter), life: numberOrUndefined(raw.life),

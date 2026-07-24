@@ -16,7 +16,7 @@ var OptcgApiCardMapper = {
         grouped[id] = {
           id: id, code: code, name: String(raw.card_name).replace(/\s*\(\d+\)(?:\s*\(Parallel\))?$/, ''),
           description: raw.card_text || undefined, type: normalizeType(raw.card_type),
-          colors: String(raw.card_color || '').split('/').filter(Boolean).map(normalizeColor),
+          colors: normalizeColors(raw.card_color),
           rarity: raw.rarity || undefined, set: { code: raw.set_id, name: raw.set_name },
           cost: numberOrUndefined(raw.card_cost), power: numberOrUndefined(raw.card_power),
           counter: numberOrUndefined(raw.counter_amount), life: numberOrUndefined(raw.life),
@@ -56,7 +56,10 @@ function normalizeType(value) {
 }
 function normalizeColor(value) {
   var normalized = String(value || '').toUpperCase();
-  return ['RED', 'GREEN', 'BLUE', 'PURPLE', 'BLACK', 'YELLOW'].indexOf(normalized) >= 0 ? normalized : 'BLACK';
+  return ['RED', 'GREEN', 'BLUE', 'PURPLE', 'BLACK', 'YELLOW'].indexOf(normalized) >= 0 ? normalized : null;
+}
+function normalizeColors(value) {
+  return String(value || '').split(/[\/,\s]+/).map(normalizeColor).filter(Boolean);
 }
 function normalizeVariant(value) {
   var map = { alt_art: 'ALTERNATE_ART', reprint: 'REPRINT', manga: 'MANGA', serial: 'SERIAL' };
