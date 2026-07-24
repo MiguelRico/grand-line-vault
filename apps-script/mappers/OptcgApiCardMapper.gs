@@ -8,7 +8,7 @@ var OptcgApiCardMapper = {
       var source = { providerId: 'OPTCG_API', providerCardId: raw.card_image_id, fetchedAt: new Date().toISOString() };
       var price = raw.market_price === null || raw.market_price === undefined ? [] : [{
         amount: Number(raw.market_price), currency: 'USD', source: 'optcgapi',
-        updatedAt: raw.date_scraped ? new Date(raw.date_scraped + 'T00:00:00Z').toISOString() : undefined,
+        updatedAt: isoDateOrUndefined(raw.date_scraped),
         marketType: 'MARKET'
       }];
       var isVariant = raw.card_image_id !== code;
@@ -37,6 +37,18 @@ var OptcgApiCardMapper = {
 
 function numberOrUndefined(value) {
   return value === null || value === undefined || value === '' ? undefined : Number(value);
+}
+function isoDateOrUndefined(value) {
+  if (!value) return undefined;
+  var text = String(value).trim();
+  var isoDate = /^\d{4}-\d{2}-\d{2}$/.test(text);
+  var usDate = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  var date = isoDate
+    ? new Date(text + 'T00:00:00Z')
+    : usDate
+      ? new Date(Date.UTC(Number(usDate[3]), Number(usDate[1]) - 1, Number(usDate[2])))
+      : new Date(text);
+  return isNaN(date.getTime()) ? undefined : date.toISOString();
 }
 function normalizeType(value) {
   var map = { leader: 'LEADER', character: 'CHARACTER', event: 'EVENT', stage: 'STAGE', don: 'DON', 'don!!': 'DON' };
