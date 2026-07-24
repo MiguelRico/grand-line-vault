@@ -40,10 +40,18 @@ export function LoginPage() {
       <div className="absolute inset-0 opacity-40 [background-image:radial-gradient(circle_at_20%_10%,#4338ca_0,transparent_35%),radial-gradient(circle_at_80%_90%,#1e3a8a_0,transparent_32%)]" />
       <div className="relative w-full max-w-md">
         <div className="mb-7 text-center text-white">
-          <div className="mx-auto grid size-16 place-items-center rounded-2xl bg-gradient-to-br from-violet to-indigo-500 text-2xl font-black shadow-xl shadow-indigo-950">
-            GL
+          <div className="mx-auto flex w-full max-w-[260px] flex-col items-center gap-2">
+            <div className="aspect-[2.65/1] w-full overflow-hidden" aria-label="One Piece">
+              <img
+                src="/one-piece.png"
+                alt="One Piece"
+                className="h-full w-full object-cover object-center invert"
+              />
+            </div>
+            <h1 className="brand-one-piece whitespace-nowrap text-[23px] leading-none text-white">
+              GRAND LINE VAULT
+            </h1>
           </div>
-          <h1 className="mt-5 text-2xl font-black tracking-tight">Grand Line Vault</h1>
           <p className="mt-2 text-sm text-slate-400">Tu colección. Tus reglas. Un único acceso.</p>
         </div>
         <form
