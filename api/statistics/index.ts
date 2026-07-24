@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { requireSession } from '../_shared/auth';
-import { db } from '../_shared/firebase';
-import { apiError, json, methodNotAllowed } from '../_shared/http';
+import { requireSession } from '../_shared/auth.js';
+import { db } from '../_shared/firebase.js';
+import { apiError, json, methodNotAllowed } from '../_shared/http.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {

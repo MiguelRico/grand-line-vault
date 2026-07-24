@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { compare } from 'bcryptjs';
 import { z } from 'zod';
-import { createSessionCookie } from '../_shared/auth';
-import { apiError, assertPayloadSize, json, methodNotAllowed } from '../_shared/http';
+import { createSessionCookie } from '../_shared/auth.js';
+import { apiError, assertPayloadSize, json, methodNotAllowed } from '../_shared/http.js';
 
 const bodySchema = z.object({ password: z.string().min(1).max(256) });
 const attempts = new Map<string, { count: number; resetAt: number }>();

@@ -1,6 +1,6 @@
 import type { z } from 'zod';
-import { db } from './firebase';
-import { salesPackSchema } from './schemas';
+import { db } from './firebase.js';
+import { salesPackSchema } from './schemas.js';
 
 type SalesPackInput = z.infer<typeof salesPackSchema>;
 

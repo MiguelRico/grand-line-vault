@@ -1,14 +1,14 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { requireSession } from '../_shared/auth';
-import { db } from '../_shared/firebase';
-import { collectionItemSchema } from '../_shared/schemas';
+import { requireSession } from '../_shared/auth.js';
+import { db } from '../_shared/firebase.js';
+import { collectionItemSchema } from '../_shared/schemas.js';
 import {
   apiError,
   assertPayloadSize,
   getPathId,
   json,
   methodNotAllowed,
-} from '../_shared/http';
+} from '../_shared/http.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
