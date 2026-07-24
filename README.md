@@ -1,13 +1,13 @@
 # Grand Line Vault
 
-Aplicación privada y responsive para consultar el catálogo de One Piece Card Game y gestionar una colección, mazos, favoritos e intercambios. Está construida con React, TypeScript estricto, Vite, TanStack Query, React Hook Form, Zod, Tailwind, Radix UI, Vercel Functions, Firebase Admin y Google Apps Script.
+Aplicación privada y responsive para consultar el catálogo de One Piece Card Game, inventariar ejemplares, organizarlos físicamente en cajas y secciones y preparar packs de venta. Está construida con React, TypeScript estricto, Vite, TanStack Query, React Hook Form, Zod, Tailwind, Radix UI, Vercel Functions, Firebase Admin y Google Apps Script.
 
 La identidad visual es original y provisional. Las cartas se cargan desde la URL del proveedor; el repositorio no contiene imágenes ni logotipos oficiales.
 
 ## Estado
 
 - Modo mock completo y ejecutable sin servicios externos.
-- Login propio de desarrollo (`nakama`), catálogo, filtros, detalle, colección, cantidades, favoritos, intercambiables, notas, mazos, estadísticas y exportación.
+- Login propio de desarrollo (`nakama`), catálogo, filtros, detalle, inventario, cantidades, ubicaciones, cajas, secciones, packs de venta, favoritos y estadísticas.
 - API privada con sesión firmada HttpOnly y Firebase Admin.
 - Fachada de catálogo modular para Apps Script, con Arjunkai como principal configurable y OPTCG API como fallback.
 - UI mobile-first usable desde 320 px, modal en escritorio y bottom sheet en móvil.
@@ -23,9 +23,9 @@ React + Vite
 │                            ├── Arjunkai OPTCG
 │                            └── OPTCG API
 ├── Login ────────────────── Vercel Functions
-├── Colección ────────────── Vercel Functions ── Firebase Admin ── Firestore
-├── Mazos ────────────────── Vercel Functions ── Firebase Admin ── Firestore
-└── Intercambios/estadística Vercel Functions ── Firebase Admin ── Firestore
+├── Inventario ───────────── Vercel Functions ── Firebase Admin ── Firestore
+├── Cajas y secciones ────── Vercel Functions ── Firebase Admin ── Firestore
+└── Packs/estadística ────── Vercel Functions ── Firebase Admin ── Firestore
 ```
 
 React nunca conoce el formato original de un proveedor ni accede a Firestore. Los componentes consumen repositorios normalizados; cambiar de mock a servicios reales no introduce condicionales en la UI.
@@ -100,12 +100,23 @@ Colecciones:
 ```text
 app/settings
 collectionItems/{collectionItemId}
-decks/{deckId}
-decks/{deckId}/cards/{deckCardId}   # preparado para crecimiento
-tradeItems/{tradeItemId}            # preparado para datos auxiliares
+storageBoxes/{boxId}
+salesPacks/{salesPackId}
 ```
 
-Los elementos guardan un snapshot de nombre, código, set, imagen y precio. Colección, mazos e intercambios siguen siendo legibles si el catálogo está caído.
+Los elementos guardan un snapshot de nombre, código, set, imagen y precio. Inventario, ubicaciones y packs siguen siendo legibles si el catálogo está caído.
+
+## Cajas, secciones y packs de venta
+
+- Una caja contiene una o más secciones con código, nombre y capacidad opcional.
+- Cada agrupación de inventario puede apuntar a una caja y sección.
+- Cada alta crea un lote físico independiente; una misma carta puede estar repartida entre varias ubicaciones.
+- No se permite eliminar una caja que todavía tenga cartas asignadas.
+- Un pack contiene referencias a entradas de inventario, cantidad, estado y precio de venta opcional.
+- Los estados son `DRAFT`, `READY`, `SOLD` y `ARCHIVED`.
+- Las cantidades de packs activos se reservan para impedir que dos packs utilicen las mismas copias.
+- La API vuelve a comprobar el stock dentro de una transacción Firestore antes de guardar el pack.
+- El valor de catálogo se mantiene separado del precio fijado para el pack.
 
 ## Vercel
 
@@ -221,7 +232,7 @@ Para una instancia propia que no exige key, establece `ARJUNKAI_ALLOW_UNAUTHENTI
 - Apps Script Web Apps no permiten fijar cabeceras CORS personalizadas con `ContentService`; despliega el frontend y el script con la configuración de acceso adecuada. Si se requiere una allowlist HTTP estricta, añade un proxy de catálogo en Vercel.
 - El circuit breaker usa caché efímera de Apps Script y es deliberadamente simple.
 - El valor mezcla únicamente precios de la misma moneda; no hay conversión automática.
-- Las reglas oficiales completas de construcción de mazos se reservan para una evolución de `DeckValidationService`; actualmente valida disponibilidad.
+- Marcar un pack como vendido no descuenta automáticamente el inventario: se conserva la trazabilidad hasta que el propietario decida retirar o archivar esas copias.
 
 ## Propiedad intelectual
 

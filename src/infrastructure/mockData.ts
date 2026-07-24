@@ -1,4 +1,4 @@
-import type { Card, CollectionItem, Deck } from '../domain/models';
+import type { Card, CollectionItem, SalesPack, StorageBox } from '../domain/models';
 
 const now = '2026-07-21T06:00:00.000Z';
 const providerBase = 'https://optcg-api.arjunbansal-ai.workers.dev/images';
@@ -103,7 +103,8 @@ function toCollection(card: Card, quantity: number, index: number): CollectionIt
     language: 'EN',
     condition: 'NEAR_MINT',
     favorite: index === 0 || index === 4,
-    tradeableQuantity: quantity > 2 ? 1 : 0,
+    boxId: index < 8 ? (index < 4 ? 'box-1' : 'box-2') : undefined,
+    sectionId: index < 8 ? (index % 2 === 0 ? 'section-a' : 'section-b') : undefined,
     notes: index === 0 ? 'Carta de mi primer sobre.' : undefined,
     createdAt: now,
     updatedAt: now,
@@ -114,19 +115,45 @@ export const initialCollection = mockCards
   .slice(0, 12)
   .map((card, index) => toCollection(card, [3, 2, 1, 2, 4, 2, 1, 2, 1, 3, 1, 2][index] ?? 1, index));
 
-export const initialDecks: Deck[] = [
+export const initialBoxes: StorageBox[] = [
   {
-    id: 'deck-1',
-    name: 'Sombrero de Paja',
-    description: 'Mazo rojo de prueba',
-    leaderCardId: mockCards[0]?.id,
-    cards: initialCollection.slice(0, 4).map((item, index) => ({
-      id: `deck-card-${index + 1}`,
+    id: 'box-1',
+    name: 'Caja principal',
+    description: 'Cartas de Romance Dawn',
+    location: 'Estantería A',
+    sections: [
+      { id: 'section-a', code: 'A', name: 'Líderes y raras', capacity: 120 },
+      { id: 'section-b', code: 'B', name: 'Comunes', capacity: 180 },
+    ],
+    createdAt: now,
+    updatedAt: now,
+  },
+  {
+    id: 'box-2',
+    name: 'Caja de duplicadas',
+    location: 'Estantería B',
+    sections: [
+      { id: 'section-a', code: 'A', name: 'Preparadas para venta', capacity: 100 },
+      { id: 'section-b', code: 'B', name: 'Pendientes de revisar', capacity: 100 },
+    ],
+    createdAt: now,
+    updatedAt: now,
+  },
+];
+
+export const initialSalesPacks: SalesPack[] = [
+  {
+    id: 'pack-1',
+    name: 'Pack inicial Romance Dawn',
+    description: 'Selección de cinco cartas para venta.',
+    status: 'DRAFT',
+    items: initialCollection.slice(0, 3).map((item, index) => ({
+      id: `pack-item-${index + 1}`,
       collectionItemId: item.id,
-      cardId: item.cardId,
-      quantity: Math.min(2, item.quantity),
+      quantity: 1,
       snapshot: item.cardSnapshot,
     })),
+    salePrice: { amount: 12.5, currency: 'EUR' },
     createdAt: now,
     updatedAt: now,
   },

@@ -1,4 +1,4 @@
-import { Box, CalendarClock, Layers3, Plus } from 'lucide-react';
+import { Box, CalendarClock, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Card, CollectionItem } from '../domain/models';
@@ -24,35 +24,35 @@ export function CardDetails({
     queryKey: ['collection'],
     queryFn: () => services.privateData.listCollection(),
   });
-  const existing = collectionQuery.data?.find((item) => item.cardId === cardId);
+  const ownedTotal =
+    collectionQuery.data
+      ?.filter((item) => item.cardId === cardId)
+      .reduce((sum, item) => sum + item.quantity, 0) ?? 0;
   const addMutation = useMutation({
     mutationFn: async (card: Card) => {
       const timestamp = new Date().toISOString();
-      const item: CollectionItem = existing
-        ? { ...existing, quantity, updatedAt: timestamp }
-        : {
-            id: crypto.randomUUID(),
-            cardId: card.id,
-            cardVariantId: card.id,
-            cardSnapshot: {
-              code: card.code,
-              name: card.name,
-              setCode: card.set.code,
-              rarity: card.rarity,
-              variantLabel: 'Normal',
-              imageUrl: card.imageUrl,
-              catalogPrice: card.prices[0],
-              catalogProvider: card.sources[0]?.providerId,
-              catalogFetchedAt: card.sources[0]?.fetchedAt,
-            },
-            quantity,
-            language: card.language,
-            condition: 'NEAR_MINT',
-            favorite: false,
-            tradeableQuantity: 0,
-            createdAt: timestamp,
-            updatedAt: timestamp,
-          };
+      const item: CollectionItem = {
+        id: crypto.randomUUID(),
+        cardId: card.id,
+        cardVariantId: card.id,
+        cardSnapshot: {
+          code: card.code,
+          name: card.name,
+          setCode: card.set.code,
+          rarity: card.rarity,
+          variantLabel: 'Normal',
+          imageUrl: card.imageUrl,
+          catalogPrice: card.prices[0],
+          catalogProvider: card.sources[0]?.providerId,
+          catalogFetchedAt: card.sources[0]?.fetchedAt,
+        },
+        quantity,
+        language: card.language,
+        condition: 'NEAR_MINT',
+        favorite: false,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      };
       return services.privateData.saveCollection(item);
     },
     onSuccess: async () => {
@@ -152,23 +152,20 @@ export function CardDetails({
                 <p className="mb-2 text-sm font-semibold">Cantidad en tu colección</p>
                 <QuantitySelector value={quantity} onChange={setQuantity} min={1} />
               </div>
-              {existing && (
+              {ownedTotal > 0 && (
                 <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-                  Ya tienes {existing.quantity}
+                  Ya tienes {ownedTotal} en otros lotes
                 </span>
               )}
             </div>
-            <div className="mt-6 grid gap-2 sm:grid-cols-2">
+            <div className="mt-6">
               <Button
                 onClick={() => addMutation.mutate(card)}
                 disabled={addMutation.isPending}
                 className="w-full"
               >
                 <Plus className="size-4" />
-                {existing ? 'Actualizar colección' : 'Añadir a mi colección'}
-              </Button>
-              <Button variant="secondary" className="w-full">
-                <Layers3 className="size-4" /> Añadir a un mazo
+                Añadir lote al inventario
               </Button>
             </div>
             <div className="mt-3 flex justify-center gap-1 text-xs text-slate-500">

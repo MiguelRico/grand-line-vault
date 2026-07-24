@@ -41,10 +41,10 @@ await new Promise((resolve) => setTimeout(resolve, 600));
 await command('Runtime.evaluate', {
   expression: "sessionStorage.setItem('grand-line-vault:mock-session','active')",
 });
-await command('Page.navigate', { url: 'http://127.0.0.1:5173/catalog' });
+await command('Page.navigate', { url: 'http://127.0.0.1:5173/boxes' });
 await new Promise((resolve) => setTimeout(resolve, 3000));
 let capture = await command('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
-await writeFile('catalog-desktop.png', Buffer.from(capture.result.data, 'base64'));
+await writeFile('boxes-desktop.png', Buffer.from(capture.result.data, 'base64'));
 
 await command('Emulation.setDeviceMetricsOverride', {
   width: 390,
@@ -52,8 +52,8 @@ await command('Emulation.setDeviceMetricsOverride', {
   deviceScaleFactor: 1,
   mobile: true,
 });
-await command('Page.navigate', { url: 'http://127.0.0.1:5173/collection' });
+await command('Page.navigate', { url: 'http://127.0.0.1:5173/sales-packs' });
 await new Promise((resolve) => setTimeout(resolve, 2500));
 capture = await command('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
-await writeFile('collection-mobile.png', Buffer.from(capture.result.data, 'base64'));
+await writeFile('sales-packs-mobile.png', Buffer.from(capture.result.data, 'base64'));
 socket.close();

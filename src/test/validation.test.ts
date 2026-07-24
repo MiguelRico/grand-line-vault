@@ -7,11 +7,11 @@ describe('private API validation', () => {
     expect(collectionItemSchema.safeParse(initialCollection[0]).success).toBe(true);
   });
 
-  it('rejects a tradeable quantity above total quantity', () => {
+  it('rejects a section without a box', () => {
     const fixture = initialCollection[0];
     expect(fixture).toBeDefined();
     if (!fixture) throw new Error('Fixture de colección incompleto.');
-    const item = { ...fixture, quantity: 1, tradeableQuantity: 2 };
+    const item = { ...fixture, boxId: undefined, sectionId: 'section-a' };
     expect(collectionItemSchema.safeParse(item).success).toBe(false);
   });
 });

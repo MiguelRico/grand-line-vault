@@ -1,196 +1,636 @@
 import {
-  ArrowLeftRight,
+  Archive,
   BarChart3,
-  Copy,
-  Download,
+  Box,
+  CheckCircle2,
   Heart,
-  Layers3,
+  MapPin,
+  PackagePlus,
   Plus,
-  ShieldCheck,
+  ShoppingBag,
+  Trash2,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { useServices } from '../app/providers/ServicesProvider';
-import { calculateCollectionStats, deckAvailabilityWarnings } from '../domain/services';
-import type { Deck } from '../domain/models';
+import {
+  calculateCollectionStats,
+  reservedQuantities,
+  salesPackAvailabilityWarnings,
+} from '../domain/services';
+import type { SalesPack, SalesPackStatus, StorageBox } from '../domain/models';
 import { PageHeader, SimplePage } from '../shared/AppShell';
-import { Button, CardImage, EmptyState, SearchInput } from '../shared/ui';
+import {
+  Button,
+  CardImage,
+  EmptyState,
+  QuantitySelector,
+  ResponsiveDialog,
+  SearchInput,
+} from '../shared/ui';
 
-export function DecksPage() {
+function BoxEditor({
+  box,
+  onClose,
+}: {
+  box: StorageBox | null;
+  onClose: () => void;
+}) {
   const services = useServices();
   const queryClient = useQueryClient();
-  const [name, setName] = useState('');
-  const decks = useQuery({ queryKey: ['decks'], queryFn: () => services.privateData.listDecks() });
+  const [draft, setDraft] = useState(box);
+  if (box && draft?.id !== box.id) setDraft(box);
+  const save = useMutation({
+    mutationFn: (value: StorageBox) => services.privateData.saveBox(value),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['boxes'] });
+      onClose();
+    },
+  });
+  return (
+    <ResponsiveDialog open={Boolean(box)} onOpenChange={(open) => !open && onClose()} title="Editar caja">
+      {draft && (
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wide text-violet">Almacenamiento</p>
+          <h2 className="mt-1 pr-10 text-2xl font-black">Configurar caja</h2>
+          <div className="mt-6 grid gap-4 sm:grid-cols-2">
+            <label className="text-sm font-semibold">
+              Nombre
+              <input
+                value={draft.name}
+                onChange={(event) => setDraft({ ...draft, name: event.target.value })}
+                className="mt-2 h-11 w-full rounded-lg border-slate-300"
+              />
+            </label>
+            <label className="text-sm font-semibold">
+              Ubicación física
+              <input
+                value={draft.location ?? ''}
+                onChange={(event) => setDraft({ ...draft, location: event.target.value })}
+                placeholder="Ej. Estantería A"
+                className="mt-2 h-11 w-full rounded-lg border-slate-300"
+              />
+            </label>
+          </div>
+          <label className="mt-4 block text-sm font-semibold">
+            Descripción
+            <textarea
+              value={draft.description ?? ''}
+              onChange={(event) => setDraft({ ...draft, description: event.target.value })}
+              rows={2}
+              className="mt-2 w-full rounded-lg border-slate-300"
+            />
+          </label>
+          <div className="mt-6 flex items-center justify-between">
+            <h3 className="font-black">Secciones</h3>
+            <Button
+              variant="secondary"
+              onClick={() =>
+                setDraft({
+                  ...draft,
+                  sections: [
+                    ...draft.sections,
+                    {
+                      id: crypto.randomUUID(),
+                      code: String.fromCharCode(65 + draft.sections.length),
+                      name: 'Nueva sección',
+                    },
+                  ],
+                })
+              }
+            >
+              <Plus className="size-4" /> Añadir
+            </Button>
+          </div>
+          <div className="mt-3 space-y-3">
+            {draft.sections.map((section, index) => (
+              <div key={section.id} className="grid grid-cols-[64px_1fr_90px_44px] gap-2">
+                <input
+                  value={section.code}
+                  onChange={(event) =>
+                    setDraft({
+                      ...draft,
+                      sections: draft.sections.map((entry, itemIndex) =>
+                        itemIndex === index ? { ...entry, code: event.target.value } : entry,
+                      ),
+                    })
+                  }
+                  aria-label="Código de sección"
+                  className="h-11 rounded-lg border-slate-300 text-center font-bold"
+                />
+                <input
+                  value={section.name}
+                  onChange={(event) =>
+                    setDraft({
+                      ...draft,
+                      sections: draft.sections.map((entry, itemIndex) =>
+                        itemIndex === index ? { ...entry, name: event.target.value } : entry,
+                      ),
+                    })
+                  }
+                  aria-label="Nombre de sección"
+                  className="h-11 min-w-0 rounded-lg border-slate-300"
+                />
+                <input
+                  type="number"
+                  min="1"
+                  value={section.capacity ?? ''}
+                  onChange={(event) =>
+                    setDraft({
+                      ...draft,
+                      sections: draft.sections.map((entry, itemIndex) =>
+                        itemIndex === index
+                          ? {
+                              ...entry,
+                              capacity: event.target.value ? Number(event.target.value) : undefined,
+                            }
+                          : entry,
+                      ),
+                    })
+                  }
+                  placeholder="Cap."
+                  aria-label="Capacidad"
+                  className="h-11 rounded-lg border-slate-300"
+                />
+                <button
+                  onClick={() =>
+                    setDraft({
+                      ...draft,
+                      sections: draft.sections.filter((entry) => entry.id !== section.id),
+                    })
+                  }
+                  className="grid size-11 place-items-center rounded-lg text-red-600 hover:bg-red-50"
+                  aria-label={`Eliminar sección ${section.name}`}
+                >
+                  <Trash2 className="size-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+          <Button
+            className="mt-7 w-full"
+            disabled={!draft.name.trim() || draft.sections.length === 0 || save.isPending}
+            onClick={() => save.mutate({ ...draft, updatedAt: new Date().toISOString() })}
+          >
+            Guardar caja y secciones
+          </Button>
+        </div>
+      )}
+    </ResponsiveDialog>
+  );
+}
+
+export function BoxesPage() {
+  const services = useServices();
+  const queryClient = useQueryClient();
+  const [selected, setSelected] = useState<StorageBox | null>(null);
+  const boxes = useQuery({ queryKey: ['boxes'], queryFn: () => services.privateData.listBoxes() });
   const collection = useQuery({
     queryKey: ['collection'],
     queryFn: () => services.privateData.listCollection(),
   });
-  const save = useMutation({
-    mutationFn: (deck: Deck) => services.privateData.saveDeck(deck),
-    onSuccess: async () => queryClient.invalidateQueries({ queryKey: ['decks'] }),
+  const remove = useMutation({
+    mutationFn: (id: string) => services.privateData.removeBox(id),
+    onSuccess: async () => queryClient.invalidateQueries({ queryKey: ['boxes'] }),
   });
-
-  const createDeck = () => {
-    if (!name.trim()) return;
+  const createBox = () => {
     const now = new Date().toISOString();
-    save.mutate({
+    setSelected({
       id: crypto.randomUUID(),
-      name: name.trim(),
-      cards: [],
+      name: 'Nueva caja',
+      sections: [{ id: crypto.randomUUID(), code: 'A', name: 'Sección principal' }],
       createdAt: now,
       updatedAt: now,
     });
-    setName('');
   };
-
   return (
     <div className="mx-auto max-w-[1400px] p-4 sm:p-6 lg:p-8">
-      <PageHeader title="Mis mazos" subtitle="Diseña y controla tus listas" />
-      <div className="mb-6 flex gap-2 rounded-xl border border-slate-200 bg-white p-3">
-        <input
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          onKeyDown={(event) => event.key === 'Enter' && createDeck()}
-          placeholder="Nombre del nuevo mazo"
-          maxLength={80}
-          className="h-11 min-w-0 flex-1 rounded-lg border-slate-300 text-sm"
-          aria-label="Nombre del nuevo mazo"
-        />
-        <Button onClick={createDeck} disabled={!name.trim()}>
-          <Plus className="size-4" /> <span className="hidden sm:inline">Crear mazo</span>
-        </Button>
-      </div>
-      {!decks.data?.length ? (
+      <PageHeader
+        title="Cajas y secciones"
+        subtitle="El mapa físico de todo tu inventario"
+        action={
+          <Button onClick={createBox}>
+            <Plus className="size-4" /> Nueva caja
+          </Button>
+        }
+      />
+      {!boxes.data?.length ? (
         <EmptyState
-          title="Todavía no tienes mazos"
-          description="Crea uno y añade cartas desde tu colección."
+          title="Aún no hay cajas"
+          description="Crea tu primera caja y divídela en secciones para empezar a ubicar cartas."
+          action={<Button onClick={createBox}>Crear primera caja</Button>}
         />
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {decks.data.map((deck) => {
-            const warnings = deckAvailabilityWarnings(deck, collection.data ?? []);
-            const total = deck.cards.reduce((sum, card) => sum + card.quantity, 0);
+        <div className="grid gap-4 lg:grid-cols-2">
+          {boxes.data.map((box) => {
+            const boxItems = (collection.data ?? []).filter((item) => item.boxId === box.id);
+            const copies = boxItems.reduce((sum, item) => sum + item.quantity, 0);
             return (
-              <article key={deck.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <article key={box.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="flex items-start justify-between gap-4">
-                  <div className="grid size-12 place-items-center rounded-xl bg-indigo-50 text-violet">
-                    <ShieldCheck className="size-6" />
+                  <div className="flex gap-3">
+                    <div className="grid size-12 place-items-center rounded-xl bg-indigo-50 text-violet">
+                      <Archive className="size-6" />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-black">{box.name}</h2>
+                      <p className="mt-1 flex items-center gap-1 text-xs text-slate-500">
+                        <MapPin className="size-3" /> {box.location || 'Ubicación sin indicar'}
+                      </p>
+                    </div>
                   </div>
-                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold">{total} cartas</span>
+                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold">
+                    {copies} copias
+                  </span>
                 </div>
-                <h2 className="mt-5 text-lg font-black">{deck.name}</h2>
-                <p className="mt-1 text-sm text-slate-600">{deck.description ?? 'Sin descripción'}</p>
-                <div className="mt-4 flex -space-x-3">
-                  {deck.cards.slice(0, 5).map((card) => (
-                    <CardImage
-                      key={card.id}
-                      src={card.snapshot.imageUrl}
-                      alt={card.snapshot.name}
-                      className="w-12 border-2 border-white"
-                    />
-                  ))}
+                <p className="mt-4 text-sm text-slate-600">{box.description || 'Sin descripción'}</p>
+                <div className="mt-5 grid gap-2 sm:grid-cols-2">
+                  {box.sections.map((section) => {
+                    const sectionCopies = boxItems
+                      .filter((item) => item.sectionId === section.id)
+                      .reduce((sum, item) => sum + item.quantity, 0);
+                    const percent = section.capacity
+                      ? Math.min(100, (sectionCopies / section.capacity) * 100)
+                      : 0;
+                    return (
+                      <div key={section.id} className="rounded-xl border border-slate-200 p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="truncate text-sm font-bold">
+                            {section.code} · {section.name}
+                          </p>
+                          <span className="text-xs text-slate-500">
+                            {sectionCopies}
+                            {section.capacity ? `/${section.capacity}` : ''}
+                          </span>
+                        </div>
+                        {section.capacity && (
+                          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
+                            <div className="h-full rounded-full bg-violet" style={{ width: `${percent}%` }} />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
-                {warnings.length > 0 && (
-                  <p className="mt-4 rounded-lg bg-amber-50 p-3 text-xs font-medium text-amber-900">
-                    {warnings[0]}
-                  </p>
-                )}
-                <Button variant="secondary" className="mt-5 w-full">
-                  Gestionar mazo
-                </Button>
+                <div className="mt-5 flex gap-2">
+                  <Button variant="secondary" className="flex-1" onClick={() => setSelected(box)}>
+                    Gestionar secciones
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      const inUse = (collection.data ?? []).some((item) => item.boxId === box.id);
+                      if (inUse) {
+                        window.alert('Mueve primero las cartas asignadas a esta caja.');
+                      } else if (window.confirm(`¿Eliminar ${box.name}?`)) {
+                        remove.mutate(box.id);
+                      }
+                    }}
+                    aria-label={`Eliminar ${box.name}`}
+                  >
+                    <Trash2 className="size-4 text-red-600" />
+                  </Button>
+                </div>
               </article>
             );
           })}
         </div>
       )}
+      <BoxEditor box={selected} onClose={() => setSelected(null)} />
     </div>
   );
 }
 
-export function TradesPage() {
+function PackEditor({
+  pack,
+  onClose,
+}: {
+  pack: SalesPack | null;
+  onClose: () => void;
+}) {
   const services = useServices();
+  const queryClient = useQueryClient();
+  const [draft, setDraft] = useState(pack);
   const [query, setQuery] = useState('');
+  if (pack && draft?.id !== pack.id) setDraft(pack);
   const collection = useQuery({
     queryKey: ['collection'],
     queryFn: () => services.privateData.listCollection(),
   });
-  const items = useMemo(() => {
+  const packs = useQuery({
+    queryKey: ['sales-packs'],
+    queryFn: () => services.privateData.listSalesPacks(),
+  });
+  const save = useMutation({
+    mutationFn: (value: SalesPack) => services.privateData.saveSalesPack(value),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['sales-packs'] });
+      onClose();
+    },
+  });
+  if (!draft) return null;
+  const reserved = reservedQuantities((packs.data ?? []).filter((entry) => entry.id !== draft.id));
+  const available = (collection.data ?? []).filter((item) => {
     const normalized = query.toLocaleLowerCase();
-    return (collection.data ?? []).filter(
-      (item) =>
-        item.tradeableQuantity > 0 &&
-        (!normalized ||
-          item.cardSnapshot.name.toLocaleLowerCase().includes(normalized) ||
-          item.cardSnapshot.code.toLocaleLowerCase().includes(normalized)),
+    return (
+      (!normalized ||
+        item.cardSnapshot.name.toLocaleLowerCase().includes(normalized) ||
+        item.cardSnapshot.code.toLocaleLowerCase().includes(normalized)) &&
+      item.quantity - (reserved.get(item.id) ?? 0) > 0
     );
-  }, [collection.data, query]);
-  const text = items
-    .map(
-      (item) =>
-        `${item.cardSnapshot.code} ${item.cardSnapshot.name} ×${item.tradeableQuantity} (${item.language}, ${item.condition})`,
-    )
-    .join('\n');
-  const downloadCsv = () => {
-    const rows = [
-      'Código,Nombre,Cantidad,Idioma,Estado',
-      ...items.map(
-        (item) =>
-          `${item.cardSnapshot.code},"${item.cardSnapshot.name}",${item.tradeableQuantity},${item.language},${item.condition}`,
-      ),
-    ];
-    const url = URL.createObjectURL(new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8' }));
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = 'intercambios.csv';
-    anchor.click();
-    URL.revokeObjectURL(url);
+  });
+  const warnings = salesPackAvailabilityWarnings(draft, collection.data ?? [], packs.data ?? []);
+  const addItem = (collectionItemId: string) => {
+    const item = collection.data?.find((entry) => entry.id === collectionItemId);
+    if (!item || draft.items.some((entry) => entry.collectionItemId === item.id)) return;
+    setDraft({
+      ...draft,
+      items: [
+        ...draft.items,
+        {
+          id: crypto.randomUUID(),
+          collectionItemId: item.id,
+          quantity: 1,
+          snapshot: item.cardSnapshot,
+        },
+      ],
+    });
+  };
+  return (
+    <ResponsiveDialog open={Boolean(pack)} onOpenChange={(open) => !open && onClose()} title="Pack de venta">
+      <div>
+        <p className="text-xs font-bold uppercase tracking-wide text-violet">Preparación de venta</p>
+        <h2 className="mt-1 pr-10 text-2xl font-black">Configurar pack</h2>
+        <div className="mt-6 grid gap-4 sm:grid-cols-[1fr_160px]">
+          <label className="text-sm font-semibold">
+            Nombre
+            <input
+              value={draft.name}
+              onChange={(event) => setDraft({ ...draft, name: event.target.value })}
+              className="mt-2 h-11 w-full rounded-lg border-slate-300"
+            />
+          </label>
+          <label className="text-sm font-semibold">
+            Estado
+            <select
+              value={draft.status}
+              onChange={(event) =>
+                setDraft({ ...draft, status: event.target.value as SalesPackStatus })
+              }
+              className="mt-2 h-11 w-full rounded-lg border-slate-300"
+            >
+              <option value="DRAFT">Borrador</option>
+              <option value="READY">Listo para venta</option>
+              <option value="SOLD">Vendido</option>
+              <option value="ARCHIVED">Archivado</option>
+            </select>
+          </label>
+        </div>
+        <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_160px]">
+          <label className="text-sm font-semibold">
+            Descripción
+            <input
+              value={draft.description ?? ''}
+              onChange={(event) => setDraft({ ...draft, description: event.target.value })}
+              className="mt-2 h-11 w-full rounded-lg border-slate-300"
+            />
+          </label>
+          <label className="text-sm font-semibold">
+            Precio de venta
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={draft.salePrice?.amount ?? ''}
+              onChange={(event) =>
+                setDraft({
+                  ...draft,
+                  salePrice: event.target.value
+                    ? { amount: Number(event.target.value), currency: 'EUR' }
+                    : undefined,
+                })
+              }
+              className="mt-2 h-11 w-full rounded-lg border-slate-300"
+            />
+          </label>
+        </div>
+        <div className="mt-6 grid gap-5 md:grid-cols-2">
+          <section>
+            <h3 className="mb-3 font-black">Cartas del pack ({draft.items.length})</h3>
+            <div className="max-h-72 space-y-2 overflow-y-auto">
+              {draft.items.map((item) => {
+                const total = collection.data?.find((entry) => entry.id === item.collectionItemId)?.quantity ?? 0;
+                const max = Math.max(1, total - (reserved.get(item.collectionItemId) ?? 0));
+                return (
+                  <div key={item.id} className="grid grid-cols-[42px_1fr_auto_40px] items-center gap-2 rounded-lg border border-slate-200 p-2">
+                    <CardImage src={item.snapshot.imageUrl} alt={item.snapshot.name} />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-bold">{item.snapshot.name}</p>
+                      <p className="text-[11px] text-slate-500">{item.snapshot.code}</p>
+                    </div>
+                    <QuantitySelector
+                      value={item.quantity}
+                      min={1}
+                      max={max}
+                      onChange={(quantity) =>
+                        setDraft({
+                          ...draft,
+                          items: draft.items.map((entry) =>
+                            entry.id === item.id ? { ...entry, quantity } : entry,
+                          ),
+                        })
+                      }
+                    />
+                    <button
+                      onClick={() =>
+                        setDraft({
+                          ...draft,
+                          items: draft.items.filter((entry) => entry.id !== item.id),
+                        })
+                      }
+                      className="grid size-10 place-items-center text-red-600"
+                      aria-label={`Quitar ${item.snapshot.name}`}
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+                  </div>
+                );
+              })}
+              {draft.items.length === 0 && (
+                <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">
+                  Selecciona cartas del inventario.
+                </p>
+              )}
+            </div>
+          </section>
+          <section>
+            <h3 className="mb-3 font-black">Inventario disponible</h3>
+            <SearchInput value={query} onChange={setQuery} placeholder="Buscar carta..." />
+            <div className="mt-2 max-h-60 space-y-1 overflow-y-auto">
+              {available.slice(0, 30).map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => addItem(item.id)}
+                  disabled={draft.items.some((entry) => entry.collectionItemId === item.id)}
+                  className="flex w-full items-center justify-between rounded-lg p-2 text-left text-sm hover:bg-slate-50 disabled:opacity-40"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate font-semibold">{item.cardSnapshot.name}</span>
+                    <span className="text-xs text-slate-500">{item.cardSnapshot.code}</span>
+                  </span>
+                  <span className="ml-2 shrink-0 text-xs font-bold">
+                    {item.quantity - (reserved.get(item.id) ?? 0)} disp.
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>
+        </div>
+        {warnings.length > 0 && (
+          <div role="alert" className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-800">
+            {warnings.join(' ')}
+          </div>
+        )}
+        <Button
+          className="mt-6 w-full"
+          disabled={!draft.name.trim() || draft.items.length === 0 || warnings.length > 0}
+          onClick={() => save.mutate({ ...draft, updatedAt: new Date().toISOString() })}
+        >
+          Guardar pack de venta
+        </Button>
+      </div>
+    </ResponsiveDialog>
+  );
+}
+
+export function SalesPacksPage() {
+  const services = useServices();
+  const queryClient = useQueryClient();
+  const [selected, setSelected] = useState<SalesPack | null>(null);
+  const packs = useQuery({
+    queryKey: ['sales-packs'],
+    queryFn: () => services.privateData.listSalesPacks(),
+  });
+  const collection = useQuery({
+    queryKey: ['collection'],
+    queryFn: () => services.privateData.listCollection(),
+  });
+  const remove = useMutation({
+    mutationFn: (id: string) => services.privateData.removeSalesPack(id),
+    onSuccess: async () => queryClient.invalidateQueries({ queryKey: ['sales-packs'] }),
+  });
+  const newPack = () => {
+    const now = new Date().toISOString();
+    setSelected({
+      id: crypto.randomUUID(),
+      name: 'Nuevo pack',
+      description: '',
+      status: 'DRAFT',
+      items: [],
+      createdAt: now,
+      updatedAt: now,
+    });
+  };
+  const labels: Record<SalesPackStatus, string> = {
+    DRAFT: 'Borrador',
+    READY: 'Listo para venta',
+    SOLD: 'Vendido',
+    ARCHIVED: 'Archivado',
   };
   return (
     <div className="mx-auto max-w-[1400px] p-4 sm:p-6 lg:p-8">
-      <PageHeader title="Intercambios" subtitle="Copias disponibles para compartir con otros coleccionistas" />
-      <div className="mb-5 grid gap-3 sm:grid-cols-[1fr_auto_auto]">
-        <SearchInput value={query} onChange={setQuery} />
-        <Button variant="secondary" onClick={() => void navigator.clipboard.writeText(text)}>
-          <Copy className="size-4" /> Copiar listado
-        </Button>
-        <Button variant="secondary" onClick={downloadCsv}>
-          <Download className="size-4" /> CSV
-        </Button>
-      </div>
-      {items.length === 0 ? (
+      <PageHeader
+        title="Packs de venta"
+        subtitle="Agrupa copias disponibles y prepara lotes sin descuadrar el inventario"
+        action={
+          <Button onClick={newPack}>
+            <PackagePlus className="size-4" /> Crear pack
+          </Button>
+        }
+      />
+      {!packs.data?.length ? (
         <EmptyState
-          title="No hay cartas para intercambio"
-          description="Marca copias como intercambiables desde Mi colección."
-          action={
-            <Link to="/collection">
-              <Button>Ir a mi colección</Button>
-            </Link>
-          }
+          title="No hay packs de venta"
+          description="Crea un pack seleccionando cartas y cantidades de tu inventario."
+          action={<Button onClick={newPack}>Crear primer pack</Button>}
         />
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {items.map((item) => (
-            <article
-              key={item.id}
-              className="grid grid-cols-[72px_1fr_auto] items-center gap-3 rounded-xl border border-slate-200 bg-white p-3"
-            >
-              <CardImage src={item.cardSnapshot.imageUrl} alt={item.cardSnapshot.name} />
-              <div className="min-w-0">
-                <p className="text-xs text-slate-500">{item.cardSnapshot.code}</p>
-                <h2 className="truncate font-bold">{item.cardSnapshot.name}</h2>
-                <p className="mt-1 text-xs text-slate-500">
-                  {item.language} · {item.condition.replace('_', ' ')}
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {packs.data.map((pack) => {
+            const warnings = salesPackAvailabilityWarnings(
+              pack,
+              collection.data ?? [],
+              packs.data ?? [],
+            );
+            const copies = pack.items.reduce((sum, item) => sum + item.quantity, 0);
+            return (
+              <article key={pack.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="grid size-12 place-items-center rounded-xl bg-indigo-50 text-violet">
+                    <ShoppingBag className="size-6" />
+                  </div>
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-bold ${
+                      pack.status === 'READY'
+                        ? 'bg-emerald-50 text-emerald-700'
+                        : pack.status === 'SOLD'
+                          ? 'bg-blue-50 text-blue-700'
+                          : 'bg-slate-100 text-slate-700'
+                    }`}
+                  >
+                    {labels[pack.status]}
+                  </span>
+                </div>
+                <h2 className="mt-5 text-lg font-black">{pack.name}</h2>
+                <p className="mt-1 line-clamp-2 text-sm text-slate-600">
+                  {pack.description || 'Sin descripción'}
                 </p>
-              </div>
-              <div className="text-center">
-                <ArrowLeftRight className="mx-auto size-4 text-violet" />
-                <strong className="mt-1 block">×{item.tradeableQuantity}</strong>
-              </div>
-            </article>
-          ))}
+                <div className="mt-4 flex -space-x-3">
+                  {pack.items.slice(0, 6).map((item) => (
+                    <CardImage
+                      key={item.id}
+                      src={item.snapshot.imageUrl}
+                      alt={item.snapshot.name}
+                      className="w-12 border-2 border-white"
+                    />
+                  ))}
+                </div>
+                <div className="mt-4 flex items-end justify-between">
+                  <div>
+                    <p className="text-xs text-slate-500">{copies} copias</p>
+                    <p className="mt-1 text-xl font-black">
+                      {pack.salePrice
+                        ? `${pack.salePrice.amount.toFixed(2)} ${pack.salePrice.currency}`
+                        : 'Sin precio'}
+                    </p>
+                  </div>
+                  {warnings.length === 0 ? (
+                    <CheckCircle2 className="size-5 text-emerald-500" aria-label="Stock correcto" />
+                  ) : (
+                    <span className="text-xs font-bold text-red-600">Revisar stock</span>
+                  )}
+                </div>
+                <div className="mt-5 flex gap-2">
+                  <Button variant="secondary" className="flex-1" onClick={() => setSelected(pack)}>
+                    Gestionar pack
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      if (window.confirm(`¿Eliminar ${pack.name}?`)) remove.mutate(pack.id);
+                    }}
+                    aria-label={`Eliminar ${pack.name}`}
+                  >
+                    <Trash2 className="size-4 text-red-600" />
+                  </Button>
+                </div>
+              </article>
+            );
+          })}
         </div>
       )}
+      <PackEditor pack={selected} onClose={() => setSelected(null)} />
     </div>
   );
 }
@@ -201,37 +641,48 @@ export function StatisticsPage() {
     queryKey: ['collection'],
     queryFn: () => services.privateData.listCollection(),
   });
+  const packs = useQuery({
+    queryKey: ['sales-packs'],
+    queryFn: () => services.privateData.listSalesPacks(),
+  });
   const stats = calculateCollectionStats(collection.data ?? []);
+  const reserved = Array.from(reservedQuantities(packs.data ?? []).values()).reduce(
+    (sum, quantity) => sum + quantity,
+    0,
+  );
   const rows = [
-    ['Cartas totales', stats.totalCopies, 'bg-indigo-500'],
-    ['Cartas diferentes', stats.uniqueCards, 'bg-emerald-500'],
-    ['Copias duplicadas', stats.duplicateCopies, 'bg-amber-500'],
-    ['Intercambiables', stats.tradeableCopies, 'bg-sky-500'],
-    ['Favoritas', stats.favoriteCards, 'bg-rose-500'],
+    ['Copias totales', stats.totalCopies, 'bg-indigo-500'],
+    ['Copias ubicadas', stats.storedCopies, 'bg-emerald-500'],
+    ['Sin ubicar', stats.unassignedCopies, 'bg-amber-500'],
+    ['Reservadas en packs', reserved, 'bg-sky-500'],
+    ['Cartas diferentes', stats.uniqueCards, 'bg-rose-500'],
   ] as const;
   const max = Math.max(...rows.map((row) => row[1]), 1);
   return (
     <div className="mx-auto max-w-[1200px] p-4 sm:p-6 lg:p-8">
-      <PageHeader title="Estadísticas" subtitle="Una lectura clara del estado de tu colección" />
+      <PageHeader title="Estadísticas" subtitle="Inventario, ubicación y preparación de ventas" />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <div className="rounded-2xl bg-gradient-to-br from-violet to-indigo-700 p-6 text-white shadow-soft sm:col-span-2">
           <BarChart3 className="size-7 opacity-80" />
-          <p className="mt-5 text-sm font-medium text-indigo-100">Valor estimado</p>
+          <p className="mt-5 text-sm font-medium text-indigo-100">Valor estimado del inventario</p>
           <p className="mt-1 text-4xl font-black">
             {stats.estimatedValue.amount.toFixed(2)} {stats.estimatedValue.currency}
           </p>
           <p className="mt-4 max-w-xl text-xs leading-5 text-indigo-100">
-            Estimación orientativa basada en los precios disponibles de los proveedores configurados.
+            Estimación orientativa basada en precios de catálogo, separada del precio fijado para cada pack.
           </p>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-6">
-          <Layers3 className="size-7 text-violet" />
-          <p className="mt-5 text-sm text-slate-500">Expansiones representadas</p>
-          <p className="mt-1 text-4xl font-black">{stats.setsRepresented}</p>
+          <Box className="size-7 text-violet" />
+          <p className="mt-5 text-sm text-slate-500">Copias sin ubicación</p>
+          <p className="mt-1 text-4xl font-black">{stats.unassignedCopies}</p>
+          <Link to="/collection" className="mt-3 inline-block text-sm font-bold text-violet">
+            Asignar ubicaciones
+          </Link>
         </div>
       </div>
       <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
-        <h2 className="font-black">Resumen</h2>
+        <h2 className="font-black">Resumen operativo</h2>
         <div className="mt-6 space-y-5">
           {rows.map(([label, value, color]) => (
             <div key={label}>
@@ -260,17 +711,11 @@ export function FavoritesPage() {
   return (
     <SimplePage title="Favoritos">
       {favorites.length === 0 ? (
-        <EmptyState
-          title="No hay favoritas"
-          description="Marca el corazón en cualquier carta de tu colección."
-        />
+        <EmptyState title="No hay favoritas" description="Marca el corazón en cualquier carta del inventario." />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {favorites.map((item) => (
-            <article
-              key={item.id}
-              className="grid grid-cols-[72px_1fr_auto] items-center gap-3 rounded-xl border border-slate-200 bg-white p-3"
-            >
+            <article key={item.id} className="grid grid-cols-[72px_1fr_auto] items-center gap-3 rounded-xl border border-slate-200 bg-white p-3">
               <CardImage src={item.cardSnapshot.imageUrl} alt={item.cardSnapshot.name} />
               <div className="min-w-0">
                 <h2 className="truncate font-bold">{item.cardSnapshot.name}</h2>
@@ -289,13 +734,13 @@ export function SettingsPage() {
   return (
     <SimplePage title="Ajustes">
       <div className="max-w-2xl rounded-2xl border border-slate-200 bg-white p-6">
-        <h2 className="font-black">Catálogo y precios</h2>
+        <h2 className="font-black">Inventario y catálogo</h2>
         <p className="mt-2 text-sm leading-6 text-slate-600">
-          Los proveedores, la prioridad de imágenes y la moneda se configuran mediante variables de
-          entorno y Script Properties. No se muestran claves ni secretos en el navegador.
+          El catálogo, la prioridad de imágenes y la moneda se configuran mediante variables de
+          entorno. Cajas, secciones, inventario y packs se almacenan de forma privada.
         </p>
         <div className="mt-5 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-900">
-          Modo mock activo: todos los flujos funcionan sin servicios externos.
+          Modo mock activo: puedes probar todo el flujo de ubicación y preparación de packs.
         </div>
       </div>
     </SimplePage>

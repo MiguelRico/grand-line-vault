@@ -10,11 +10,11 @@ const CatalogPage = lazy(() =>
 const CollectionPage = lazy(() =>
   import('../features/CollectionPage').then((module) => ({ default: module.CollectionPage })),
 );
-const DecksPage = lazy(() =>
-  import('../features/SecondaryPages').then((module) => ({ default: module.DecksPage })),
+const BoxesPage = lazy(() =>
+  import('../features/SecondaryPages').then((module) => ({ default: module.BoxesPage })),
 );
-const TradesPage = lazy(() =>
-  import('../features/SecondaryPages').then((module) => ({ default: module.TradesPage })),
+const SalesPacksPage = lazy(() =>
+  import('../features/SecondaryPages').then((module) => ({ default: module.SalesPacksPage })),
 );
 const StatisticsPage = lazy(() =>
   import('../features/SecondaryPages').then((module) => ({ default: module.StatisticsPage })),
@@ -98,11 +98,8 @@ export function App() {
             <Route index element={<Navigate to="/catalog" replace />} />
             <Route path="/catalog" element={<CatalogPage />} />
             <Route path="/collection" element={<CollectionPage />} />
-            <Route path="/decks" element={<DecksPage />} />
-            <Route path="/decks/new" element={<DecksPage />} />
-            <Route path="/decks/:deckId" element={<DecksPage />} />
-            <Route path="/decks/:deckId/edit" element={<DecksPage />} />
-            <Route path="/trades" element={<TradesPage />} />
+            <Route path="/boxes" element={<BoxesPage />} />
+            <Route path="/sales-packs" element={<SalesPacksPage />} />
             <Route path="/statistics" element={<StatisticsPage />} />
             <Route path="/favorites" element={<FavoritesPage />} />
             <Route path="/settings" element={<SettingsPage />} />

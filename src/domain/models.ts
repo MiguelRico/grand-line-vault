@@ -96,27 +96,48 @@ export interface CollectionItem {
   language: CardLanguage;
   condition: CardCondition;
   favorite: boolean;
-  tradeableQuantity: number;
+  boxId?: string;
+  sectionId?: string;
   acquisitionPrice?: Money;
   notes?: string;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface DeckCard {
+export interface StorageSection {
+  id: string;
+  name: string;
+  code: string;
+  capacity?: number;
+  notes?: string;
+}
+
+export interface StorageBox {
+  id: string;
+  name: string;
+  description?: string;
+  location?: string;
+  sections: StorageSection[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type SalesPackStatus = 'DRAFT' | 'READY' | 'SOLD' | 'ARCHIVED';
+
+export interface SalesPackItem {
   id: string;
   collectionItemId: string;
-  cardId: string;
   quantity: number;
   snapshot: CollectionItem['cardSnapshot'];
 }
 
-export interface Deck {
+export interface SalesPack {
   id: string;
   name: string;
   description?: string;
-  leaderCardId?: string;
-  cards: DeckCard[];
+  status: SalesPackStatus;
+  items: SalesPackItem[];
+  salePrice?: Money;
   createdAt: string;
   updatedAt: string;
 }
@@ -127,7 +148,9 @@ export interface CollectionStats {
   setsRepresented: number;
   duplicateCopies: number;
   favoriteCards: number;
-  tradeableCopies: number;
+  storedCopies: number;
+  unassignedCopies: number;
+  copiesInSalesPacks: number;
   valuedCopies: number;
   unvaluedCopies: number;
   estimatedValue: Money;
@@ -173,7 +196,6 @@ export interface ProviderCapabilities {
   supportsLanguages: boolean;
   supportsDonCards: boolean;
   supportsPromos: boolean;
-  supportsStarterDecks: boolean;
   supportsServerSideFilters: boolean;
   supportedFilters: string[];
 }

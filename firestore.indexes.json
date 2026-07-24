@@ -4,7 +4,8 @@
       "collectionGroup": "collectionItems",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "tradeableQuantity", "order": "DESCENDING" },
+        { "fieldPath": "boxId", "order": "ASCENDING" },
+        { "fieldPath": "sectionId", "order": "ASCENDING" },
         { "fieldPath": "updatedAt", "order": "DESCENDING" }
       ]
     },
@@ -21,6 +22,14 @@
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "cardSnapshot.setCode", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "salesPacks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
         { "fieldPath": "updatedAt", "order": "DESCENDING" }
       ]
     }

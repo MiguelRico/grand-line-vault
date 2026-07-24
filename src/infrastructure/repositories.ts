@@ -2,10 +2,11 @@ import type {
   Card,
   CatalogCriteria,
   CollectionItem,
-  Deck,
   PaginatedResult,
+  SalesPack,
+  StorageBox,
 } from '../domain/models';
-import { initialCollection, initialDecks, mockCards } from './mockData';
+import { initialBoxes, initialCollection, initialSalesPacks, mockCards } from './mockData';
 
 export interface CatalogRepository {
   search(criteria: CatalogCriteria, signal?: AbortSignal): Promise<PaginatedResult<Card>>;
@@ -16,8 +17,12 @@ export interface PrivateRepository {
   listCollection(): Promise<CollectionItem[]>;
   saveCollection(item: CollectionItem): Promise<CollectionItem>;
   removeCollection(id: string): Promise<void>;
-  listDecks(): Promise<Deck[]>;
-  saveDeck(deck: Deck): Promise<Deck>;
+  listBoxes(): Promise<StorageBox[]>;
+  saveBox(box: StorageBox): Promise<StorageBox>;
+  removeBox(id: string): Promise<void>;
+  listSalesPacks(): Promise<SalesPack[]>;
+  saveSalesPack(pack: SalesPack): Promise<SalesPack>;
+  removeSalesPack(id: string): Promise<void>;
 }
 
 const delay = async (signal?: AbortSignal): Promise<void> =>
@@ -131,7 +136,8 @@ export class AppsScriptCatalogRepository implements CatalogRepository {
 }
 
 const collectionKey = 'grand-line-vault:mock-collection';
-const decksKey = 'grand-line-vault:mock-decks';
+const boxesKey = 'grand-line-vault:mock-boxes';
+const packsKey = 'grand-line-vault:mock-sales-packs';
 
 function read<T>(key: string, fallback: T): T {
   const value = localStorage.getItem(key);
@@ -163,18 +169,42 @@ export class MockPrivateRepository implements PrivateRepository {
     localStorage.setItem(collectionKey, JSON.stringify(items.filter((item) => item.id !== id)));
   }
 
-  async listDecks(): Promise<Deck[]> {
-    return read(decksKey, initialDecks);
+  async listBoxes(): Promise<StorageBox[]> {
+    return read(boxesKey, initialBoxes);
   }
 
-  async saveDeck(deck: Deck): Promise<Deck> {
-    const decks = await this.listDecks();
-    const existing = decks.findIndex((entry) => entry.id === deck.id);
-    const next = [...decks];
-    if (existing >= 0) next[existing] = deck;
-    else next.push(deck);
-    localStorage.setItem(decksKey, JSON.stringify(next));
-    return deck;
+  async saveBox(box: StorageBox): Promise<StorageBox> {
+    const boxes = await this.listBoxes();
+    const existing = boxes.findIndex((entry) => entry.id === box.id);
+    const next = [...boxes];
+    if (existing >= 0) next[existing] = box;
+    else next.push(box);
+    localStorage.setItem(boxesKey, JSON.stringify(next));
+    return box;
+  }
+
+  async removeBox(id: string): Promise<void> {
+    const boxes = await this.listBoxes();
+    localStorage.setItem(boxesKey, JSON.stringify(boxes.filter((box) => box.id !== id)));
+  }
+
+  async listSalesPacks(): Promise<SalesPack[]> {
+    return read(packsKey, initialSalesPacks);
+  }
+
+  async saveSalesPack(pack: SalesPack): Promise<SalesPack> {
+    const packs = await this.listSalesPacks();
+    const existing = packs.findIndex((entry) => entry.id === pack.id);
+    const next = [...packs];
+    if (existing >= 0) next[existing] = pack;
+    else next.push(pack);
+    localStorage.setItem(packsKey, JSON.stringify(next));
+    return pack;
+  }
+
+  async removeSalesPack(id: string): Promise<void> {
+    const packs = await this.listSalesPacks();
+    localStorage.setItem(packsKey, JSON.stringify(packs.filter((pack) => pack.id !== id)));
   }
 }
 
@@ -203,13 +233,28 @@ export class ApiPrivateRepository implements PrivateRepository {
   async removeCollection(id: string): Promise<void> {
     await this.request(`/api/collection/${encodeURIComponent(id)}`, { method: 'DELETE' });
   }
-  listDecks(): Promise<Deck[]> {
-    return this.request('/api/decks');
+  listBoxes(): Promise<StorageBox[]> {
+    return this.request('/api/boxes');
   }
-  saveDeck(deck: Deck): Promise<Deck> {
-    return this.request(`/api/decks/${encodeURIComponent(deck.id)}`, {
+  saveBox(box: StorageBox): Promise<StorageBox> {
+    return this.request(`/api/boxes/${encodeURIComponent(box.id)}`, {
       method: 'PATCH',
-      body: JSON.stringify(deck),
+      body: JSON.stringify(box),
     });
+  }
+  async removeBox(id: string): Promise<void> {
+    await this.request(`/api/boxes/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  }
+  listSalesPacks(): Promise<SalesPack[]> {
+    return this.request('/api/sales-packs');
+  }
+  saveSalesPack(pack: SalesPack): Promise<SalesPack> {
+    return this.request(`/api/sales-packs/${encodeURIComponent(pack.id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(pack),
+    });
+  }
+  async removeSalesPack(id: string): Promise<void> {
+    await this.request(`/api/sales-packs/${encodeURIComponent(id)}`, { method: 'DELETE' });
   }
 }

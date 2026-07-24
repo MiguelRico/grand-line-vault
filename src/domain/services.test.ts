@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { calculateCollectionStats, collectionKey, deckAvailabilityWarnings } from './services';
-import { initialCollection, initialDecks } from '../infrastructure/mockData';
+import {
+  calculateCollectionStats,
+  collectionKey,
+  reservedQuantities,
+  salesPackAvailabilityWarnings,
+  sectionLabel,
+} from './services';
+import { initialBoxes, initialCollection, initialSalesPacks } from '../infrastructure/mockData';
 
 describe('collection domain', () => {
   it('calculates copies, unique cards, duplicates and value', () => {
@@ -14,20 +20,26 @@ describe('collection domain', () => {
 
   it('builds a stable grouping key', () => {
     expect(collectionKey('BASE::OP01-001', 'BASE::OP01-001', 'EN', 'NEAR_MINT')).toBe(
-      'BASE::OP01-001::BASE::OP01-001::EN::NEAR_MINT',
+      'BASE::OP01-001::BASE::OP01-001::EN::NEAR_MINT::UNASSIGNED::UNASSIGNED',
     );
   });
 
-  it('warns when a deck uses unavailable copies', () => {
-    const initialDeck = initialDecks[0];
-    const initialCard = initialDeck?.cards[0];
-    expect(initialDeck).toBeDefined();
-    expect(initialCard).toBeDefined();
-    if (!initialDeck || !initialCard) throw new Error('Fixture de mazo incompleto.');
-    const deck = {
-      ...initialDeck,
-      cards: [{ ...initialCard, quantity: 99 }],
+  it('resolves physical locations', () => {
+    expect(sectionLabel(initialBoxes, 'box-1', 'section-a')).toContain('Caja principal');
+    expect(sectionLabel(initialBoxes)).toBe('Sin ubicar');
+  });
+
+  it('reserves stock and warns when a sales pack exceeds availability', () => {
+    const initialPack = initialSalesPacks[0];
+    const initialItem = initialPack?.items[0];
+    expect(initialPack).toBeDefined();
+    expect(initialItem).toBeDefined();
+    if (!initialPack || !initialItem) throw new Error('Fixture de pack incompleto.');
+    expect(reservedQuantities(initialSalesPacks).get(initialItem.collectionItemId)).toBe(1);
+    const pack = {
+      ...initialPack,
+      items: [{ ...initialItem, quantity: 99 }],
     };
-    expect(deckAvailabilityWarnings(deck, initialCollection)).toHaveLength(1);
+    expect(salesPackAvailabilityWarnings(pack, initialCollection)).toHaveLength(1);
   });
 });

@@ -1,5 +1,5 @@
 import {
-  ArrowLeftRight,
+  Archive,
   Grid2X2,
   Heart,
   List,
@@ -12,7 +12,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { useServices } from '../app/providers/ServicesProvider';
 import type { Card, CollectionItem } from '../domain/models';
-import { calculateCollectionStats } from '../domain/services';
+import { calculateCollectionStats, sectionLabel } from '../domain/services';
 import { PageHeader } from '../shared/AppShell';
 import {
   Button,
@@ -78,6 +78,10 @@ function CollectionEditor({
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState(item);
   if (item && draft?.id !== item.id) setDraft(item);
+  const boxes = useQuery({
+    queryKey: ['boxes'],
+    queryFn: () => services.privateData.listBoxes(),
+  });
   const save = useMutation({
     mutationFn: (value: CollectionItem) => services.privateData.saveCollection(value),
     onSuccess: async () => {
@@ -108,27 +112,56 @@ function CollectionEditor({
                 <QuantitySelector
                   value={draft.quantity}
                   min={1}
-                  onChange={(quantity) =>
-                    setDraft({
-                      ...draft,
-                      quantity,
-                      tradeableQuantity: Math.min(quantity, draft.tradeableQuantity),
-                    })
-                  }
-                />
-              </div>
-              <div>
-                <p className="mb-2 text-sm font-semibold">Para intercambio</p>
-                <QuantitySelector
-                  value={draft.tradeableQuantity}
-                  max={draft.quantity}
-                  onChange={(tradeableQuantity) => setDraft({ ...draft, tradeableQuantity })}
+                  onChange={(quantity) => setDraft({ ...draft, quantity })}
                 />
               </div>
               <FavoriteButton
                 active={draft.favorite}
                 onClick={() => setDraft({ ...draft, favorite: !draft.favorite })}
               />
+            </div>
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <label className="text-sm font-semibold">
+                Caja
+                <select
+                  value={draft.boxId ?? ''}
+                  onChange={(event) =>
+                    setDraft({
+                      ...draft,
+                      boxId: event.target.value || undefined,
+                      sectionId: undefined,
+                    })
+                  }
+                  className="mt-2 h-11 w-full rounded-lg border-slate-300"
+                >
+                  <option value="">Sin ubicar</option>
+                  {(boxes.data ?? []).map((box) => (
+                    <option key={box.id} value={box.id}>
+                      {box.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-sm font-semibold">
+                Sección
+                <select
+                  value={draft.sectionId ?? ''}
+                  disabled={!draft.boxId}
+                  onChange={(event) =>
+                    setDraft({ ...draft, sectionId: event.target.value || undefined })
+                  }
+                  className="mt-2 h-11 w-full rounded-lg border-slate-300 disabled:bg-slate-100"
+                >
+                  <option value="">Selecciona una sección</option>
+                  {(boxes.data ?? [])
+                    .find((box) => box.id === draft.boxId)
+                    ?.sections.map((section) => (
+                      <option key={section.id} value={section.id}>
+                        {section.code} · {section.name}
+                      </option>
+                    ))}
+                </select>
+              </label>
             </div>
             <label className="mt-5 block text-sm font-semibold">
               Notas privadas
@@ -171,6 +204,10 @@ export function CollectionPage() {
   const result = useQuery({
     queryKey: ['collection'],
     queryFn: () => services.privateData.listCollection(),
+  });
+  const boxes = useQuery({
+    queryKey: ['boxes'],
+    queryFn: () => services.privateData.listBoxes(),
   });
   const items = useMemo(() => result.data ?? [], [result.data]);
   const stats = calculateCollectionStats(items);
@@ -223,7 +260,7 @@ export function CollectionPage() {
         <Stat value={stats.setsRepresented} label="Expansiones" />
         <Stat value={stats.duplicateCopies} label="Duplicadas" />
         <div className="hidden lg:block">
-          <Stat value={stats.favoriteCards} label="Favoritas" />
+          <Stat value={stats.storedCopies} label="Ubicadas" />
         </div>
         <div className="hidden lg:block">
           <Stat
@@ -288,10 +325,13 @@ export function CollectionPage() {
                   <span className="min-w-0">
                     <span className="block truncate font-semibold">{item.cardSnapshot.name}</span>
                     <span className="block text-xs text-slate-500">{item.cardSnapshot.code}</span>
+                    <span className="mt-1 flex items-center gap-1 text-xs text-violet">
+                      <Archive className="size-3" />
+                      {sectionLabel(boxes.data ?? [], item.boxId, item.sectionId)}
+                    </span>
                   </span>
                   <span className="flex items-center gap-3">
                     {item.favorite && <Heart className="size-4 fill-red-500 text-red-500" />}
-                    {item.tradeableQuantity > 0 && <ArrowLeftRight className="size-4 text-violet" />}
                     <strong>×{item.quantity}</strong>
                   </span>
                 </button>

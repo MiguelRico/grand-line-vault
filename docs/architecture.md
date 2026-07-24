@@ -10,11 +10,11 @@
 
 ## Evolución multiusuario
 
-La sesión ya expone una identidad/rol. Para evolucionar, añade `userId` al JWT, cambia las rutas Firestore a `users/{userId}/collectionItems`, `decks` y `tradeItems`, y deriva siempre el path desde la sesión. Las entidades del dominio y los componentes no cambian.
+La sesión ya expone una identidad/rol. Para evolucionar, añade `userId` al JWT, cambia las rutas Firestore a `users/{userId}/collectionItems`, `storageBoxes` y `salesPacks`, y deriva siempre el path desde la sesión. Las entidades del dominio y los componentes no cambian.
 
 ## Consistencia
 
-La agrupación de colección usa carta interna, variante, idioma y condición. Las cantidades intercambiables nunca exceden el total. Los mazos conservan un snapshot y avisan cuando utilizan más copias de las disponibles.
+La agrupación de inventario usa carta interna, variante, idioma y condición. Cada entrada puede ubicarse en una caja y sección. Los packs conservan snapshots, reservan cantidades por entrada y avisan cuando el total reservado supera las copias disponibles.
 
 ## Seguridad
 

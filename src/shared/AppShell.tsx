@@ -1,5 +1,5 @@
 import {
-  ArrowLeftRight,
+  Archive,
   BarChart3,
   Bell,
   BookOpen,
@@ -8,7 +8,7 @@ import {
   Menu,
   Moon,
   Settings,
-  ShieldCheck,
+  ShoppingBag,
   X,
 } from 'lucide-react';
 import { useState } from 'react';
@@ -19,8 +19,8 @@ import { useAuth } from '../app/providers/AuthProvider';
 const navigation = [
   { to: '/catalog', label: 'Explorar cartas', icon: BookOpen },
   { to: '/collection', label: 'Mi colección', icon: Library },
-  { to: '/decks', label: 'Mis mazos', icon: ShieldCheck },
-  { to: '/trades', label: 'Intercambios', icon: ArrowLeftRight },
+  { to: '/boxes', label: 'Cajas y secciones', icon: Archive },
+  { to: '/sales-packs', label: 'Packs de venta', icon: ShoppingBag },
   { to: '/statistics', label: 'Estadísticas', icon: BarChart3 },
   { to: '/favorites', label: 'Favoritos', icon: Heart },
 ] as const;
