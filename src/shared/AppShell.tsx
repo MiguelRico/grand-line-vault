@@ -1,0 +1,172 @@
+import {
+  ArrowLeftRight,
+  BarChart3,
+  Bell,
+  BookOpen,
+  Heart,
+  Library,
+  Menu,
+  Moon,
+  Settings,
+  ShieldCheck,
+  X,
+} from 'lucide-react';
+import { useState } from 'react';
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { config } from '../app/config';
+import { useAuth } from '../app/providers/AuthProvider';
+
+const navigation = [
+  { to: '/catalog', label: 'Explorar cartas', icon: BookOpen },
+  { to: '/collection', label: 'Mi colección', icon: Library },
+  { to: '/decks', label: 'Mis mazos', icon: ShieldCheck },
+  { to: '/trades', label: 'Intercambios', icon: ArrowLeftRight },
+  { to: '/statistics', label: 'Estadísticas', icon: BarChart3 },
+  { to: '/favorites', label: 'Favoritos', icon: Heart },
+] as const;
+
+function SidebarContent({ close }: { close?: () => void }) {
+  const auth = useAuth();
+  const navigate = useNavigate();
+  return (
+    <div className="flex h-full flex-col">
+      <div className="flex h-24 items-center gap-3 px-6">
+        <div className="grid size-11 place-items-center rounded-xl bg-gradient-to-br from-violet to-indigo-500 text-xl font-black">
+          GL
+        </div>
+        <div>
+          <p className="font-black tracking-wide text-white">GRAND LINE</p>
+          <p className="text-[10px] font-bold tracking-[0.18em] text-slate-400">CARD VAULT</p>
+        </div>
+      </div>
+      <nav className="flex-1 space-y-1 px-3" aria-label="Navegación principal">
+        {navigation.map((item) => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            onClick={close}
+            className={({ isActive }) =>
+              `flex min-h-12 items-center gap-3 rounded-lg px-4 text-sm font-semibold transition ${
+                isActive
+                  ? 'bg-gradient-to-r from-violet to-indigo-600 text-white shadow-lg shadow-indigo-950/30'
+                  : 'text-slate-300 hover:bg-white/5 hover:text-white'
+              }`
+            }
+          >
+            <item.icon className="size-5" aria-hidden />
+            {item.label}
+          </NavLink>
+        ))}
+      </nav>
+      <div className="space-y-2 p-4">
+        <NavLink
+          to="/settings"
+          className="flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-semibold text-slate-300 hover:bg-white/5"
+        >
+          <Settings className="size-5" /> Ajustes
+        </NavLink>
+        <button
+          onClick={() => void auth.logout().then(() => navigate('/login'))}
+          className="flex w-full items-center gap-3 rounded-xl border-t border-white/10 px-2 pt-4 text-left"
+        >
+          <span className="grid size-10 place-items-center rounded-full bg-indigo-200 font-bold text-indigo-900">
+            N
+          </span>
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-semibold text-white">Nakamatsu</span>
+            <span className="block text-xs text-slate-400">Cerrar sesión</span>
+          </span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export function AppShell() {
+  const [menuOpen, setMenuOpen] = useState(false);
+  return (
+    <div className="min-h-dvh bg-canvas text-ink">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 bg-navy lg:block">
+        <SidebarContent />
+      </aside>
+      <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-white/5 bg-navy px-4 text-white lg:hidden">
+        <button
+          className="grid size-11 place-items-center rounded-lg"
+          onClick={() => setMenuOpen(true)}
+          aria-label="Abrir menú"
+        >
+          <Menu className="size-5" />
+        </button>
+        <span className="font-bold">{config.VITE_APP_NAME}</span>
+        <button className="grid size-11 place-items-center rounded-lg" aria-label="Notificaciones">
+          <Bell className="size-5" />
+        </button>
+      </header>
+      {menuOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <button
+            className="absolute inset-0 bg-black/60"
+            onClick={() => setMenuOpen(false)}
+            aria-label="Cerrar menú"
+          />
+          <aside className="absolute inset-y-0 left-0 w-[min(84vw,320px)] bg-navy text-white shadow-2xl">
+            <button
+              onClick={() => setMenuOpen(false)}
+              className="absolute right-2 top-2 grid size-11 place-items-center"
+              aria-label="Cerrar menú"
+            >
+              <X className="size-5" />
+            </button>
+            <SidebarContent close={() => setMenuOpen(false)} />
+          </aside>
+        </div>
+      )}
+      <main className="min-h-dvh lg:ml-60">
+        <Outlet />
+      </main>
+    </div>
+  );
+}
+
+export function PageHeader({
+  title,
+  subtitle,
+  action,
+}: {
+  title: string;
+  subtitle?: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+      <div>
+        <h1 className="text-2xl font-black tracking-tight text-slate-950">{title}</h1>
+        {subtitle && <p className="mt-1 text-sm text-slate-600">{subtitle}</p>}
+      </div>
+      <div className="flex items-center gap-2">
+        <button
+          className="hidden size-11 place-items-center rounded-lg text-slate-700 hover:bg-white lg:grid"
+          aria-label="Cambiar tema"
+        >
+          <Moon className="size-5" />
+        </button>
+        {action}
+      </div>
+    </div>
+  );
+}
+
+export function SimplePage({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="mx-auto max-w-[1440px] p-4 sm:p-6 lg:p-8">
+      <PageHeader title={title} />
+      {children}
+    </div>
+  );
+}

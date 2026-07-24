@@ -1,0 +1,29 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "collectionItems",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "tradeableQuantity", "order": "DESCENDING" },
+        { "fieldPath": "updatedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "collectionItems",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "favorite", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "collectionItems",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "cardSnapshot.setCode", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

@@ -1,0 +1,17 @@
+node_modules
+dist
+.env
+.env.local
+.vercel
+.clasp.json
+coverage
+*.log
+firebase-service-account.json
+.openai/site-source.tar.gz
+.chrome-profile
+.vite.log
+.vite-error.log
+login-desktop.png
+login-mobile.png
+catalog-desktop.png
+collection-mobile.png
