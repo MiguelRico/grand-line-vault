@@ -116,11 +116,15 @@ export class AppsScriptCatalogRepository implements CatalogRepository {
     });
     const response = await fetch(`${this.baseUrl}?${params.toString()}`, { signal });
     if (!response.ok) throw new Error('No se pudo cargar el catálogo.');
-    const payload: { success: boolean; data?: PaginatedResult<Card>; error?: { message: string } } =
-      await response.json();
-    if (!payload.success || !payload.data)
+    const payload: {
+      success: boolean;
+      data?: Omit<PaginatedResult<Card>, 'meta'>;
+      meta?: PaginatedResult<Card>['meta'];
+      error?: { message: string };
+    } = await response.json();
+    if (!payload.success || !payload.data || !payload.meta)
       throw new Error(payload.error?.message ?? 'Respuesta de catálogo inválida.');
-    return payload.data;
+    return { ...payload.data, meta: payload.meta };
   }
 
   async getById(id: string, signal?: AbortSignal): Promise<Card | null> {

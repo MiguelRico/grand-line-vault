@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { CatalogCriteria } from '../domain/models';
-import { MockCatalogRepository } from './repositories';
+import { mockCards } from './mockData';
+import { AppsScriptCatalogRepository, MockCatalogRepository } from './repositories';
 
 const criteria: CatalogCriteria = {
   query: '',
@@ -36,5 +37,36 @@ describe('MockCatalogRepository', () => {
     expect(result.items).toHaveLength(3);
     expect(result.total).toBeGreaterThan(3);
     expect(result.items.every((card) => card.type === 'CHARACTER')).toBe(true);
+  });
+});
+
+describe('AppsScriptCatalogRepository', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('combines Apps Script data and response metadata', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            success: true,
+            data: { items: [mockCards[0]], page: 1, pageSize: 12, total: 1 },
+            meta: {
+              provider: 'OPTCG_API',
+              fallbackUsed: false,
+              cached: false,
+              partialData: false,
+            },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        ),
+      ),
+    );
+
+    const result = await new AppsScriptCatalogRepository('https://example.test/exec').search(criteria);
+
+    expect(result.items).toHaveLength(1);
+    expect(result.meta.provider).toBe('OPTCG_API');
+    expect(result.meta.fallbackUsed).toBe(false);
   });
 });
