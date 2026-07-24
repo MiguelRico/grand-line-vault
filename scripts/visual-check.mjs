@@ -41,10 +41,14 @@ await new Promise((resolve) => setTimeout(resolve, 600));
 await command('Runtime.evaluate', {
   expression: "sessionStorage.setItem('grand-line-vault:mock-session','active')",
 });
-await command('Page.navigate', { url: 'http://127.0.0.1:5173/boxes' });
+await command('Page.navigate', { url: 'http://127.0.0.1:5173/collection' });
 await new Promise((resolve) => setTimeout(resolve, 3000));
+await command('Runtime.evaluate', {
+  expression: `Array.from(document.querySelectorAll('button')).find((button) => button.textContent?.includes('Filtros'))?.click()`,
+});
+await new Promise((resolve) => setTimeout(resolve, 400));
 let capture = await command('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
-await writeFile('boxes-desktop.png', Buffer.from(capture.result.data, 'base64'));
+await writeFile('collection-filters-desktop.png', Buffer.from(capture.result.data, 'base64'));
 
 await command('Emulation.setDeviceMetricsOverride', {
   width: 390,
@@ -52,8 +56,12 @@ await command('Emulation.setDeviceMetricsOverride', {
   deviceScaleFactor: 1,
   mobile: true,
 });
-await command('Page.navigate', { url: 'http://127.0.0.1:5173/sales-packs' });
+await command('Page.navigate', { url: 'http://127.0.0.1:5173/collection' });
 await new Promise((resolve) => setTimeout(resolve, 2500));
+await command('Runtime.evaluate', {
+  expression: `Array.from(document.querySelectorAll('button')).find((button) => button.textContent?.trim() === 'Vista')?.click()`,
+});
+await new Promise((resolve) => setTimeout(resolve, 400));
 capture = await command('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
-await writeFile('sales-packs-mobile.png', Buffer.from(capture.result.data, 'base64'));
+await writeFile('collection-view-mobile.png', Buffer.from(capture.result.data, 'base64'));
 socket.close();

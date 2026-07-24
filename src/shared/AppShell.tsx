@@ -30,21 +30,20 @@ function SidebarContent({ close }: { close?: () => void }) {
   const navigate = useNavigate();
   return (
     <div className="flex h-full flex-col">
-      <div className="flex h-24 items-center gap-2.5 px-4">
-        <img
-          src="/one-piece-logo.svg"
-          alt=""
-          aria-hidden="true"
-          className="size-12 shrink-0 object-contain brightness-0 invert"
-        />
-        <div className="min-w-0">
-          <p className="brand-title whitespace-nowrap text-[22px] leading-none text-white">
-            ONE PIECE
-          </p>
-          <p className="mt-1 whitespace-nowrap text-[9px] font-bold tracking-[0.1em] text-slate-200">
-            GRAND LINE VAULT
-          </p>
+      <div className="flex h-[120px] flex-col items-center justify-start gap-1 px-4 pb-3 pt-3">
+        <div
+          className="aspect-[2.65/1] w-full max-w-[192px] overflow-hidden"
+          aria-label="One Piece"
+        >
+          <img
+            src="/one-piece.png"
+            alt="One Piece"
+            className="h-full w-full object-cover object-center invert"
+          />
         </div>
+        <p className="brand-one-piece whitespace-nowrap text-[17px] leading-none text-white">
+          GRAND LINE VAULT
+        </p>
       </div>
       <nav className="flex-1 space-y-1 px-3" aria-label="Navegación principal">
         {navigation.map((item) => (
@@ -76,8 +75,13 @@ function SidebarContent({ close }: { close?: () => void }) {
           onClick={() => void auth.logout().then(() => navigate('/login'))}
           className="flex w-full items-center gap-3 rounded-xl border-t border-white/10 px-2 pt-4 text-left"
         >
-          <span className="grid size-10 place-items-center rounded-full bg-indigo-200 font-bold text-indigo-900">
-            N
+          <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-full bg-indigo-200 p-1.5">
+            <img
+              src="/one-piece.svg"
+              alt=""
+              className="size-full object-contain"
+              aria-hidden="true"
+            />
           </span>
           <span className="min-w-0">
             <span className="block truncate text-sm font-semibold text-white">Nakamatsu</span>
@@ -104,7 +108,9 @@ export function AppShell() {
         >
           <Menu className="size-5" />
         </button>
-        <span className="font-bold">{config.VITE_APP_NAME}</span>
+        <span className="brand-one-piece text-[17px] uppercase leading-none">
+          {config.VITE_APP_NAME}
+        </span>
         <button className="grid size-11 place-items-center rounded-lg" aria-label="Notificaciones">
           <Bell className="size-5" />
         </button>

@@ -6,12 +6,19 @@ import {
   Plus,
   SlidersHorizontal,
   Trash2,
+  X,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { useServices } from '../app/providers/ServicesProvider';
-import type { Card, CollectionItem } from '../domain/models';
+import type {
+  Card,
+  CardCondition,
+  CardLanguage,
+  CollectionItem,
+  StorageBox,
+} from '../domain/models';
 import { calculateCollectionStats, sectionLabel } from '../domain/services';
 import { PageHeader } from '../shared/AppShell';
 import {
@@ -196,10 +203,198 @@ function CollectionEditor({
   );
 }
 
+interface CollectionFilters {
+  boxId: string;
+  sectionId: string;
+  language: CardLanguage | '';
+  condition: CardCondition | '';
+  favoritesOnly: boolean;
+  unassignedOnly: boolean;
+  duplicatesOnly: boolean;
+}
+
+const emptyFilters: CollectionFilters = {
+  boxId: '',
+  sectionId: '',
+  language: '',
+  condition: '',
+  favoritesOnly: false,
+  unassignedOnly: false,
+  duplicatesOnly: false,
+};
+
+function CollectionFilterDrawer({
+  open,
+  filters,
+  boxes,
+  resultCount,
+  onChange,
+  onClose,
+  onClear,
+}: {
+  open: boolean;
+  filters: CollectionFilters;
+  boxes: StorageBox[];
+  resultCount: number;
+  onChange: (filters: CollectionFilters) => void;
+  onClose: () => void;
+  onClear: () => void;
+}) {
+  if (!open) return null;
+  const selectedBox = boxes.find((box) => box.id === filters.boxId);
+  return (
+    <div className="fixed inset-0 z-50">
+      <button
+        className="absolute inset-0 bg-slate-950/60 backdrop-blur-[2px]"
+        onClick={onClose}
+        aria-label="Cerrar filtros"
+      />
+      <aside
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="collection-filters-title"
+        className="absolute inset-y-0 right-0 w-[min(90vw,380px)] overflow-y-auto bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl"
+      >
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wide text-violet">Mi colección</p>
+            <h2 id="collection-filters-title" className="mt-1 text-xl font-black">
+              Filtros
+            </h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="grid size-11 place-items-center rounded-lg hover:bg-slate-100"
+            aria-label="Cerrar"
+          >
+            <X className="size-5" />
+          </button>
+        </div>
+        <div className="mt-7 space-y-5">
+          <label className="block text-sm font-semibold">
+            Caja
+            <select
+              value={filters.boxId}
+              onChange={(event) =>
+                onChange({
+                  ...filters,
+                  boxId: event.target.value,
+                  sectionId: '',
+                  unassignedOnly: false,
+                })
+              }
+              className="mt-2 h-11 w-full rounded-lg border-slate-300"
+            >
+              <option value="">Todas las cajas</option>
+              {boxes.map((box) => (
+                <option key={box.id} value={box.id}>
+                  {box.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block text-sm font-semibold">
+            Sección
+            <select
+              value={filters.sectionId}
+              disabled={!selectedBox}
+              onChange={(event) => onChange({ ...filters, sectionId: event.target.value })}
+              className="mt-2 h-11 w-full rounded-lg border-slate-300 disabled:bg-slate-100"
+            >
+              <option value="">Todas las secciones</option>
+              {selectedBox?.sections.map((section) => (
+                <option key={section.id} value={section.id}>
+                  {section.code} · {section.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block text-sm font-semibold">
+              Idioma
+              <select
+                value={filters.language}
+                onChange={(event) =>
+                  onChange({ ...filters, language: event.target.value as CardLanguage | '' })
+                }
+                className="mt-2 h-11 w-full rounded-lg border-slate-300"
+              >
+                <option value="">Todos</option>
+                {['EN', 'JP', 'ES', 'FR', 'IT', 'DE', 'UNKNOWN'].map((language) => (
+                  <option key={language} value={language}>
+                    {language}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block text-sm font-semibold">
+              Estado
+              <select
+                value={filters.condition}
+                onChange={(event) =>
+                  onChange({ ...filters, condition: event.target.value as CardCondition | '' })
+                }
+                className="mt-2 h-11 w-full rounded-lg border-slate-300"
+              >
+                <option value="">Todos</option>
+                <option value="MINT">Mint</option>
+                <option value="NEAR_MINT">Near Mint</option>
+                <option value="EXCELLENT">Excelente</option>
+                <option value="GOOD">Bueno</option>
+                <option value="PLAYED">Jugado</option>
+                <option value="POOR">Deteriorado</option>
+                <option value="UNKNOWN">Sin indicar</option>
+              </select>
+            </label>
+          </div>
+          <fieldset className="space-y-2">
+            <legend className="mb-2 text-sm font-semibold">Mostrar solo</legend>
+            {([
+              ['favoritesOnly', 'Cartas favoritas'],
+              ['unassignedOnly', 'Lotes sin ubicar'],
+              ['duplicatesOnly', 'Lotes con varias copias'],
+            ] as const).map(([key, label]) => (
+              <label
+                key={key}
+                className="flex min-h-11 items-center justify-between rounded-lg border border-slate-200 px-3 text-sm"
+              >
+                {label}
+                <input
+                  type="checkbox"
+                  checked={filters[key]}
+                  onChange={(event) => {
+                    const next = { ...filters, [key]: event.target.checked };
+                    if (key === 'unassignedOnly' && event.target.checked) {
+                      next.boxId = '';
+                      next.sectionId = '';
+                    }
+                    onChange(next);
+                  }}
+                  className="rounded border-slate-300 text-violet focus:ring-violet"
+                />
+              </label>
+            ))}
+          </fieldset>
+        </div>
+        <div className="mt-8 grid grid-cols-2 gap-2">
+          <Button variant="secondary" onClick={onClear}>
+            Limpiar
+          </Button>
+          <Button onClick={onClose}>Ver {resultCount} lotes</Button>
+        </div>
+      </aside>
+    </div>
+  );
+}
+
 export function CollectionPage() {
   const services = useServices();
   const [query, setQuery] = useState('');
   const [tab, setTab] = useState<'overview' | 'sets' | 'duplicates' | 'list'>('overview');
+  const [view, setView] = useState<'grid' | 'list'>('grid');
+  const [filters, setFilters] = useState<CollectionFilters>(emptyFilters);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [viewMenuOpen, setViewMenuOpen] = useState(false);
   const [selected, setSelected] = useState<CollectionItem | null>(null);
   const result = useQuery({
     queryKey: ['collection'],
@@ -218,9 +413,53 @@ export function CollectionPage() {
         (!normalized ||
           item.cardSnapshot.name.toLocaleLowerCase().includes(normalized) ||
           item.cardSnapshot.code.toLocaleLowerCase().includes(normalized)) &&
-        (tab !== 'duplicates' || item.quantity > 1),
+        (tab !== 'duplicates' || item.quantity > 1) &&
+        (!filters.duplicatesOnly || item.quantity > 1) &&
+        (!filters.boxId || item.boxId === filters.boxId) &&
+        (!filters.sectionId || item.sectionId === filters.sectionId) &&
+        (!filters.language || item.language === filters.language) &&
+        (!filters.condition || item.condition === filters.condition) &&
+        (!filters.favoritesOnly || item.favorite) &&
+        (!filters.unassignedOnly || !item.boxId || !item.sectionId),
     );
-  }, [items, query, tab]);
+  }, [filters, items, query, tab]);
+  const activeFilterCount = [
+    filters.boxId,
+    filters.sectionId,
+    filters.language,
+    filters.condition,
+    filters.favoritesOnly,
+    filters.unassignedOnly,
+    filters.duplicatesOnly,
+  ].filter(Boolean).length;
+  const activeFilterChips = useMemo(() => {
+    const chips: Array<{ key: keyof CollectionFilters; label: string }> = [];
+    const selectedBox = boxes.data?.find((box) => box.id === filters.boxId);
+    const selectedSection = selectedBox?.sections.find(
+      (section) => section.id === filters.sectionId,
+    );
+    if (filters.boxId) chips.push({ key: 'boxId', label: selectedBox?.name ?? 'Caja' });
+    if (filters.sectionId)
+      chips.push({
+        key: 'sectionId',
+        label: selectedSection ? `${selectedSection.code} · ${selectedSection.name}` : 'Sección',
+      });
+    if (filters.language) chips.push({ key: 'language', label: filters.language });
+    if (filters.condition)
+      chips.push({ key: 'condition', label: filters.condition.replace('_', ' ') });
+    if (filters.favoritesOnly) chips.push({ key: 'favoritesOnly', label: 'Favoritas' });
+    if (filters.unassignedOnly) chips.push({ key: 'unassignedOnly', label: 'Sin ubicar' });
+    if (filters.duplicatesOnly) chips.push({ key: 'duplicatesOnly', label: 'Varias copias' });
+    return chips;
+  }, [boxes.data, filters]);
+  const effectiveView = tab === 'list' ? 'list' : view;
+
+  const chooseView = (nextView: 'grid' | 'list') => {
+    setView(nextView);
+    if (nextView === 'grid' && tab === 'list') setTab('overview');
+    if (nextView === 'list' && tab === 'overview') setTab('list');
+    setViewMenuOpen(false);
+  };
 
   return (
     <div className="mx-auto max-w-[1500px] p-4 sm:p-6 lg:p-8">
@@ -245,7 +484,12 @@ export function CollectionPage() {
         ].map(([value, label]) => (
           <button
             key={value}
-            onClick={() => setTab(value as typeof tab)}
+            onClick={() => {
+              const nextTab = value as typeof tab;
+              setTab(nextTab);
+              if (nextTab === 'list') setView('list');
+              if (nextTab === 'overview') setView('grid');
+            }}
             className={`min-h-11 shrink-0 border-b-2 px-4 text-sm font-semibold ${
               tab === value ? 'border-violet text-violet' : 'border-transparent text-slate-600'
             }`}
@@ -289,16 +533,92 @@ export function CollectionPage() {
         </section>
       ) : (
         <>
-          <div className="mb-5 grid gap-3 sm:grid-cols-[1fr_auto_auto]">
+          <div className="mb-3 grid gap-3 sm:grid-cols-[1fr_auto_auto]">
             <SearchInput value={query} onChange={setQuery} placeholder="Buscar en mi colección..." />
-            <Button variant="secondary">
-              <SlidersHorizontal className="size-4" /> Filtros
+            <Button
+              variant="secondary"
+              onClick={() => setFiltersOpen(true)}
+              aria-haspopup="dialog"
+            >
+              <SlidersHorizontal className="size-4" />
+              Filtros
+              {activeFilterCount > 0 && (
+                <span className="grid size-5 place-items-center rounded-full bg-violet text-[11px] text-white">
+                  {activeFilterCount}
+                </span>
+              )}
             </Button>
-            <Button variant="secondary">
-              {tab === 'list' ? <Grid2X2 className="size-4" /> : <List className="size-4" />}
-              Vista
-            </Button>
+            <div className="relative">
+              <Button
+                variant="secondary"
+                className="w-full"
+                onClick={() => setViewMenuOpen((open) => !open)}
+                aria-haspopup="menu"
+                aria-expanded={viewMenuOpen}
+              >
+                {effectiveView === 'list' ? (
+                  <List className="size-4" />
+                ) : (
+                  <Grid2X2 className="size-4" />
+                )}
+                Vista
+              </Button>
+              {viewMenuOpen && (
+                <div
+                  role="menu"
+                  className="absolute right-0 top-full z-20 mt-2 w-full min-w-48 rounded-xl border border-slate-200 bg-white p-1.5 shadow-soft"
+                >
+                  <button
+                    role="menuitemradio"
+                    aria-checked={effectiveView === 'grid'}
+                    onClick={() => chooseView('grid')}
+                    className={`flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-sm font-semibold ${
+                      effectiveView === 'grid' ? 'bg-indigo-50 text-violet' : 'hover:bg-slate-50'
+                    }`}
+                  >
+                    <Grid2X2 className="size-4" /> Cuadrícula
+                  </button>
+                  <button
+                    role="menuitemradio"
+                    aria-checked={effectiveView === 'list'}
+                    onClick={() => chooseView('list')}
+                    className={`flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-sm font-semibold ${
+                      effectiveView === 'list' ? 'bg-indigo-50 text-violet' : 'hover:bg-slate-50'
+                    }`}
+                  >
+                    <List className="size-4" /> Lista
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
+          {activeFilterChips.length > 0 && (
+            <div className="mb-5 flex flex-wrap items-center gap-2" aria-label="Filtros activos">
+              {activeFilterChips.map((chip) => (
+                <button
+                  key={chip.key}
+                  onClick={() =>
+                    setFilters({
+                      ...filters,
+                      [chip.key]:
+                        typeof filters[chip.key] === 'boolean' ? false : '',
+                      ...(chip.key === 'boxId' ? { sectionId: '' } : {}),
+                    })
+                  }
+                  className="inline-flex min-h-9 items-center gap-1.5 rounded-full bg-indigo-50 px-3 text-xs font-semibold text-violet hover:bg-indigo-100"
+                  aria-label={`Quitar filtro ${chip.label}`}
+                >
+                  {chip.label} <X className="size-3.5" />
+                </button>
+              ))}
+              <button
+                onClick={() => setFilters(emptyFilters)}
+                className="min-h-9 px-2 text-xs font-semibold text-slate-600 hover:text-violet"
+              >
+                Limpiar todo
+              </button>
+            </div>
+          )}
           {filtered.length === 0 ? (
             <EmptyState
               title="No hay cartas aquí"
@@ -309,7 +629,7 @@ export function CollectionPage() {
                 </Link>
               }
             />
-          ) : tab === 'list' ? (
+          ) : effectiveView === 'list' ? (
             <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
               {filtered.map((item) => (
                 <button
@@ -351,6 +671,15 @@ export function CollectionPage() {
           )}
         </>
       )}
+      <CollectionFilterDrawer
+        open={filtersOpen}
+        filters={filters}
+        boxes={boxes.data ?? []}
+        resultCount={filtered.length}
+        onChange={setFilters}
+        onClose={() => setFiltersOpen(false)}
+        onClear={() => setFilters(emptyFilters)}
+      />
       <CollectionEditor item={selected} onClose={() => setSelected(null)} />
     </div>
   );
