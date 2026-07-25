@@ -43,9 +43,9 @@ export function LoginPage() {
           <div className="mx-auto flex w-full max-w-[260px] flex-col items-center gap-2">
             <div className="aspect-[2.65/1] w-full overflow-hidden" aria-label="One Piece">
               <img
-                src="/one-piece.png"
+                src="/one-piece.svg"
                 alt="One Piece"
-                className="h-full w-full object-cover object-center invert"
+                className="h-full w-full object-contain object-center invert"
               />
             </div>
             <h1 className="brand-one-piece whitespace-nowrap text-[23px] leading-none text-white">
