@@ -1,13 +1,4 @@
-import {
-  Archive,
-  Grid2X2,
-  Heart,
-  List,
-  Plus,
-  SlidersHorizontal,
-  Trash2,
-  X,
-} from 'lucide-react';
+import { Archive, Grid2X2, Heart, List, Plus, SlidersHorizontal, Trash2, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
@@ -21,6 +12,7 @@ import type {
 } from '../domain/models';
 import { calculateCollectionStats, sectionLabel } from '../domain/services';
 import { PageHeader } from '../shared/AppShell';
+import { OnePieceLoader } from '../shared/OnePieceLoader';
 import {
   Button,
   CardImage,
@@ -66,7 +58,9 @@ function Stat({
 }) {
   return (
     <div className="min-w-0 border-r border-slate-200 px-3 last:border-0 sm:px-5">
-      <p className={`truncate text-xl font-black sm:text-2xl ${accent ? 'text-violet' : 'text-slate-950'}`}>
+      <p
+        className={`truncate text-xl font-black sm:text-2xl ${accent ? 'text-violet' : 'text-slate-950'}`}
+      >
         {value}
       </p>
       <p className="mt-1 truncate text-[10px] text-slate-500 sm:text-xs">{label}</p>
@@ -74,13 +68,7 @@ function Stat({
   );
 }
 
-function CollectionEditor({
-  item,
-  onClose,
-}: {
-  item: CollectionItem | null;
-  onClose: () => void;
-}) {
+function CollectionEditor({ item, onClose }: { item: CollectionItem | null; onClose: () => void }) {
   const services = useServices();
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState(item);
@@ -103,7 +91,11 @@ function CollectionEditor({
     },
   });
   return (
-    <ResponsiveDialog open={Boolean(item)} onOpenChange={(open) => !open && onClose()} title="Gestionar carta">
+    <ResponsiveDialog
+      open={Boolean(item)}
+      onOpenChange={(open) => !open && onClose()}
+      title="Gestionar carta"
+    >
       {draft && (
         <div className="grid gap-6 md:grid-cols-[180px_1fr]">
           <CardImage src={draft.cardSnapshot.imageUrl} alt={`Carta ${draft.cardSnapshot.name}`} />
@@ -111,7 +103,8 @@ function CollectionEditor({
             <p className="text-xs font-semibold text-slate-500">{draft.cardSnapshot.code}</p>
             <h2 className="mt-1 pr-10 text-2xl font-black">{draft.cardSnapshot.name}</h2>
             <p className="mt-1 text-sm text-slate-600">
-              {draft.cardSnapshot.variantLabel} · {draft.language} · {draft.condition.replace('_', ' ')}
+              {draft.cardSnapshot.variantLabel} · {draft.language} ·{' '}
+              {draft.condition.replace('_', ' ')}
             </p>
             <div className="mt-6 flex flex-wrap items-end justify-between gap-4 border-y border-slate-200 py-5">
               <div>
@@ -190,7 +183,8 @@ function CollectionEditor({
               <Button
                 variant="danger"
                 onClick={() => {
-                  if (window.confirm('¿Eliminar esta carta de la colección?')) remove.mutate(draft.id);
+                  if (window.confirm('¿Eliminar esta carta de la colección?'))
+                    remove.mutate(draft.id);
                 }}
               >
                 <Trash2 className="size-4" /> Eliminar
@@ -222,6 +216,57 @@ const emptyFilters: CollectionFilters = {
   unassignedOnly: false,
   duplicatesOnly: false,
 };
+
+function CollectionLoadingState() {
+  return (
+    <div aria-busy="true" aria-label="Cargando colección">
+      <section className="mb-5 grid grid-cols-4 overflow-hidden rounded-xl border border-slate-200 bg-white py-4 shadow-sm lg:grid-cols-6">
+        {Array.from({ length: 6 }).map((_, index) => (
+          <div
+            key={index}
+            className={`relative grid min-h-14 place-items-center border-r border-slate-200 last:border-0 ${
+              index > 3 ? 'hidden lg:grid' : ''
+            }`}
+          >
+            <div className="absolute inset-x-3 inset-y-1 animate-pulse rounded-lg bg-slate-100" />
+            <OnePieceLoader size="sm" label="Cargando estadística" />
+          </div>
+        ))}
+      </section>
+      <div className="mb-3 grid gap-3 sm:grid-cols-[1fr_auto_auto]">
+        <div className="relative h-11 animate-pulse rounded-lg bg-slate-200">
+          <OnePieceLoader
+            size="sm"
+            label="Cargando buscador"
+            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+          />
+        </div>
+        {[0, 1].map((item) => (
+          <div key={item} className="relative h-11 min-w-28 animate-pulse rounded-lg bg-slate-200">
+            <OnePieceLoader
+              size="sm"
+              label="Cargando control"
+              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+            />
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
+        {Array.from({ length: 12 }).map((_, index) => (
+          <div
+            key={index}
+            className="relative aspect-[5/7] animate-pulse overflow-hidden rounded-xl bg-slate-200"
+          >
+            <OnePieceLoader
+              label={`Cargando carta ${index + 1}`}
+              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function CollectionFilterDrawer({
   open,
@@ -349,11 +394,13 @@ function CollectionFilterDrawer({
           </div>
           <fieldset className="space-y-2">
             <legend className="mb-2 text-sm font-semibold">Mostrar solo</legend>
-            {([
-              ['favoritesOnly', 'Cartas favoritas'],
-              ['unassignedOnly', 'Lotes sin ubicar'],
-              ['duplicatesOnly', 'Lotes con varias copias'],
-            ] as const).map(([key, label]) => (
+            {(
+              [
+                ['favoritesOnly', 'Cartas favoritas'],
+                ['unassignedOnly', 'Lotes sin ubicar'],
+                ['duplicatesOnly', 'Lotes con varias copias'],
+              ] as const
+            ).map(([key, label]) => (
               <label
                 key={key}
                 className="flex min-h-11 items-center justify-between rounded-lg border border-slate-200 px-3 text-sm"
@@ -453,6 +500,7 @@ export function CollectionPage() {
     return chips;
   }, [boxes.data, filters]);
   const effectiveView = tab === 'list' ? 'list' : view;
+  const loading = result.isPending || boxes.isPending;
 
   const chooseView = (nextView: 'grid' | 'list') => {
     setView(nextView);
@@ -498,176 +546,196 @@ export function CollectionPage() {
           </button>
         ))}
       </div>
-      <section className="mb-5 grid grid-cols-4 overflow-hidden rounded-xl border border-slate-200 bg-white py-4 shadow-sm lg:grid-cols-6">
-        <Stat value={stats.totalCopies} label="Total" />
-        <Stat value={stats.uniqueCards} label="Diferentes" accent />
-        <Stat value={stats.setsRepresented} label="Expansiones" />
-        <Stat value={stats.duplicateCopies} label="Duplicadas" />
-        <div className="hidden lg:block">
-          <Stat value={stats.storedCopies} label="Ubicadas" />
-        </div>
-        <div className="hidden lg:block">
-          <Stat
-            value={`${stats.estimatedValue.amount.toFixed(2)} ${stats.estimatedValue.currency}`}
-            label="Valor estimado"
-            accent
-          />
-        </div>
-      </section>
-      {tab === 'sets' ? (
-        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="font-black">Romance Dawn [OP-01]</h2>
-          <div className="mt-4 flex items-center justify-between text-sm">
-            <span>{stats.uniqueCards} propias de 121 conocidas</span>
-            <span className="font-bold">{Math.round((stats.uniqueCards / 121) * 100)}%</span>
-          </div>
-          <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
-            <div
-              className="h-full rounded-full bg-violet"
-              style={{ width: `${(stats.uniqueCards / 121) * 100}%` }}
-            />
-          </div>
-          <p className="mt-4 text-sm text-slate-600">
-            La completitud cuenta cartas base; las variantes se muestran por separado.
-          </p>
-        </section>
+      {loading ? (
+        <CollectionLoadingState />
       ) : (
         <>
-          <div className="mb-3 grid gap-3 sm:grid-cols-[1fr_auto_auto]">
-            <SearchInput value={query} onChange={setQuery} placeholder="Buscar en mi colección..." />
-            <Button
-              variant="secondary"
-              onClick={() => setFiltersOpen(true)}
-              aria-haspopup="dialog"
-            >
-              <SlidersHorizontal className="size-4" />
-              Filtros
-              {activeFilterCount > 0 && (
-                <span className="grid size-5 place-items-center rounded-full bg-violet text-[11px] text-white">
-                  {activeFilterCount}
-                </span>
-              )}
-            </Button>
-            <div className="relative">
-              <Button
-                variant="secondary"
-                className="w-full"
-                onClick={() => setViewMenuOpen((open) => !open)}
-                aria-haspopup="menu"
-                aria-expanded={viewMenuOpen}
-              >
-                {effectiveView === 'list' ? (
-                  <List className="size-4" />
-                ) : (
-                  <Grid2X2 className="size-4" />
-                )}
-                Vista
-              </Button>
-              {viewMenuOpen && (
+          <section className="mb-5 grid grid-cols-4 overflow-hidden rounded-xl border border-slate-200 bg-white py-4 shadow-sm lg:grid-cols-6">
+            <Stat value={stats.totalCopies} label="Total" />
+            <Stat value={stats.uniqueCards} label="Diferentes" accent />
+            <Stat value={stats.setsRepresented} label="Expansiones" />
+            <Stat value={stats.duplicateCopies} label="Duplicadas" />
+            <div className="hidden lg:block">
+              <Stat value={stats.storedCopies} label="Ubicadas" />
+            </div>
+            <div className="hidden lg:block">
+              <Stat
+                value={`${stats.estimatedValue.amount.toFixed(2)} ${stats.estimatedValue.currency}`}
+                label="Valor estimado"
+                accent
+              />
+            </div>
+          </section>
+          {tab === 'sets' ? (
+            <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+              <h2 className="font-black">Romance Dawn [OP-01]</h2>
+              <div className="mt-4 flex items-center justify-between text-sm">
+                <span>{stats.uniqueCards} propias de 121 conocidas</span>
+                <span className="font-bold">{Math.round((stats.uniqueCards / 121) * 100)}%</span>
+              </div>
+              <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
                 <div
-                  role="menu"
-                  className="absolute right-0 top-full z-20 mt-2 w-full min-w-48 rounded-xl border border-slate-200 bg-white p-1.5 shadow-soft"
+                  className="h-full rounded-full bg-violet"
+                  style={{ width: `${(stats.uniqueCards / 121) * 100}%` }}
+                />
+              </div>
+              <p className="mt-4 text-sm text-slate-600">
+                La completitud cuenta cartas base; las variantes se muestran por separado.
+              </p>
+            </section>
+          ) : (
+            <>
+              <div className="mb-3 grid gap-3 sm:grid-cols-[1fr_auto_auto]">
+                <SearchInput
+                  value={query}
+                  onChange={setQuery}
+                  placeholder="Buscar en mi colección..."
+                />
+                <Button
+                  variant="secondary"
+                  onClick={() => setFiltersOpen(true)}
+                  aria-haspopup="dialog"
                 >
-                  <button
-                    role="menuitemradio"
-                    aria-checked={effectiveView === 'grid'}
-                    onClick={() => chooseView('grid')}
-                    className={`flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-sm font-semibold ${
-                      effectiveView === 'grid' ? 'bg-indigo-50 text-violet' : 'hover:bg-slate-50'
-                    }`}
+                  <SlidersHorizontal className="size-4" />
+                  Filtros
+                  {activeFilterCount > 0 && (
+                    <span className="grid size-5 place-items-center rounded-full bg-violet text-[11px] text-white">
+                      {activeFilterCount}
+                    </span>
+                  )}
+                </Button>
+                <div className="relative">
+                  <Button
+                    variant="secondary"
+                    className="w-full"
+                    onClick={() => setViewMenuOpen((open) => !open)}
+                    aria-haspopup="menu"
+                    aria-expanded={viewMenuOpen}
                   >
-                    <Grid2X2 className="size-4" /> Cuadrícula
-                  </button>
+                    {effectiveView === 'list' ? (
+                      <List className="size-4" />
+                    ) : (
+                      <Grid2X2 className="size-4" />
+                    )}
+                    Vista
+                  </Button>
+                  {viewMenuOpen && (
+                    <div
+                      role="menu"
+                      className="absolute right-0 top-full z-20 mt-2 w-full min-w-48 rounded-xl border border-slate-200 bg-white p-1.5 shadow-soft"
+                    >
+                      <button
+                        role="menuitemradio"
+                        aria-checked={effectiveView === 'grid'}
+                        onClick={() => chooseView('grid')}
+                        className={`flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-sm font-semibold ${
+                          effectiveView === 'grid'
+                            ? 'bg-indigo-50 text-violet'
+                            : 'hover:bg-slate-50'
+                        }`}
+                      >
+                        <Grid2X2 className="size-4" /> Cuadrícula
+                      </button>
+                      <button
+                        role="menuitemradio"
+                        aria-checked={effectiveView === 'list'}
+                        onClick={() => chooseView('list')}
+                        className={`flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-sm font-semibold ${
+                          effectiveView === 'list'
+                            ? 'bg-indigo-50 text-violet'
+                            : 'hover:bg-slate-50'
+                        }`}
+                      >
+                        <List className="size-4" /> Lista
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+              {activeFilterChips.length > 0 && (
+                <div
+                  className="mb-5 flex flex-wrap items-center gap-2"
+                  aria-label="Filtros activos"
+                >
+                  {activeFilterChips.map((chip) => (
+                    <button
+                      key={chip.key}
+                      onClick={() =>
+                        setFilters({
+                          ...filters,
+                          [chip.key]: typeof filters[chip.key] === 'boolean' ? false : '',
+                          ...(chip.key === 'boxId' ? { sectionId: '' } : {}),
+                        })
+                      }
+                      className="inline-flex min-h-9 items-center gap-1.5 rounded-full bg-indigo-50 px-3 text-xs font-semibold text-violet hover:bg-indigo-100"
+                      aria-label={`Quitar filtro ${chip.label}`}
+                    >
+                      {chip.label} <X className="size-3.5" />
+                    </button>
+                  ))}
                   <button
-                    role="menuitemradio"
-                    aria-checked={effectiveView === 'list'}
-                    onClick={() => chooseView('list')}
-                    className={`flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-sm font-semibold ${
-                      effectiveView === 'list' ? 'bg-indigo-50 text-violet' : 'hover:bg-slate-50'
-                    }`}
+                    onClick={() => setFilters(emptyFilters)}
+                    className="min-h-9 px-2 text-xs font-semibold text-slate-600 hover:text-violet"
                   >
-                    <List className="size-4" /> Lista
+                    Limpiar todo
                   </button>
                 </div>
               )}
-            </div>
-          </div>
-          {activeFilterChips.length > 0 && (
-            <div className="mb-5 flex flex-wrap items-center gap-2" aria-label="Filtros activos">
-              {activeFilterChips.map((chip) => (
-                <button
-                  key={chip.key}
-                  onClick={() =>
-                    setFilters({
-                      ...filters,
-                      [chip.key]:
-                        typeof filters[chip.key] === 'boolean' ? false : '',
-                      ...(chip.key === 'boxId' ? { sectionId: '' } : {}),
-                    })
+              {filtered.length === 0 ? (
+                <EmptyState
+                  title="No hay cartas aquí"
+                  description="Añade cartas desde el catálogo o ajusta la búsqueda."
+                  action={
+                    <Link to="/catalog">
+                      <Button>Explorar catálogo</Button>
+                    </Link>
                   }
-                  className="inline-flex min-h-9 items-center gap-1.5 rounded-full bg-indigo-50 px-3 text-xs font-semibold text-violet hover:bg-indigo-100"
-                  aria-label={`Quitar filtro ${chip.label}`}
-                >
-                  {chip.label} <X className="size-3.5" />
-                </button>
-              ))}
-              <button
-                onClick={() => setFilters(emptyFilters)}
-                className="min-h-9 px-2 text-xs font-semibold text-slate-600 hover:text-violet"
-              >
-                Limpiar todo
-              </button>
-            </div>
-          )}
-          {filtered.length === 0 ? (
-            <EmptyState
-              title="No hay cartas aquí"
-              description="Añade cartas desde el catálogo o ajusta la búsqueda."
-              action={
-                <Link to="/catalog">
-                  <Button>Explorar catálogo</Button>
-                </Link>
-              }
-            />
-          ) : effectiveView === 'list' ? (
-            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-              {filtered.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => setSelected(item)}
-                  className="grid w-full grid-cols-[52px_1fr_auto] items-center gap-3 border-b border-slate-100 p-3 text-left last:border-0 hover:bg-slate-50"
-                >
-                  <CardImage
-                    src={item.cardSnapshot.imageUrl}
-                    alt={item.cardSnapshot.name}
-                    className="w-11"
-                  />
-                  <span className="min-w-0">
-                    <span className="block truncate font-semibold">{item.cardSnapshot.name}</span>
-                    <span className="block text-xs text-slate-500">{item.cardSnapshot.code}</span>
-                    <span className="mt-1 flex items-center gap-1 text-xs text-violet">
-                      <Archive className="size-3" />
-                      {sectionLabel(boxes.data ?? [], item.boxId, item.sectionId)}
-                    </span>
-                  </span>
-                  <span className="flex items-center gap-3">
-                    {item.favorite && <Heart className="size-4 fill-red-500 text-red-500" />}
-                    <strong>×{item.quantity}</strong>
-                  </span>
-                </button>
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
-              {filtered.map((item) => (
-                <CardTile
-                  key={item.id}
-                  card={snapshotToCard(item)}
-                  quantity={item.quantity}
-                  onOpen={() => setSelected(item)}
                 />
-              ))}
-            </div>
+              ) : effectiveView === 'list' ? (
+                <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                  {filtered.map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => setSelected(item)}
+                      className="grid w-full grid-cols-[52px_1fr_auto] items-center gap-3 border-b border-slate-100 p-3 text-left last:border-0 hover:bg-slate-50"
+                    >
+                      <CardImage
+                        src={item.cardSnapshot.imageUrl}
+                        alt={item.cardSnapshot.name}
+                        className="w-11"
+                      />
+                      <span className="min-w-0">
+                        <span className="block truncate font-semibold">
+                          {item.cardSnapshot.name}
+                        </span>
+                        <span className="block text-xs text-slate-500">
+                          {item.cardSnapshot.code}
+                        </span>
+                        <span className="mt-1 flex items-center gap-1 text-xs text-violet">
+                          <Archive className="size-3" />
+                          {sectionLabel(boxes.data ?? [], item.boxId, item.sectionId)}
+                        </span>
+                      </span>
+                      <span className="flex items-center gap-3">
+                        {item.favorite && <Heart className="size-4 fill-red-500 text-red-500" />}
+                        <strong>×{item.quantity}</strong>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
+                  {filtered.map((item) => (
+                    <CardTile
+                      key={item.id}
+                      card={snapshotToCard(item)}
+                      quantity={item.quantity}
+                      onOpen={() => setSelected(item)}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </>
       )}

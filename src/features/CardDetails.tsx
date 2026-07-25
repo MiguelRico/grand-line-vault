@@ -4,14 +4,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Card, CollectionItem } from '../domain/models';
 import { useServices } from '../app/providers/ServicesProvider';
 import { Button, CardImage, QuantitySelector, ResponsiveDialog } from '../shared/ui';
+import { OnePieceLoader } from '../shared/OnePieceLoader';
 
-export function CardDetails({
-  cardId,
-  onClose,
-}: {
-  cardId: string | null;
-  onClose: () => void;
-}) {
+export function CardDetails({ cardId, onClose }: { cardId: string | null; onClose: () => void }) {
   const services = useServices();
   const queryClient = useQueryClient();
   const [quantity, setQuantity] = useState(1);
@@ -62,9 +57,15 @@ export function CardDetails({
 
   const card = cardQuery.data;
   return (
-    <ResponsiveDialog open={Boolean(cardId)} onOpenChange={(open) => !open && onClose()} title="Detalle de carta">
+    <ResponsiveDialog
+      open={Boolean(cardId)}
+      onOpenChange={(open) => !open && onClose()}
+      title="Detalle de carta"
+    >
       {cardQuery.isPending ? (
-        <div className="h-[420px] animate-pulse rounded-xl bg-slate-100" />
+        <div className="grid h-[420px] animate-pulse place-items-center rounded-xl bg-slate-100">
+          <OnePieceLoader size="lg" label="Cargando detalle de carta" />
+        </div>
       ) : !card ? (
         <p className="p-8 text-center text-slate-600">No se ha encontrado la carta.</p>
       ) : (
@@ -98,7 +99,10 @@ export function CardDetails({
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
               {card.colors.map((color) => (
-                <span key={color} className="rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-700">
+                <span
+                  key={color}
+                  className="rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-700"
+                >
                   {color}
                 </span>
               ))}
@@ -164,12 +168,22 @@ export function CardDetails({
                 disabled={addMutation.isPending}
                 className="w-full"
               >
-                <Plus className="size-4" />
-                Añadir lote al inventario
+                {addMutation.isPending ? (
+                  <>
+                    <OnePieceLoader size="xs" label="Añadiendo carta" />
+                    Añadiendo carta…
+                  </>
+                ) : (
+                  <>
+                    <Plus className="size-4" />
+                    Añadir lote al inventario
+                  </>
+                )}
               </Button>
             </div>
             <div className="mt-3 flex justify-center gap-1 text-xs text-slate-500">
-              <Box className="size-3.5" /> Fuente de datos: {card.sources[0]?.providerId ?? 'desconocida'}
+              <Box className="size-3.5" /> Fuente de datos:{' '}
+              {card.sources[0]?.providerId ?? 'desconocida'}
             </div>
           </div>
         </div>

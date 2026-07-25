@@ -6,15 +6,9 @@ import type { Card, CardColor, CardType, CardVariantType, CatalogCriteria } from
 import { useServices } from '../app/providers/ServicesProvider';
 import { CardDetails } from './CardDetails';
 import { PageHeader } from '../shared/AppShell';
-import {
-  Button,
-  CardTile,
-  EmptyState,
-  ErrorState,
-  Pagination,
-  SearchInput,
-} from '../shared/ui';
+import { Button, CardTile, EmptyState, ErrorState, Pagination, SearchInput } from '../shared/ui';
 import { useDebouncedValue } from '../shared/hooks';
+import { OnePieceLoader } from '../shared/OnePieceLoader';
 
 const defaultCriteria: CatalogCriteria = {
   query: '',
@@ -75,7 +69,12 @@ function FilterFields({
             </option>
           ))}
         </select>
-        {setsLoading && <span className="mt-1 block text-xs text-slate-500">Cargando expansiones…</span>}
+        {setsLoading && (
+          <span className="mt-2 flex items-center gap-2 text-xs text-slate-500">
+            <OnePieceLoader size="xs" label="Cargando expansiones" />
+            Cargando expansiones…
+          </span>
+        )}
       </label>
       <fieldset>
         <legend className="text-sm font-semibold">Color</legend>
@@ -97,12 +96,17 @@ function FilterFields({
                 className="sr-only"
               />
               <span className={`size-3 rounded-full ${color}`} />
-              <span className={criteria.color === value ? 'font-bold text-violet' : ''}>{label}</span>
+              <span className={criteria.color === value ? 'font-bold text-violet' : ''}>
+                {label}
+              </span>
             </label>
           ))}
         </div>
         {criteria.color && (
-          <button onClick={() => update({ color: '' })} className="mt-2 text-xs font-semibold text-violet">
+          <button
+            onClick={() => update({ color: '' })}
+            className="mt-2 text-xs font-semibold text-violet"
+          >
             Cualquier color
           </button>
         )}
@@ -300,7 +304,11 @@ export function CatalogPage() {
           <select
             value={criteria.sort}
             onChange={(event) =>
-              setCriteria({ ...criteria, sort: event.target.value as CatalogCriteria['sort'], page: 1 })
+              setCriteria({
+                ...criteria,
+                sort: event.target.value as CatalogCriteria['sort'],
+                page: 1,
+              })
             }
             className="h-11 min-w-40 rounded-lg border-slate-300 text-sm"
           >
@@ -347,7 +355,12 @@ export function CatalogPage() {
           {result.isPending ? (
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-5">
               {Array.from({ length: 10 }).map((_, index) => (
-                <div key={index} className="aspect-[5/7] animate-pulse rounded-xl bg-slate-200" />
+                <div
+                  key={index}
+                  className="relative grid aspect-[5/7] animate-pulse place-items-center rounded-xl bg-slate-200"
+                >
+                  <OnePieceLoader size="sm" label={`Cargando carta ${index + 1}`} />
+                </div>
               ))}
             </div>
           ) : result.isError ? (

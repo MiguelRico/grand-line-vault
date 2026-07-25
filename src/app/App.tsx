@@ -3,6 +3,7 @@ import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useAuth } from './providers/AuthProvider';
 import { AppShell } from '../shared/AppShell';
 import { LoginPage } from '../features/LoginPage';
+import { OnePieceLoader } from '../shared/OnePieceLoader';
 
 const CatalogPage = lazy(() =>
   import('../features/CatalogPage').then((module) => ({ default: module.CatalogPage })),
@@ -32,22 +33,33 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
   if (auth.loading)
     return (
       <div className="grid min-h-dvh place-items-center bg-navy text-white">
-        <div className="size-10 animate-spin rounded-full border-4 border-white/20 border-t-indigo-400" />
-        <span className="sr-only">Restaurando sesión</span>
+        <div className="flex flex-col items-center gap-4">
+          <OnePieceLoader size="lg" label="Restaurando sesión" />
+          <p className="text-sm font-semibold text-slate-300">Restaurando sesión…</p>
+        </div>
       </div>
     );
   if (!auth.authenticated)
-    return <Navigate to="/login" replace state={{ from: `${location.pathname}${location.search}` }} />;
+    return (
+      <Navigate to="/login" replace state={{ from: `${location.pathname}${location.search}` }} />
+    );
   return children;
 }
 
 function LoadingRoute() {
   return (
     <div className="mx-auto max-w-[1400px] p-6 lg:p-8">
-      <div className="h-9 w-56 animate-pulse rounded bg-slate-200" />
+      <div className="relative grid h-9 w-56 animate-pulse place-items-center rounded bg-slate-200">
+        <OnePieceLoader size="xs" label="Cargando página" />
+      </div>
       <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-6">
         {Array.from({ length: 12 }).map((_, index) => (
-          <div key={index} className="aspect-[5/7] animate-pulse rounded-xl bg-slate-200" />
+          <div
+            key={index}
+            className="relative grid aspect-[5/7] animate-pulse place-items-center rounded-xl bg-slate-200"
+          >
+            <OnePieceLoader size="sm" label={`Cargando contenido ${index + 1}`} />
+          </div>
         ))}
       </div>
     </div>

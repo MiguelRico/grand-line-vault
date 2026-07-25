@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useAuth } from '../app/providers/AuthProvider';
 import { config } from '../app/config';
+import { OnePieceLoader } from '../shared/OnePieceLoader';
 import { Button } from '../shared/ui';
 
 const schema = z.object({ password: z.string().min(1, 'Introduce la contraseña.') });
@@ -82,7 +83,14 @@ export function LoginPage() {
             </p>
           )}
           <Button type="submit" disabled={isSubmitting} className="mt-4 w-full">
-            {isSubmitting ? 'Comprobando…' : 'Entrar en mi colección'}
+            {isSubmitting ? (
+              <>
+                <OnePieceLoader size="xs" label="Comprobando acceso" />
+                Comprobando…
+              </>
+            ) : (
+              'Entrar en mi colección'
+            )}
           </Button>
           {config.VITE_USE_MOCK_DATA && (
             <p className="mt-3 rounded-lg bg-indigo-50 p-2.5 text-center text-xs text-indigo-900">

@@ -43,6 +43,7 @@ import type {
   StorageBox,
 } from '../domain/models';
 import { PageHeader, SimplePage } from '../shared/AppShell';
+import { OnePieceLoader } from '../shared/OnePieceLoader';
 import {
   Button,
   CardImage,
@@ -1075,8 +1076,17 @@ export function SettingsPage() {
             onClick={() => void statuses.refetch()}
             disabled={statuses.isFetching}
           >
-            <RefreshCw className={`size-4 ${statuses.isFetching ? 'animate-spin' : ''}`} />
-            Comprobar APIs
+            {statuses.isFetching ? (
+              <>
+                <OnePieceLoader size="xs" label="Comprobando APIs" />
+                Comprobando APIs…
+              </>
+            ) : (
+              <>
+                <RefreshCw className="size-4" />
+                Comprobar APIs
+              </>
+            )}
           </Button>
         }
       />
@@ -1098,7 +1108,12 @@ export function SettingsPage() {
           {statuses.isLoading ? (
             <div className="mt-5 grid gap-4 md:grid-cols-2">
               {[0, 1].map((item) => (
-                <div key={item} className="h-44 animate-pulse rounded-xl bg-slate-100" />
+                <div
+                  key={item}
+                  className="grid h-44 animate-pulse place-items-center rounded-xl bg-slate-100"
+                >
+                  <OnePieceLoader size="md" label={`Cargando API ${item + 1}`} />
+                </div>
               ))}
             </div>
           ) : statuses.isError ? (
