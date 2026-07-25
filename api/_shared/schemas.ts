@@ -1,7 +1,6 @@
 import { z } from 'zod';
 
 export const appSettingsSchema = z.object({
-  catalogProvider: z.enum(['ARJUNKAI_OPTCG', 'OPTCG_API']),
   theme: z.enum(['LIGHT', 'DARK']),
 });
 
@@ -22,7 +21,7 @@ const snapshotSchema = z.object({
   variantLabel: z.string().max(100).optional(),
   imageUrl: z.string().url(),
   catalogPrice: priceSchema.optional(),
-  catalogProvider: z.enum(['ARJUNKAI_OPTCG', 'OPTCG_API', 'MOCK']).optional(),
+  catalogProvider: z.string().min(1).max(60).optional(),
   catalogFetchedAt: z.string().datetime().optional(),
 });
 

@@ -5,10 +5,10 @@ import { initialCollection } from '../infrastructure/mockData';
 describe('private API validation', () => {
   it('accepts only supported catalog providers and themes', () => {
     expect(
-      appSettingsSchema.safeParse({ catalogProvider: 'ARJUNKAI_OPTCG', theme: 'DARK' }).success,
+      appSettingsSchema.safeParse({ theme: 'DARK' }).success,
     ).toBe(true);
     expect(
-      appSettingsSchema.safeParse({ catalogProvider: 'UNKNOWN', theme: 'SYSTEM' }).success,
+      appSettingsSchema.safeParse({ theme: 'SYSTEM' }).success,
     ).toBe(false);
   });
 

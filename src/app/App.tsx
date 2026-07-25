@@ -24,7 +24,7 @@ const FavoritesPage = lazy(() =>
   import('../features/SecondaryPages').then((module) => ({ default: module.FavoritesPage })),
 );
 const SettingsPage = lazy(() =>
-  import('../features/SecondaryPages').then((module) => ({ default: module.SettingsPage })),
+  import('../features/SettingsPage').then((module) => ({ default: module.SettingsPage })),
 );
 
 function ProtectedRoute({ children }: { children: ReactNode }) {

@@ -11,10 +11,13 @@
     "lint": "eslint . --max-warnings 0",
     "test": "vitest run",
     "test:watch": "vitest",
+    "catalog:scrape": "tsx scraper/index.ts",
+    "catalog:validate": "tsx scraper/validate-existing-catalog.ts",
+    "catalog:update": "npm run catalog:scrape",
+    "catalog:check": "npm run catalog:validate",
+    "prebuild": "npm run catalog:check",
     "format": "prettier --write .",
-    "hash-password": "tsx scripts/hash-password.ts",
-    "clasp:push": "clasp push",
-    "clasp:deploy": "clasp deploy"
+    "hash-password": "tsx scripts/hash-password.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -35,7 +38,6 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.31.0",
-    "@google/clasp": "^3.0.6-alpha",
     "@tailwindcss/forms": "^0.5.10",
     "@testing-library/jest-dom": "^6.6.4",
     "@testing-library/react": "^16.3.0",
@@ -46,6 +48,7 @@
     "@vercel/node": "^5.3.7",
     "@vitejs/plugin-react": "^4.7.0",
     "autoprefixer": "^10.4.21",
+    "cheerio": "^1.1.2",
     "eslint": "^9.31.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react-hooks": "^5.2.0",

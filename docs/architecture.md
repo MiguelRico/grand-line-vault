@@ -18,4 +18,4 @@ La agrupación de inventario usa carta interna, variante, idioma y condición. C
 
 ## Seguridad
 
-El navegador solo recibe variables `VITE_*`. Firestore bloquea clientes. Las Vercel Functions validan sesión, tamaño e input antes de acceder a Admin SDK. Apps Script conserva credenciales en Script Properties y sus logs solo registran códigos y metadatos sanitizados.
+El navegador solo recibe variables `VITE_*`. Firestore bloquea clientes. Las Vercel Functions validan sesión, tamaño e input antes de acceder a Admin SDK. El catálogo público se sirve como archivos estáticos y no necesita credenciales.

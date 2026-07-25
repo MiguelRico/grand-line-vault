@@ -1,7 +1,5 @@
 import type {
   Card,
-  CatalogProviderId,
-  CatalogProviderStatus,
   CatalogCriteria,
   CollectionItem,
   PaginatedResult,
@@ -14,7 +12,6 @@ export interface CatalogRepository {
   search(criteria: CatalogCriteria, signal?: AbortSignal): Promise<PaginatedResult<Card>>;
   getById(id: string, signal?: AbortSignal): Promise<Card | null>;
   listSets(signal?: AbortSignal): Promise<Card['set'][]>;
-  getProviderStatuses(signal?: AbortSignal): Promise<CatalogProviderStatus[]>;
 }
 
 export interface PrivateRepository {
@@ -57,34 +54,35 @@ export class MockCatalogRepository implements CatalogRepository {
           (!criteria.type || card.type === criteria.type) &&
           (!criteria.rarity || card.rarity === criteria.rarity) &&
           (!criteria.variant ||
-            (criteria.variant === 'BASE'
-              ? true
-              : card.variants.some((variant) => variant.type === criteria.variant))) &&
+            criteria.variant === 'BASE' ||
+            card.variants.some((variant) => variant.type === criteria.variant)) &&
           (criteria.minCost === undefined || (card.cost ?? 0) >= criteria.minCost) &&
           (criteria.maxCost === undefined || (card.cost ?? 0) <= criteria.maxCost) &&
           (criteria.minPower === undefined || (card.power ?? 0) >= criteria.minPower) &&
           (criteria.maxPower === undefined || (card.power ?? 0) <= criteria.maxPower),
       )
-      .sort((a, b) => {
-        const av =
+      .sort((left, right) => {
+        const leftValue =
           criteria.sort === 'price'
-            ? getPrice(a)
+            ? getPrice(left)
             : criteria.sort === 'power'
-              ? (a.power ?? 0)
+              ? (left.power ?? 0)
               : criteria.sort === 'cost'
-                ? (a.cost ?? 0)
-                : a[criteria.sort];
-        const bv =
+                ? (left.cost ?? 0)
+                : left[criteria.sort];
+        const rightValue =
           criteria.sort === 'price'
-            ? getPrice(b)
+            ? getPrice(right)
             : criteria.sort === 'power'
-              ? (b.power ?? 0)
+              ? (right.power ?? 0)
               : criteria.sort === 'cost'
-                ? (b.cost ?? 0)
-                : b[criteria.sort];
-        const result =
-          typeof av === 'number' ? av - Number(bv) : String(av).localeCompare(String(bv));
-        return criteria.direction === 'asc' ? result : -result;
+                ? (right.cost ?? 0)
+                : right[criteria.sort];
+        const comparison =
+          typeof leftValue === 'number'
+            ? leftValue - Number(rightValue)
+            : String(leftValue).localeCompare(String(rightValue));
+        return criteria.direction === 'asc' ? comparison : -comparison;
       });
     const offset = (criteria.page - 1) * criteria.pageSize;
     return {
@@ -103,157 +101,9 @@ export class MockCatalogRepository implements CatalogRepository {
 
   async listSets(signal?: AbortSignal): Promise<Card['set'][]> {
     await delay(signal);
-    return Array.from(new Map(mockCards.map((card) => [card.set.code, card.set])).values());
+    return [...new Map(mockCards.map((card) => [card.set.code, card.set])).values()];
   }
 
-  async getProviderStatuses(signal?: AbortSignal): Promise<CatalogProviderStatus[]> {
-    await delay(signal);
-    const filterSummary = summarizeCatalogCards(mockCards);
-    return [
-      {
-        providerId: 'OPTCG_API',
-        name: 'OPTCG API',
-        enabled: true,
-        configured: true,
-        available: true,
-        totalCards: mockCards.length,
-        filterSummary,
-        latencyMs: 0,
-        checkedAt: new Date().toISOString(),
-      },
-      {
-        providerId: 'ARJUNKAI_OPTCG',
-        name: 'Arjunkai OPTCG',
-        enabled: true,
-        configured: true,
-        available: true,
-        totalCards: mockCards.length,
-        filterSummary,
-        latencyMs: 0,
-        checkedAt: new Date().toISOString(),
-      },
-    ];
-  }
-}
-
-function summarizeCatalogCards(cards: Card[]): CatalogProviderStatus['filterSummary'] {
-  const dimensions = {
-    sets: new Map<string, { label?: string; count: number }>(),
-    colors: new Map<string, { count: number }>(),
-    types: new Map<string, { count: number }>(),
-    rarities: new Map<string, { count: number }>(),
-    variants: new Map<string, { count: number }>(),
-    costs: new Map<string, { count: number }>(),
-    powers: new Map<string, { count: number }>(),
-  };
-  const increment = (
-    dimension: Map<string, { label?: string; count: number }>,
-    value: string | number | undefined,
-    label?: string,
-  ) => {
-    if (value === undefined || value === '') return;
-    const key = String(value);
-    const current = dimension.get(key);
-    dimension.set(key, { label: label ?? current?.label, count: (current?.count ?? 0) + 1 });
-  };
-  cards.forEach((card) => {
-    increment(dimensions.sets, card.set.code, card.set.name);
-    card.colors.forEach((color) => increment(dimensions.colors, color));
-    increment(dimensions.types, card.type);
-    increment(dimensions.rarities, card.rarity);
-    increment(dimensions.variants, 'BASE');
-    if (card.variants.length) increment(dimensions.variants, 'PARALLEL');
-    increment(dimensions.costs, card.cost);
-    increment(dimensions.powers, card.power);
-  });
-  const buckets = (dimension: Map<string, { label?: string; count: number }>, numeric = false) =>
-    Array.from(dimension, ([value, item]) => ({ value, ...item })).sort((left, right) =>
-      numeric ? Number(left.value) - Number(right.value) : left.value.localeCompare(right.value),
-    );
-  return {
-    sets: buckets(dimensions.sets),
-    colors: buckets(dimensions.colors),
-    types: buckets(dimensions.types),
-    rarities: buckets(dimensions.rarities),
-    variants: buckets(dimensions.variants),
-    costs: buckets(dimensions.costs, true),
-    powers: buckets(dimensions.powers, true),
-  };
-}
-
-export class AppsScriptCatalogRepository implements CatalogRepository {
-  constructor(
-    private readonly baseUrl: string,
-    private readonly provider: Exclude<CatalogProviderId, 'MOCK'> = 'OPTCG_API',
-  ) {}
-
-  async search(criteria: CatalogCriteria, signal?: AbortSignal): Promise<PaginatedResult<Card>> {
-    const params = new URLSearchParams({
-      resource: 'cards',
-      query: criteria.query,
-      set: criteria.setCode,
-      color: criteria.color,
-      type: criteria.type,
-      rarity: criteria.rarity,
-      variant: criteria.variant,
-      sort: criteria.sort,
-      direction: criteria.direction,
-      page: String(criteria.page),
-      pageSize: String(criteria.pageSize),
-      provider: this.provider,
-    });
-    const response = await fetch(`${this.baseUrl}?${params.toString()}`, { signal });
-    if (!response.ok) throw new Error('No se pudo cargar el catálogo.');
-    const payload: {
-      success: boolean;
-      data?: Omit<PaginatedResult<Card>, 'meta'>;
-      meta?: PaginatedResult<Card>['meta'];
-      error?: { message: string };
-    } = await response.json();
-    if (!payload.success || !payload.data || !payload.meta)
-      throw new Error(payload.error?.message ?? 'Respuesta de catálogo inválida.');
-    return { ...payload.data, meta: payload.meta };
-  }
-
-  async getById(id: string, signal?: AbortSignal): Promise<Card | null> {
-    const response = await fetch(
-      `${this.baseUrl}?${new URLSearchParams({ resource: 'card', id, provider: this.provider })}`,
-      { signal },
-    );
-    if (response.status === 404) return null;
-    if (!response.ok) throw new Error('No se pudo cargar la carta.');
-    const payload: { success: boolean; data?: Card } = await response.json();
-    return payload.data ?? null;
-  }
-
-  async listSets(signal?: AbortSignal): Promise<Card['set'][]> {
-    const response = await fetch(
-      `${this.baseUrl}?${new URLSearchParams({ resource: 'sets', provider: this.provider })}`,
-      { signal },
-    );
-    if (!response.ok) throw new Error('No se pudieron cargar las expansiones.');
-    const payload: { success: boolean; data?: Card['set'][]; error?: { message: string } } =
-      await response.json();
-    if (!payload.success || !payload.data)
-      throw new Error(payload.error?.message ?? 'Respuesta de expansiones inválida.');
-    return payload.data;
-  }
-
-  async getProviderStatuses(signal?: AbortSignal): Promise<CatalogProviderStatus[]> {
-    const response = await fetch(
-      `${this.baseUrl}?${new URLSearchParams({ resource: 'provider-statuses' })}`,
-      { signal },
-    );
-    if (!response.ok) throw new Error('No se pudo comprobar el estado de las APIs.');
-    const payload: {
-      success: boolean;
-      data?: CatalogProviderStatus[];
-      error?: { message: string };
-    } = await response.json();
-    if (!payload.success || !payload.data)
-      throw new Error(payload.error?.message ?? 'Respuesta de estado inválida.');
-    return payload.data;
-  }
 }
 
 const collectionKey = 'grand-line-vault:mock-collection';
@@ -274,7 +124,6 @@ export class MockPrivateRepository implements PrivateRepository {
   async listCollection(): Promise<CollectionItem[]> {
     return read(collectionKey, initialCollection);
   }
-
   async saveCollection(item: CollectionItem): Promise<CollectionItem> {
     const items = await this.listCollection();
     const existing = items.findIndex((entry) => entry.id === item.id);
@@ -284,16 +133,13 @@ export class MockPrivateRepository implements PrivateRepository {
     localStorage.setItem(collectionKey, JSON.stringify(next));
     return item;
   }
-
   async removeCollection(id: string): Promise<void> {
     const items = await this.listCollection();
     localStorage.setItem(collectionKey, JSON.stringify(items.filter((item) => item.id !== id)));
   }
-
   async listBoxes(): Promise<StorageBox[]> {
     return read(boxesKey, initialBoxes);
   }
-
   async saveBox(box: StorageBox): Promise<StorageBox> {
     const boxes = await this.listBoxes();
     const existing = boxes.findIndex((entry) => entry.id === box.id);
@@ -303,16 +149,13 @@ export class MockPrivateRepository implements PrivateRepository {
     localStorage.setItem(boxesKey, JSON.stringify(next));
     return box;
   }
-
   async removeBox(id: string): Promise<void> {
     const boxes = await this.listBoxes();
     localStorage.setItem(boxesKey, JSON.stringify(boxes.filter((box) => box.id !== id)));
   }
-
   async listSalesPacks(): Promise<SalesPack[]> {
     return read(packsKey, initialSalesPacks);
   }
-
   async saveSalesPack(pack: SalesPack): Promise<SalesPack> {
     const packs = await this.listSalesPacks();
     const existing = packs.findIndex((entry) => entry.id === pack.id);
@@ -322,7 +165,6 @@ export class MockPrivateRepository implements PrivateRepository {
     localStorage.setItem(packsKey, JSON.stringify(next));
     return pack;
   }
-
   async removeSalesPack(id: string): Promise<void> {
     const packs = await this.listSalesPacks();
     localStorage.setItem(packsKey, JSON.stringify(packs.filter((pack) => pack.id !== id)));
@@ -333,15 +175,11 @@ export class ApiPrivateRepository implements PrivateRepository {
   private async request<T>(path: string, init?: RequestInit): Promise<T> {
     const headers = new Headers(init?.headers);
     headers.set('Content-Type', 'application/json');
-    const response = await fetch(path, {
-      ...init,
-      headers,
-    });
+    const response = await fetch(path, { ...init, headers });
     if (!response.ok) throw new Error('No se pudo completar la operación.');
-    const payload: { data: T } = await response.json();
+    const payload = (await response.json()) as { data: T };
     return payload.data;
   }
-
   listCollection(): Promise<CollectionItem[]> {
     return this.request('/api/collection');
   }

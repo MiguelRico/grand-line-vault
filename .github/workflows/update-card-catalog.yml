@@ -1,0 +1,40 @@
+name: Update official card catalog
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 4 * * 1'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-card-catalog
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm exec -- vitest run scraper
+      - run: npm run catalog:scrape
+      - run: npm run catalog:validate
+      - run: npm test
+      - name: Commit catalog changes
+        shell: bash
+        run: |
+          if git diff --quiet -- public/catalog; then
+            echo "Catalog is already current."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/catalog
+          git commit -m "chore(catalog): update official card data"
+          git push

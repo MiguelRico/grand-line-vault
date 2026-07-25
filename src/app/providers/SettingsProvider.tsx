@@ -12,7 +12,7 @@ import { config } from '../config';
 import { useAuth } from './AuthProvider';
 
 const storageKey = 'grand-line-vault:settings';
-const defaults: AppSettings = { catalogProvider: 'OPTCG_API', theme: 'LIGHT' };
+const defaults: AppSettings = { theme: 'LIGHT' };
 
 function readLocalSettings(): AppSettings {
   try {
@@ -20,8 +20,6 @@ function readLocalSettings(): AppSettings {
     if (!stored) return defaults;
     const value = JSON.parse(stored) as Partial<AppSettings>;
     return {
-      catalogProvider:
-        value.catalogProvider === 'ARJUNKAI_OPTCG' ? 'ARJUNKAI_OPTCG' : 'OPTCG_API',
       theme: value.theme === 'DARK' ? 'DARK' : 'LIGHT',
     };
   } catch {

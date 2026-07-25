@@ -5,7 +5,6 @@ import { apiError, assertPayloadSize, json, methodNotAllowed } from '../_shared/
 import { appSettingsSchema } from '../_shared/schemas.js';
 
 const defaults = {
-  catalogProvider: 'OPTCG_API' as const,
   theme: 'LIGHT' as const,
 };
 

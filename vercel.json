@@ -1,6 +1,20 @@
 {
-  "rewrites": [{ "source": "/((?!api/).*)", "destination": "/index.html" }],
+  "rewrites": [{ "source": "/((?!api/|catalog/).*)", "destination": "/index.html" }],
   "headers": [
+    {
+      "source": "/catalog/manifest.json",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" },
+        { "key": "X-Content-Type-Options", "value": "nosniff" }
+      ]
+    },
+    {
+      "source": "/catalog/(cards|sets|filters|legacy-id-map).([a-f0-9]+).json",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" },
+        { "key": "X-Content-Type-Options", "value": "nosniff" }
+      ]
+    },
     {
       "source": "/(.*)",
       "headers": [

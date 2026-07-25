@@ -2,7 +2,6 @@ import { z } from 'zod';
 
 const schema = z.object({
   VITE_APP_NAME: z.string().default('Grand Line Vault'),
-  VITE_APPS_SCRIPT_URL: z.string().default(''),
   VITE_USE_MOCK_DATA: z
     .enum(['true', 'false'])
     .default('true')

@@ -1,39 +1,8 @@
-export type CatalogProviderId = 'ARJUNKAI_OPTCG' | 'OPTCG_API' | 'MOCK';
+export type CatalogProviderId = 'OFFICIAL_STATIC' | 'MOCK' | 'LEGACY_EXTERNAL';
 export type AppTheme = 'LIGHT' | 'DARK';
 
 export interface AppSettings {
-  catalogProvider: Exclude<CatalogProviderId, 'MOCK'>;
   theme: AppTheme;
-}
-
-export interface CatalogProviderStatus {
-  providerId: Exclude<CatalogProviderId, 'MOCK'>;
-  name: string;
-  enabled: boolean;
-  configured: boolean;
-  available: boolean;
-  totalCards: number | null;
-  filterSummary: CatalogFilterSummary | null;
-  latencyMs: number;
-  checkedAt: string;
-  documentationUrl?: string;
-  errorCode?: string;
-}
-
-export interface CatalogFilterBucket {
-  value: string;
-  label?: string;
-  count: number;
-}
-
-export interface CatalogFilterSummary {
-  sets: CatalogFilterBucket[];
-  colors: CatalogFilterBucket[];
-  types: CatalogFilterBucket[];
-  rarities: CatalogFilterBucket[];
-  variants: CatalogFilterBucket[];
-  costs: CatalogFilterBucket[];
-  powers: CatalogFilterBucket[];
 }
 export type CardLanguage = 'EN' | 'JP' | 'FR' | 'ES' | 'IT' | 'DE' | 'UNKNOWN';
 export type CardColor = 'RED' | 'GREEN' | 'BLUE' | 'PURPLE' | 'BLACK' | 'YELLOW';

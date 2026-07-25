@@ -1,7 +1,7 @@
 import type { Card, CollectionItem, SalesPack, StorageBox } from '../domain/models';
 
 const now = '2026-07-21T06:00:00.000Z';
-const providerBase = 'https://optcg-api.arjunbansal-ai.workers.dev/images';
+const providerBase = 'https://en.onepiece-cardgame.com/images/cardlist/card';
 
 const seeds = [
   ['OP01-001', 'Roronoa Zoro', 'LEADER', 'RED', 5, 5000, 'L', 1.25],
@@ -34,7 +34,7 @@ export const mockCards: Card[] = seeds.map(
       providerCardId: code,
       fetchedAt: now,
     };
-    const imageUrl = `${providerBase}/${code}`;
+    const imageUrl = `${providerBase}/${code}.png`;
     const price = {
       amount,
       currency: 'USD',
@@ -72,7 +72,7 @@ export const mockCards: Card[] = seeds.map(
                 baseCardId: id,
                 type: 'ALTERNATE_ART',
                 label: 'Alternate Art',
-                imageUrl: `${providerBase}/${code}_p1`,
+                imageUrl: `${providerBase}/${code}_p1.png`,
                 language: 'EN',
                 prices: [{ ...price, amount: amount * 8.4 }],
                 sources: [{ ...source, providerVariantId: `${code}_p1` }],
