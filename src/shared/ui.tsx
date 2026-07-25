@@ -16,7 +16,10 @@ import type { Card } from '../domain/models';
 import { OnePieceLoader } from './OnePieceLoader';
 
 const LOCAL_IMAGE_DELAY_MS = 1_500;
-const unavailableCardImage = `${import.meta.env.BASE_URL}one-piece-user.svg`.replace(/^\/{2,}/, '/');
+const unavailableCardImage = `${import.meta.env.BASE_URL}one-piece-user.svg`.replace(
+  /^\/{2,}/,
+  '/',
+);
 
 export function Button({
   className,
@@ -77,10 +80,12 @@ export function CardImage({
   src,
   alt,
   className,
+  showFailureText = true,
 }: {
   src: string;
   alt: string;
   className?: string;
+  showFailureText?: boolean;
 }) {
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
@@ -107,16 +112,26 @@ export function CardImage({
       )}
     >
       {failed ? (
-        <div className="flex h-full flex-col items-center justify-center gap-3 bg-slate-100 p-3">
+        <div
+          className={twMerge(
+            'flex h-full flex-col items-center justify-center bg-slate-100',
+            showFailureText && 'gap-3 p-3',
+          )}
+        >
           <img
             src={unavailableCardImage}
             alt=""
             aria-hidden="true"
-            className="h-auto max-h-[58%] w-[64%] object-contain opacity-65"
+            className={twMerge(
+              'h-auto w-[64%] object-contain opacity-65',
+              showFailureText ? 'max-h-[58%]' : 'max-h-[64%]',
+            )}
           />
-          <span className="brand-one-piece text-center text-lg leading-none text-slate-600">
-            Imagen no disponible
-          </span>
+          {showFailureText && (
+            <span className="brand-one-piece text-center text-lg leading-none text-slate-600">
+              IMAGEN NO DISPONIBLE
+            </span>
+          )}
         </div>
       ) : (
         <>
@@ -327,13 +342,7 @@ export function ErrorState({ message, retry }: { message: string; retry?: () => 
   );
 }
 
-export function FavoriteButton({
-  active,
-  onClick,
-}: {
-  active: boolean;
-  onClick: () => void;
-}) {
+export function FavoriteButton({ active, onClick }: { active: boolean; onClick: () => void }) {
   return (
     <button
       onClick={onClick}

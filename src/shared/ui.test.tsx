@@ -35,9 +35,24 @@ describe('CardImage', () => {
 
     fireEvent.error(screen.getByAltText('Carta desconocida'));
 
-    expect(screen.getByText('Imagen no disponible')).toBeInTheDocument();
-    expect(screen.getByText('Imagen no disponible')).toHaveClass('brand-one-piece');
+    expect(screen.getByText(/imagen no disponible/i)).toBeInTheDocument();
+    expect(screen.getByText(/imagen no disponible/i)).toHaveClass('brand-one-piece');
     expect(container.querySelector('img')).toHaveAttribute('src', '/one-piece-user.svg');
     expect(container.querySelector('img')).toHaveClass('w-[64%]');
+  });
+
+  it('can hide the unavailable text in compact artwork thumbnails', () => {
+    const { container } = render(
+      <CardImage
+        src="/missing-thumbnail.png"
+        alt="Arte alternativo"
+        showFailureText={false}
+      />,
+    );
+
+    fireEvent.error(screen.getByAltText('Arte alternativo'));
+
+    expect(container).not.toHaveTextContent(/imagen no disponible/i);
+    expect(container.querySelector('img')).toHaveAttribute('src', '/one-piece-user.svg');
   });
 });

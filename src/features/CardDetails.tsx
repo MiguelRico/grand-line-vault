@@ -14,6 +14,7 @@ export function CardDetails({ cardId, onClose }: { cardId: string | null; onClos
 
   useEffect(() => {
     setSelectedVariantId(null);
+    setQuantity(1);
   }, [cardId]);
   const cardQuery = useQuery({
     queryKey: ['card', cardId],
@@ -23,16 +24,14 @@ export function CardDetails({ cardId, onClose }: { cardId: string | null; onClos
   const collectionQuery = useQuery({
     queryKey: ['collection'],
     queryFn: () => services.privateData.listCollection(),
+    enabled: Boolean(cardId),
   });
-  const ownedTotal =
-    collectionQuery.data
-      ?.filter((item) => item.cardId === cardId)
-      .reduce((sum, item) => sum + item.quantity, 0) ?? 0;
   const addMutation = useMutation({
     mutationFn: async ({ card, variant }: { card: Card; variant: CardVariant | null }) => {
       const timestamp = new Date().toISOString();
       const prices = variant ? variant.prices : card.prices;
       const sources = variant ? variant.sources : card.sources;
+      const imageUrl = new URL(variant?.imageUrl ?? card.imageUrl, window.location.origin).href;
       const item: CollectionItem = {
         id: crypto.randomUUID(),
         cardId: card.id,
@@ -42,8 +41,8 @@ export function CardDetails({ cardId, onClose }: { cardId: string | null; onClos
           name: card.name,
           setCode: card.set.code,
           rarity: card.rarity,
-          variantLabel: variant?.label ?? 'Normal',
-          imageUrl: variant?.imageUrl ?? card.imageUrl,
+          variantLabel: variant?.label ?? 'Arte base',
+          imageUrl,
           catalogPrice: prices[0],
           catalogProvider: sources[0]?.providerId,
           catalogFetchedAt: sources[0]?.fetchedAt,
@@ -57,7 +56,12 @@ export function CardDetails({ cardId, onClose }: { cardId: string | null; onClos
       };
       return services.privateData.saveCollection(item);
     },
-    onSuccess: async () => {
+    onSuccess: async (savedItem) => {
+      setQuantity(1);
+      queryClient.setQueryData<CollectionItem[]>(['collection'], (items) => [
+        savedItem,
+        ...(items ?? []),
+      ]);
       await queryClient.invalidateQueries({ queryKey: ['collection'] });
     },
   });
@@ -70,10 +74,25 @@ export function CardDetails({ cardId, onClose }: { cardId: string | null; onClos
   const selectedPrices = selectedVariant ? selectedVariant.prices : (card?.prices ?? []);
   const selectedSources = selectedVariant ? selectedVariant.sources : (card?.sources ?? []);
   const selectedLanguage = selectedVariant?.language ?? card?.language;
+  const selectedCollectionId = selectedVariant?.id ?? card?.id;
+  const cardCollectionItems =
+    collectionQuery.data?.filter((item) => item.cardId === card?.id) ?? [];
+  const ownedTotal = cardCollectionItems.reduce((sum, item) => sum + item.quantity, 0);
+  const selectedOwnedTotal = cardCollectionItems
+    .filter((item) => item.cardVariantId === selectedCollectionId)
+    .reduce((sum, item) => sum + item.quantity, 0);
+  const copyLabel = quantity === 1 ? 'copia' : 'copias';
+
   return (
     <ResponsiveDialog
       open={Boolean(cardId)}
-      onOpenChange={(open) => !open && onClose()}
+      onOpenChange={(open) => {
+        if (!open) {
+          addMutation.reset();
+          setQuantity(1);
+          onClose();
+        }
+      }}
       title="Detalle de carta"
     >
       {cardQuery.isPending ? (
@@ -98,7 +117,10 @@ export function CardDetails({ cardId, onClose }: { cardId: string | null; onClos
                 <div className="flex gap-2 overflow-x-auto p-1">
                   <button
                     type="button"
-                    onClick={() => setSelectedVariantId(null)}
+                    onClick={() => {
+                      setSelectedVariantId(null);
+                      addMutation.reset();
+                    }}
                     aria-pressed={selectedVariant === null}
                     aria-label="Mostrar arte base"
                     className={`w-14 shrink-0 rounded-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet ${
@@ -107,13 +129,21 @@ export function CardDetails({ cardId, onClose }: { cardId: string | null; onClos
                         : 'opacity-70 hover:opacity-100'
                     }`}
                   >
-                    <CardImage src={card.imageUrl} alt="" className="w-full" />
+                    <CardImage
+                      src={card.imageUrl}
+                      alt=""
+                      className="w-full"
+                      showFailureText={false}
+                    />
                   </button>
                   {card.variants.map((variant) => (
                     <button
                       key={variant.id}
                       type="button"
-                      onClick={() => setSelectedVariantId(variant.id)}
+                      onClick={() => {
+                        setSelectedVariantId(variant.id);
+                        addMutation.reset();
+                      }}
                       aria-pressed={selectedVariant?.id === variant.id}
                       aria-label={`Mostrar ${variant.label}`}
                       className={`w-14 shrink-0 rounded-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet ${
@@ -122,7 +152,12 @@ export function CardDetails({ cardId, onClose }: { cardId: string | null; onClos
                           : 'opacity-70 hover:opacity-100'
                       }`}
                     >
-                      <CardImage src={variant.imageUrl} alt="" className="w-full" />
+                      <CardImage
+                        src={variant.imageUrl}
+                        alt=""
+                        className="w-full"
+                        showFailureText={false}
+                      />
                     </button>
                   ))}
                 </div>
@@ -190,17 +225,65 @@ export function CardDetails({ cardId, onClose }: { cardId: string | null; onClos
                 )}
               </div>
             </div>
-            <div className="mt-6 flex items-center justify-between gap-4">
-              <div>
-                <p className="mb-2 text-sm font-semibold">Cantidad en tu colección</p>
-                <QuantitySelector value={quantity} onChange={setQuantity} min={1} />
+            <div className="mt-6 grid gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2">
+              <div aria-live="polite">
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                  En tu colección
+                </p>
+                {collectionQuery.isPending ? (
+                  <div className="mt-2 flex items-center gap-2 text-sm text-slate-600">
+                    <OnePieceLoader size="xs" label="Consultando colección" />
+                    Consultando…
+                  </div>
+                ) : (
+                  <>
+                    <p className="mt-1 text-lg font-black text-slate-950">
+                      {selectedOwnedTotal} {selectedOwnedTotal === 1 ? 'copia' : 'copias'} de{' '}
+                      {selectedLabel}
+                    </p>
+                    {card.variants.length > 0 && (
+                      <p className="mt-1 text-xs text-slate-600">
+                        Total entre todos los artes: {ownedTotal}
+                      </p>
+                    )}
+                  </>
+                )}
               </div>
-              {ownedTotal > 0 && (
-                <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-                  Ya tienes {ownedTotal} en otros lotes
-                </span>
-              )}
+              <div className="sm:justify-self-end">
+                <p className="mb-2 text-sm font-semibold">Cantidad a añadir</p>
+                <QuantitySelector
+                  value={quantity}
+                  onChange={(value) => {
+                    setQuantity(value);
+                    addMutation.reset();
+                  }}
+                  min={1}
+                />
+              </div>
             </div>
+            {collectionQuery.isError && (
+              <p role="alert" className="mt-3 text-sm text-amber-700">
+                No se pudo consultar la cantidad actual. Aún puedes añadir esta carta.
+              </p>
+            )}
+            {addMutation.isSuccess && (
+              <p
+                role="status"
+                className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700"
+              >
+                Se han añadido {addMutation.data.quantity}{' '}
+                {addMutation.data.quantity === 1 ? 'copia' : 'copias'} de{' '}
+                {addMutation.data.cardSnapshot.variantLabel}.
+              </p>
+            )}
+            {addMutation.isError && (
+              <p
+                role="alert"
+                className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-700"
+              >
+                No se pudo añadir la carta. Inténtalo de nuevo.
+              </p>
+            )}
             <div className="mt-6">
               <Button
                 onClick={() => addMutation.mutate({ card, variant: selectedVariant })}
@@ -215,7 +298,7 @@ export function CardDetails({ cardId, onClose }: { cardId: string | null; onClos
                 ) : (
                   <>
                     <Plus className="size-4" />
-                    Añadir lote al inventario
+                    Añadir {quantity} {copyLabel} de {selectedLabel}
                   </>
                 )}
               </Button>

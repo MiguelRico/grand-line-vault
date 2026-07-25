@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Card } from '../domain/models';
 import { CardDetails } from './CardDetails';
@@ -50,9 +50,49 @@ const card: Card = {
   ],
 };
 
+const collectionItems = [
+  {
+    id: 'base-lot',
+    cardId: card.id,
+    cardVariantId: card.id,
+    cardSnapshot: {
+      code: card.code,
+      name: card.name,
+      setCode: card.set.code,
+      variantLabel: 'Normal',
+      imageUrl: 'https://example.test/base.png',
+    },
+    quantity: 2,
+    language: 'EN' as const,
+    condition: 'NEAR_MINT' as const,
+    favorite: false,
+    createdAt: '2026-07-25T00:00:00.000Z',
+    updatedAt: '2026-07-25T00:00:00.000Z',
+  },
+  {
+    id: 'variant-lot',
+    cardId: card.id,
+    cardVariantId: card.variants[0]?.id ?? '',
+    cardSnapshot: {
+      code: card.code,
+      name: card.name,
+      setCode: card.set.code,
+      variantLabel: 'Parallel 1',
+      imageUrl: 'https://example.test/parallel.png',
+    },
+    quantity: 3,
+    language: 'JP' as const,
+    condition: 'NEAR_MINT' as const,
+    favorite: false,
+    createdAt: '2026-07-25T00:00:00.000Z',
+    updatedAt: '2026-07-25T00:00:00.000Z',
+  },
+];
+
 beforeEach(() => {
+  vi.clearAllMocks();
   serviceMocks.getById.mockResolvedValue(card);
-  serviceMocks.listCollection.mockResolvedValue([]);
+  serviceMocks.listCollection.mockResolvedValue(collectionItems);
   serviceMocks.saveCollection.mockImplementation(async (item: unknown) => item);
 });
 
@@ -69,6 +109,8 @@ describe('CardDetails', () => {
 
     await screen.findByRole('heading', { name: card.name });
     expect(screen.getByText('1.00 USD')).toBeInTheDocument();
+    expect(await screen.findByText('2 copias de Arte base')).toBeInTheDocument();
+    expect(screen.getByText('Total entre todos los artes: 5')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Mostrar Parallel 1' }));
 
@@ -82,5 +124,37 @@ describe('CardDetails', () => {
     expect(screen.getByText('variant-price')).toBeInTheDocument();
     expect(screen.getByText(/· JP$/)).toBeInTheDocument();
     expect(screen.getByText(/Fuente de datos:/).parentElement).toHaveTextContent('MOCK');
+    expect(screen.getByText('3 copias de Parallel 1')).toBeInTheDocument();
+  });
+
+  it('adds the selected variant and quantity to the collection', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <CardDetails cardId={card.id} onClose={vi.fn()} />
+      </QueryClientProvider>,
+    );
+
+    await screen.findByRole('heading', { name: card.name });
+    fireEvent.click(screen.getByRole('button', { name: 'Mostrar Parallel 1' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Aumentar cantidad' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Añadir 2 copias de Parallel 1' }));
+
+    await waitFor(() => expect(serviceMocks.saveCollection).toHaveBeenCalledOnce());
+    expect(serviceMocks.saveCollection).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cardId: card.id,
+        cardVariantId: card.variants[0]?.id,
+        quantity: 2,
+        language: 'JP',
+        cardSnapshot: expect.objectContaining({
+          variantLabel: 'Parallel 1',
+          imageUrl: new URL('/parallel.png', window.location.origin).href,
+        }),
+      }),
+    );
+    expect(await screen.findByText('Se han añadido 2 copias de Parallel 1.')).toBeInTheDocument();
   });
 });
