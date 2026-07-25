@@ -37,24 +37,26 @@ function SidebarContent({ close }: { close?: () => void }) {
           GRAND LINE VAULT
         </p>
       </div>
-      <nav className="flex-1 space-y-1 px-3" aria-label="Navegación principal">
-        {navigation.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            onClick={close}
-            className={({ isActive }) =>
-              `flex min-h-11 items-center gap-3 rounded-lg px-4 text-sm font-semibold transition ${
-                isActive
-                  ? 'bg-gradient-to-r from-violet to-indigo-600 text-white shadow-lg shadow-indigo-950/30'
-                  : 'text-slate-300 hover:bg-white/5 hover:text-white'
-              }`
-            }
-          >
-            <item.icon className="size-5" aria-hidden />
-            {item.label}
-          </NavLink>
-        ))}
+      <nav className="flex flex-1 flex-col justify-center px-3" aria-label="Navegación principal">
+        <div className="space-y-1">
+          {navigation.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              onClick={close}
+              className={({ isActive }) =>
+                `flex min-h-11 items-center gap-3 rounded-lg px-4 text-sm font-semibold transition ${
+                  isActive
+                    ? 'bg-gradient-to-r from-violet to-indigo-600 text-white shadow-lg shadow-indigo-950/30'
+                    : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                }`
+              }
+            >
+              <item.icon className="size-5" aria-hidden />
+              {item.label}
+            </NavLink>
+          ))}
+        </div>
       </nav>
       <div className="space-y-1 p-3">
         <NavLink

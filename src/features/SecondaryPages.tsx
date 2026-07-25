@@ -944,7 +944,7 @@ function ProviderFilterSummary({
         <ChevronDown className="size-4 shrink-0 text-slate-400 transition-transform group-open:rotate-180" />
       </summary>
       <div className="px-4 pb-4 sm:px-5 sm:pb-5">
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3">
           <FilterTotalGroup
             title="Colores"
             buckets={summary.colors}
