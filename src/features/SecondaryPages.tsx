@@ -4,17 +4,24 @@ import {
   BarChart3,
   Box,
   CheckCircle2,
+  ChevronDown,
   Database,
+  Gauge,
   Heart,
+  Layers3,
   MapPin,
   Moon,
   PackagePlus,
+  Palette,
   Plus,
   RefreshCw,
+  Shapes,
   ShoppingBag,
+  Sparkles,
   Sun,
   Trash2,
   WifiOff,
+  type LucideIcon,
 } from 'lucide-react';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -795,23 +802,120 @@ const catalogFilterLabels: Record<string, string> = {
 
 const catalogNumber = new Intl.NumberFormat('es-ES');
 
-function FilterTotalGroup({ title, buckets }: { title: string; buckets: CatalogFilterBucket[] }) {
+const filterGroupStyles = {
+  violet: {
+    icon: 'bg-violet/10 text-violet dark:bg-violet/20 dark:text-indigo-300',
+    bar: 'bg-violet',
+    count: 'text-violet dark:text-indigo-300',
+  },
+  blue: {
+    icon: 'bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-blue-300',
+    bar: 'bg-blue-500',
+    count: 'text-blue-700 dark:text-blue-300',
+  },
+  amber: {
+    icon: 'bg-amber-50 text-amber-600 dark:bg-amber-950/60 dark:text-amber-300',
+    bar: 'bg-amber-500',
+    count: 'text-amber-700 dark:text-amber-300',
+  },
+  emerald: {
+    icon: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-300',
+    bar: 'bg-emerald-500',
+    count: 'text-emerald-700 dark:text-emerald-300',
+  },
+} as const;
+
+const cardColorStyles: Record<string, string> = {
+  RED: 'bg-red-500',
+  GREEN: 'bg-emerald-500',
+  BLUE: 'bg-blue-500',
+  PURPLE: 'bg-purple-500',
+  BLACK: 'bg-slate-900 ring-1 ring-slate-300 dark:bg-slate-200',
+  YELLOW: 'bg-amber-400',
+};
+
+function FilterTotalGroup({
+  title,
+  buckets,
+  icon: Icon,
+  tone,
+  compact = false,
+  showColor = false,
+}: {
+  title: string;
+  buckets: CatalogFilterBucket[];
+  icon: LucideIcon;
+  tone: keyof typeof filterGroupStyles;
+  compact?: boolean;
+  showColor?: boolean;
+}) {
   if (!buckets.length) return null;
+  const styles = filterGroupStyles[tone];
+  const maximum = Math.max(...buckets.map((bucket) => bucket.count));
   return (
-    <div>
-      <h4 className="text-xs font-black uppercase tracking-wide text-slate-500">{title}</h4>
-      <div className="mt-2 flex flex-wrap gap-1.5">
-        {buckets.map((bucket) => (
-          <span
-            key={bucket.value}
-            className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-700"
-          >
-            {catalogFilterLabels[bucket.value] ?? bucket.label ?? bucket.value}
-            <strong className="text-slate-950">{catalogNumber.format(bucket.count)}</strong>
-          </span>
-        ))}
+    <section className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm dark:bg-slate-900/40">
+      <div className="flex items-center gap-2.5">
+        <span className={`grid size-8 place-items-center rounded-lg ${styles.icon}`}>
+          <Icon className="size-4" />
+        </span>
+        <div>
+          <h4 className="text-sm font-black text-slate-900">{title}</h4>
+          <p className="text-[11px] text-slate-500">
+            {buckets.length} {buckets.length === 1 ? 'opción' : 'opciones'}
+          </p>
+        </div>
       </div>
-    </div>
+      {compact ? (
+        <div className="mt-3 grid grid-cols-4 gap-1.5 sm:grid-cols-6">
+          {buckets.map((bucket) => (
+            <div
+              key={bucket.value}
+              className="rounded-lg border border-slate-100 bg-slate-50 px-1.5 py-2 text-center"
+            >
+              <span className="block text-xs font-black text-slate-800">
+                {catalogFilterLabels[bucket.value] ?? bucket.value}
+              </span>
+              <span className={`mt-0.5 block text-[11px] font-bold ${styles.count}`}>
+                {catalogNumber.format(bucket.count)}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          {buckets.map((bucket) => (
+            <div
+              key={bucket.value}
+              className="rounded-lg border border-slate-100 bg-slate-50 px-2.5 py-2"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex min-w-0 items-center gap-1.5 truncate text-xs font-semibold text-slate-700">
+                  {showColor && (
+                    <span
+                      className={`size-2.5 shrink-0 rounded-full ${
+                        cardColorStyles[bucket.value] ?? 'bg-slate-400'
+                      }`}
+                    />
+                  )}
+                  <span className="truncate">
+                    {catalogFilterLabels[bucket.value] ?? bucket.label ?? bucket.value}
+                  </span>
+                </span>
+                <strong className={`shrink-0 text-xs ${styles.count}`}>
+                  {catalogNumber.format(bucket.count)}
+                </strong>
+              </div>
+              <div className="mt-2 h-1 overflow-hidden rounded-full bg-slate-200">
+                <div
+                  className={`h-full rounded-full ${styles.bar}`}
+                  style={{ width: `${Math.max(6, (bucket.count / maximum) * 100)}%` }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -823,39 +927,101 @@ function ProviderFilterSummary({
   selected: boolean;
 }) {
   return (
-    <details className="border-t border-slate-200 px-5 py-4" open={selected || undefined}>
-      <summary className="cursor-pointer text-sm font-black text-slate-800">
-        Totales por filtro
+    <details
+      className="group border-t border-slate-200 bg-slate-50/80 dark:bg-slate-950/20"
+      open={selected || undefined}
+    >
+      <summary className="flex cursor-pointer list-none items-center gap-3 px-5 py-4 [&::-webkit-details-marker]:hidden">
+        <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-violet text-white shadow-sm">
+          <BarChart3 className="size-4" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-black text-slate-900">Distribución del catálogo</span>
+          <span className="block text-xs text-slate-500">
+            Totales aplicables a los filtros de Explorar cartas
+          </span>
+        </span>
+        <ChevronDown className="size-4 shrink-0 text-slate-400 transition-transform group-open:rotate-180" />
       </summary>
-      <div className="mt-4 grid gap-4 sm:grid-cols-2">
-        <FilterTotalGroup title="Color" buckets={summary.colors} />
-        <FilterTotalGroup title="Tipo de carta" buckets={summary.types} />
-        <FilterTotalGroup title="Rareza" buckets={summary.rarities} />
-        <FilterTotalGroup title="Versión" buckets={summary.variants} />
-        <FilterTotalGroup title="Coste" buckets={summary.costs} />
-        <FilterTotalGroup title="Poder" buckets={summary.powers} />
-      </div>
-      {summary.sets.length > 0 && (
-        <div className="mt-4">
-          <h4 className="text-xs font-black uppercase tracking-wide text-slate-500">Expansiones</h4>
-          <div className="mt-2 max-h-52 overflow-y-auto rounded-lg border border-slate-200">
-            {summary.sets.map((set) => (
-              <div
-                key={set.value}
-                className="flex items-center justify-between gap-3 border-b border-slate-100 px-3 py-2 text-xs last:border-b-0"
-              >
-                <span className="min-w-0 truncate text-slate-700">
-                  <strong className="text-slate-950">{set.value}</strong>
-                  {set.label && ` · ${set.label}`}
-                </span>
-                <strong className="shrink-0 text-slate-950">
-                  {catalogNumber.format(set.count)}
-                </strong>
-              </div>
-            ))}
-          </div>
+      <div className="px-4 pb-4 sm:px-5 sm:pb-5">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <FilterTotalGroup
+            title="Colores"
+            buckets={summary.colors}
+            icon={Palette}
+            tone="violet"
+            showColor
+          />
+          <FilterTotalGroup
+            title="Tipos de carta"
+            buckets={summary.types}
+            icon={Shapes}
+            tone="blue"
+          />
+          <FilterTotalGroup
+            title="Rarezas"
+            buckets={summary.rarities}
+            icon={Sparkles}
+            tone="amber"
+          />
+          <FilterTotalGroup
+            title="Versiones"
+            buckets={summary.variants}
+            icon={Layers3}
+            tone="emerald"
+          />
+          <FilterTotalGroup
+            title="Coste"
+            buckets={summary.costs}
+            icon={Gauge}
+            tone="violet"
+            compact
+          />
+          <FilterTotalGroup
+            title="Poder"
+            buckets={summary.powers}
+            icon={BarChart3}
+            tone="blue"
+            compact
+          />
         </div>
-      )}
+        {summary.sets.length > 0 && (
+          <section className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:bg-slate-900/40">
+            <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
+              <div className="flex items-center gap-2.5">
+                <span className="grid size-8 place-items-center rounded-lg bg-indigo-50 text-violet dark:bg-violet/20 dark:text-indigo-300">
+                  <Database className="size-4" />
+                </span>
+                <div>
+                  <h4 className="text-sm font-black text-slate-900">Expansiones</h4>
+                  <p className="text-[11px] text-slate-500">Cobertura del proveedor</p>
+                </div>
+              </div>
+              <span className="rounded-full bg-violet px-2.5 py-1 text-xs font-black text-white">
+                {summary.sets.length}
+              </span>
+            </div>
+            <div className="max-h-56 overflow-y-auto p-2">
+              {summary.sets.map((set) => (
+                <div
+                  key={set.value}
+                  className="group/set flex items-center justify-between gap-3 rounded-lg px-2 py-2 text-xs transition hover:bg-indigo-50"
+                >
+                  <span className="flex min-w-0 items-center gap-2">
+                    <strong className="shrink-0 rounded-md bg-indigo-50 px-2 py-1 text-violet">
+                      {set.value}
+                    </strong>
+                    {set.label && <span className="truncate text-slate-600">{set.label}</span>}
+                  </span>
+                  <strong className="shrink-0 rounded-md bg-slate-100 px-2 py-1 text-slate-800">
+                    {catalogNumber.format(set.count)}
+                  </strong>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+      </div>
     </details>
   );
 }
