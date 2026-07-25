@@ -36,11 +36,11 @@ export function LoginPage() {
   };
 
   return (
-    <main className="relative grid min-h-dvh place-items-center overflow-hidden bg-navy px-4 py-10">
+    <main className="relative grid min-h-dvh place-items-center overflow-hidden bg-navy px-4 py-4 sm:py-6">
       <div className="absolute inset-0 opacity-40 [background-image:radial-gradient(circle_at_20%_10%,#4338ca_0,transparent_35%),radial-gradient(circle_at_80%_90%,#1e3a8a_0,transparent_32%)]" />
       <div className="relative w-full max-w-md">
-        <div className="mb-7 text-center text-white">
-          <div className="mx-auto flex w-full flex-col items-center gap-2 px-6 sm:px-8">
+        <div className="mb-4 text-center text-white">
+          <div className="mx-auto flex w-full flex-col items-center px-5 sm:px-6">
             <div className="w-full" aria-label="One Piece">
               <img src="/one-piece.svg" alt="One Piece" className="block h-auto w-full invert" />
             </div>
@@ -48,13 +48,13 @@ export function LoginPage() {
               GRAND LINE VAULT
             </h1>
           </div>
-          <p className="mt-2 text-sm text-slate-400">Tu colección. Tus reglas. Un único acceso.</p>
+          <p className="mt-1 text-sm text-slate-400">Tu colección. Tus reglas. Un único acceso.</p>
         </div>
         <form
           onSubmit={(event) => void handleSubmit(onSubmit)(event)}
-          className="rounded-2xl border border-white/10 bg-white p-6 shadow-2xl sm:p-8"
+          className="rounded-2xl border border-white/10 bg-white p-5 shadow-2xl sm:p-6"
         >
-          <div className="mb-5 flex items-center gap-3">
+          <div className="mb-4 flex items-center gap-3">
             <span className="grid size-10 place-items-center rounded-xl bg-indigo-50 text-violet">
               <ShieldCheck className="size-5" />
             </span>
@@ -81,11 +81,11 @@ export function LoginPage() {
               {errors.password?.message ?? serverError}
             </p>
           )}
-          <Button type="submit" disabled={isSubmitting} className="mt-5 w-full">
+          <Button type="submit" disabled={isSubmitting} className="mt-4 w-full">
             {isSubmitting ? 'Comprobando…' : 'Entrar en mi colección'}
           </Button>
           {config.VITE_USE_MOCK_DATA && (
-            <p className="mt-4 rounded-lg bg-indigo-50 p-3 text-center text-xs text-indigo-900">
+            <p className="mt-3 rounded-lg bg-indigo-50 p-2.5 text-center text-xs text-indigo-900">
               Acceso de desarrollo: <strong>nakama</strong>
             </p>
           )}

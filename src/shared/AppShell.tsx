@@ -29,7 +29,7 @@ function SidebarContent({ close }: { close?: () => void }) {
   const navigate = useNavigate();
   return (
     <div className="flex h-full flex-col">
-      <div className="flex flex-col items-center justify-start gap-2 px-3 pb-4 pt-3">
+      <div className="flex flex-col items-center justify-start px-3 pb-2 pt-2">
         <div className="w-full" aria-label="One Piece">
           <img src="/one-piece.svg" alt="One Piece" className="block h-auto w-full invert" />
         </div>
@@ -44,7 +44,7 @@ function SidebarContent({ close }: { close?: () => void }) {
             to={item.to}
             onClick={close}
             className={({ isActive }) =>
-              `flex min-h-12 items-center gap-3 rounded-lg px-4 text-sm font-semibold transition ${
+              `flex min-h-11 items-center gap-3 rounded-lg px-4 text-sm font-semibold transition ${
                 isActive
                   ? 'bg-gradient-to-r from-violet to-indigo-600 text-white shadow-lg shadow-indigo-950/30'
                   : 'text-slate-300 hover:bg-white/5 hover:text-white'
@@ -56,7 +56,7 @@ function SidebarContent({ close }: { close?: () => void }) {
           </NavLink>
         ))}
       </nav>
-      <div className="space-y-2 p-4">
+      <div className="space-y-1 p-3">
         <NavLink
           to="/settings"
           className="flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-semibold text-slate-300 hover:bg-white/5"
