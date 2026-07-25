@@ -1,7 +1,7 @@
 import { Box, CalendarClock, Plus } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { Card, CollectionItem } from '../domain/models';
+import type { Card, CardVariant, CollectionItem } from '../domain/models';
 import { useServices } from '../app/providers/ServicesProvider';
 import { Button, CardImage, QuantitySelector, ResponsiveDialog } from '../shared/ui';
 import { OnePieceLoader } from '../shared/OnePieceLoader';
@@ -10,6 +10,11 @@ export function CardDetails({ cardId, onClose }: { cardId: string | null; onClos
   const services = useServices();
   const queryClient = useQueryClient();
   const [quantity, setQuantity] = useState(1);
+  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setSelectedVariantId(null);
+  }, [cardId]);
   const cardQuery = useQuery({
     queryKey: ['card', cardId],
     queryFn: ({ signal }) => services.catalog.getById(cardId ?? '', signal),
@@ -24,25 +29,27 @@ export function CardDetails({ cardId, onClose }: { cardId: string | null; onClos
       ?.filter((item) => item.cardId === cardId)
       .reduce((sum, item) => sum + item.quantity, 0) ?? 0;
   const addMutation = useMutation({
-    mutationFn: async (card: Card) => {
+    mutationFn: async ({ card, variant }: { card: Card; variant: CardVariant | null }) => {
       const timestamp = new Date().toISOString();
+      const prices = variant ? variant.prices : card.prices;
+      const sources = variant ? variant.sources : card.sources;
       const item: CollectionItem = {
         id: crypto.randomUUID(),
         cardId: card.id,
-        cardVariantId: card.id,
+        cardVariantId: variant?.id ?? card.id,
         cardSnapshot: {
           code: card.code,
           name: card.name,
           setCode: card.set.code,
           rarity: card.rarity,
-          variantLabel: 'Normal',
-          imageUrl: card.imageUrl,
-          catalogPrice: card.prices[0],
-          catalogProvider: card.sources[0]?.providerId,
-          catalogFetchedAt: card.sources[0]?.fetchedAt,
+          variantLabel: variant?.label ?? 'Normal',
+          imageUrl: variant?.imageUrl ?? card.imageUrl,
+          catalogPrice: prices[0],
+          catalogProvider: sources[0]?.providerId,
+          catalogFetchedAt: sources[0]?.fetchedAt,
         },
         quantity,
-        language: card.language,
+        language: variant?.language ?? card.language,
         condition: 'NEAR_MINT',
         favorite: false,
         createdAt: timestamp,
@@ -56,6 +63,13 @@ export function CardDetails({ cardId, onClose }: { cardId: string | null; onClos
   });
 
   const card = cardQuery.data;
+  const selectedVariant =
+    card?.variants.find((variant) => variant.id === selectedVariantId) ?? null;
+  const selectedImageUrl = selectedVariant?.imageUrl ?? card?.imageUrl ?? '';
+  const selectedLabel = selectedVariant?.label ?? 'Arte base';
+  const selectedPrices = selectedVariant ? selectedVariant.prices : (card?.prices ?? []);
+  const selectedSources = selectedVariant ? selectedVariant.sources : (card?.sources ?? []);
+  const selectedLanguage = selectedVariant?.language ?? card?.language;
   return (
     <ResponsiveDialog
       open={Boolean(cardId)}
@@ -71,21 +85,45 @@ export function CardDetails({ cardId, onClose }: { cardId: string | null; onClos
       ) : (
         <div className="grid gap-7 md:grid-cols-[260px_1fr]">
           <div>
-            <CardImage src={card.imageUrl} alt={`Carta ${card.name}`} className="shadow-soft" />
+            <CardImage
+              src={selectedImageUrl}
+              alt={`Carta ${card.name} — ${selectedLabel}`}
+              className="shadow-soft"
+            />
             {card.variants.length > 0 && (
               <div className="mt-4">
                 <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">
                   Artes disponibles
                 </p>
-                <div className="flex gap-2">
-                  <CardImage src={card.imageUrl} alt="Arte base" className="w-14 shrink-0" />
-                  {card.variants.slice(0, 3).map((variant) => (
-                    <CardImage
+                <div className="flex gap-2 overflow-x-auto p-1">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedVariantId(null)}
+                    aria-pressed={selectedVariant === null}
+                    aria-label="Mostrar arte base"
+                    className={`w-14 shrink-0 rounded-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet ${
+                      selectedVariant === null
+                        ? 'ring-2 ring-violet ring-offset-2'
+                        : 'opacity-70 hover:opacity-100'
+                    }`}
+                  >
+                    <CardImage src={card.imageUrl} alt="" className="w-full" />
+                  </button>
+                  {card.variants.map((variant) => (
+                    <button
                       key={variant.id}
-                      src={variant.imageUrl}
-                      alt={variant.label}
-                      className="w-14 shrink-0"
-                    />
+                      type="button"
+                      onClick={() => setSelectedVariantId(variant.id)}
+                      aria-pressed={selectedVariant?.id === variant.id}
+                      aria-label={`Mostrar ${variant.label}`}
+                      className={`w-14 shrink-0 rounded-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet ${
+                        selectedVariant?.id === variant.id
+                          ? 'ring-2 ring-violet ring-offset-2'
+                          : 'opacity-70 hover:opacity-100'
+                      }`}
+                    >
+                      <CardImage src={variant.imageUrl} alt="" className="w-full" />
+                    </button>
                   ))}
                 </div>
               </div>
@@ -94,8 +132,9 @@ export function CardDetails({ cardId, onClose }: { cardId: string | null; onClos
           <div className="min-w-0 pt-2">
             <p className="text-xs font-semibold text-slate-500">{card.code}</p>
             <h2 className="mt-1 pr-10 text-2xl font-black text-slate-950">{card.name}</h2>
+            <p className="mt-1 text-sm font-semibold text-violet">{selectedLabel}</p>
             <p className="mt-1 text-sm text-slate-600">
-              {card.type} · {card.traits.join(' / ')}
+              {card.type} · {card.traits.join(' / ')} · {selectedLanguage}
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
               {card.colors.map((color) => (
@@ -139,14 +178,14 @@ export function CardDetails({ cardId, onClose }: { cardId: string | null; onClos
               <div className="rounded-xl bg-slate-50 p-4">
                 <p className="text-xs font-bold uppercase text-slate-500">Precio de catálogo</p>
                 <p className="mt-1 font-black">
-                  {card.prices[0]
-                    ? `${card.prices[0].amount.toFixed(2)} ${card.prices[0].currency}`
+                  {selectedPrices[0]
+                    ? `${selectedPrices[0].amount.toFixed(2)} ${selectedPrices[0].currency}`
                     : 'Sin valorar'}
                 </p>
-                {card.prices[0] && (
+                {selectedPrices[0] && (
                   <p className="mt-1 flex items-center gap-1 text-[11px] text-slate-500">
                     <CalendarClock className="size-3" />
-                    {card.prices[0].source}
+                    {selectedPrices[0].source}
                   </p>
                 )}
               </div>
@@ -164,7 +203,7 @@ export function CardDetails({ cardId, onClose }: { cardId: string | null; onClos
             </div>
             <div className="mt-6">
               <Button
-                onClick={() => addMutation.mutate(card)}
+                onClick={() => addMutation.mutate({ card, variant: selectedVariant })}
                 disabled={addMutation.isPending}
                 className="w-full"
               >
@@ -183,7 +222,7 @@ export function CardDetails({ cardId, onClose }: { cardId: string | null; onClos
             </div>
             <div className="mt-3 flex justify-center gap-1 text-xs text-slate-500">
               <Box className="size-3.5" /> Fuente de datos:{' '}
-              {card.sources[0]?.providerId ?? 'desconocida'}
+              {selectedSources[0]?.providerId ?? 'desconocida'}
             </div>
           </div>
         </div>

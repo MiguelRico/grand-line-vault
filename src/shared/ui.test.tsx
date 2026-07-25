@@ -36,6 +36,7 @@ describe('CardImage', () => {
     fireEvent.error(screen.getByAltText('Carta desconocida'));
 
     expect(screen.getByText('Imagen no disponible')).toBeInTheDocument();
+    expect(screen.getByText('Imagen no disponible')).toHaveClass('brand-one-piece');
     expect(container.querySelector('img')).toHaveAttribute('src', '/one-piece-user.svg');
     expect(container.querySelector('img')).toHaveClass('w-[64%]');
   });

@@ -107,14 +107,16 @@ export function CardImage({
       )}
     >
       {failed ? (
-        <div className="flex h-full items-center justify-center bg-slate-100">
+        <div className="flex h-full flex-col items-center justify-center gap-3 bg-slate-100 p-3">
           <img
             src={unavailableCardImage}
             alt=""
             aria-hidden="true"
-            className="h-auto max-h-[64%] w-[64%] object-contain opacity-65"
+            className="h-auto max-h-[58%] w-[64%] object-contain opacity-65"
           />
-          <span className="sr-only">Imagen no disponible</span>
+          <span className="brand-one-piece text-center text-lg leading-none text-slate-600">
+            Imagen no disponible
+          </span>
         </div>
       ) : (
         <>
