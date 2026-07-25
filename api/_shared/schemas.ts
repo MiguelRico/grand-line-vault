@@ -1,5 +1,10 @@
 import { z } from 'zod';
 
+export const appSettingsSchema = z.object({
+  catalogProvider: z.enum(['ARJUNKAI_OPTCG', 'OPTCG_API']),
+  theme: z.enum(['LIGHT', 'DARK']),
+});
+
 const priceSchema = z.object({
   amount: z.number().nonnegative(),
   currency: z.string().length(3),

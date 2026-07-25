@@ -4,6 +4,8 @@ var QueryParameterValidator = {
       if (params[key] !== undefined && params[key] !== '' && !isFinite(Number(params[key])))
         throw CatalogError.functional('INVALID_PARAMETER', key + ' debe ser numérico.');
     });
+    if (params.provider && ['ARJUNKAI_OPTCG', 'OPTCG_API'].indexOf(params.provider) < 0)
+      throw CatalogError.functional('UNKNOWN_PROVIDER', 'Proveedor no registrado.');
   },
   criteria: function (params) {
     var max = Config.number('CATALOG_MAX_PAGE_SIZE');

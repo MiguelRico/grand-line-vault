@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { App } from './app/App';
 import { AuthProvider } from './app/providers/AuthProvider';
 import { ServicesProvider } from './app/providers/ServicesProvider';
+import { SettingsProvider } from './app/providers/SettingsProvider';
 import './app/styles.css';
 
 const queryClient = new QueryClient({
@@ -20,13 +21,15 @@ if (!root) throw new Error('No se encontró el contenedor principal.');
 createRoot(root).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <ServicesProvider>
-        <BrowserRouter>
-          <AuthProvider>
+      <BrowserRouter>
+        <AuthProvider>
+          <SettingsProvider>
+            <ServicesProvider>
             <App />
-          </AuthProvider>
-        </BrowserRouter>
-      </ServicesProvider>
+            </ServicesProvider>
+          </SettingsProvider>
+        </AuthProvider>
+      </BrowserRouter>
     </QueryClientProvider>
   </StrictMode>,
 );

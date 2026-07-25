@@ -1,4 +1,23 @@
 export type CatalogProviderId = 'ARJUNKAI_OPTCG' | 'OPTCG_API' | 'MOCK';
+export type AppTheme = 'LIGHT' | 'DARK';
+
+export interface AppSettings {
+  catalogProvider: Exclude<CatalogProviderId, 'MOCK'>;
+  theme: AppTheme;
+}
+
+export interface CatalogProviderStatus {
+  providerId: Exclude<CatalogProviderId, 'MOCK'>;
+  name: string;
+  enabled: boolean;
+  configured: boolean;
+  available: boolean;
+  totalCards: number | null;
+  latencyMs: number;
+  checkedAt: string;
+  documentationUrl?: string;
+  errorCode?: string;
+}
 export type CardLanguage = 'EN' | 'JP' | 'FR' | 'ES' | 'IT' | 'DE' | 'UNKNOWN';
 export type CardColor = 'RED' | 'GREEN' | 'BLUE' | 'PURPLE' | 'BLACK' | 'YELLOW';
 export type CardType = 'LEADER' | 'CHARACTER' | 'EVENT' | 'STAGE' | 'DON';

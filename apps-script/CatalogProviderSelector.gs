@@ -1,6 +1,8 @@
 var CatalogProviderSelector = {
-  select: function (operation) {
-    var ids = [Config.get('CATALOG_PRIMARY_PROVIDER')].concat(Config.list('CATALOG_FALLBACK_PROVIDERS'));
+  select: function (operation, preferredProviderId) {
+    var ids = preferredProviderId
+      ? [preferredProviderId]
+      : [Config.get('CATALOG_PRIMARY_PROVIDER')].concat(Config.list('CATALOG_FALLBACK_PROVIDERS'));
     return ids.filter(function (id, index) {
       if (ids.indexOf(id) !== index) return false;
       var provider = CatalogProviderRegistry.get(id);

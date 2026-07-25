@@ -3,7 +3,7 @@ function setupScriptProperties() {
     CATALOG_PRIMARY_PROVIDER: 'ARJUNKAI_OPTCG',
     CATALOG_FALLBACK_PROVIDERS: 'OPTCG_API',
     CATALOG_PROVIDER_FALLBACK_ENABLED: 'true',
-    ARJUNKAI_API_BASE_URL: '',
+    ARJUNKAI_API_BASE_URL: 'https://optcg-api.arjunbansal-ai.workers.dev',
     ARJUNKAI_API_KEY: '',
     ARJUNKAI_API_KEY_HEADER: 'X-API-Key',
     ARJUNKAI_ENABLED: 'true',

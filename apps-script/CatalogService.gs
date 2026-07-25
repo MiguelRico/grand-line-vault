@@ -1,12 +1,12 @@
 var CatalogService = (function () {
-  function execute(operation, args) {
-    var cacheKey = CatalogCache.key('normalized', operation, args);
+  function execute(operation, args, preferredProviderId) {
+    var cacheKey = CatalogCache.key(preferredProviderId || 'automatic', operation, args);
     var cached = CatalogCache.get(cacheKey);
     if (cached) {
       cached.meta.cached = true;
       return cached;
     }
-    var candidates = CatalogProviderSelector.select(operation);
+    var candidates = CatalogProviderSelector.select(operation, preferredProviderId);
     if (!candidates.length) throw CatalogError.retryable('NO_PROVIDER', 'No hay proveedores disponibles.');
     var lastError;
     for (var index = 0; index < candidates.length; index += 1) {
@@ -36,9 +36,9 @@ var CatalogService = (function () {
     throw lastError || CatalogError.retryable('CATALOG_UNAVAILABLE', 'Catálogo no disponible.');
   }
   return {
-    search: function (criteria) { return execute('search', [criteria]); },
-    getCard: function (criteria) { return execute('getCard', [criteria]); },
-    getSets: function () { return execute('getSets', []); },
+    search: function (criteria, providerId) { return execute('search', [criteria], providerId); },
+    getCard: function (criteria, providerId) { return execute('getCard', [criteria], providerId); },
+    getSets: function (providerId) { return execute('getSets', [], providerId); },
     metadata: function () {
       return {
         providers: CatalogProviderRegistry.describe(),
@@ -64,6 +64,48 @@ var CatalogService = (function () {
         } catch (error) {
           return { providerId: id, available: false, latencyMs: Date.now() - started, checkedAt: new Date().toISOString(), errorCode: error.code || 'HEALTH_ERROR' };
         }
+      });
+    },
+    providerStatuses: function () {
+      return CatalogProviderRegistry.describe().map(function (description) {
+        var started = Date.now();
+        var base = {
+          providerId: description.id,
+          name: description.name,
+          enabled: description.enabled,
+          configured: description.configured,
+          available: false,
+          totalCards: null,
+          latencyMs: 0,
+          checkedAt: new Date().toISOString(),
+          documentationUrl: description.documentationUrl
+        };
+        if (!description.enabled) {
+          base.errorCode = 'PROVIDER_DISABLED';
+          return base;
+        }
+        if (!description.configured) {
+          base.errorCode = 'PROVIDER_NOT_CONFIGURED';
+          return base;
+        }
+        var statusKey = CatalogCache.key(description.id, 'providerStatus', []);
+        var cachedStatus = CatalogCache.get(statusKey);
+        if (cachedStatus) return cachedStatus;
+        try {
+          var provider = CatalogProviderRegistry.get(description.id);
+          var result = provider.search({
+            query: '', set: '', color: '', type: '', rarity: '', variant: '',
+            sort: 'name', direction: 'asc', page: 1, pageSize: 1
+          });
+          base.available = true;
+          base.totalCards = Number(result.total || 0);
+        } catch (error) {
+          base.errorCode = error.code || 'HEALTH_ERROR';
+        }
+        base.latencyMs = Date.now() - started;
+        base.checkedAt = new Date().toISOString();
+        CatalogCache.put(statusKey, base, 900);
+        return base;
       });
     }
   };

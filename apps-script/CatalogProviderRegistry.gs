@@ -16,6 +16,7 @@ var CatalogProviderRegistry = (function () {
       return {
         id: id,
         name: provider.getProviderInfo().name,
+        documentationUrl: provider.getProviderInfo().documentationUrl,
         enabled: provider.isEnabled(),
         configured: provider.isConfigured(),
         capabilities: provider.getCapabilities()

@@ -55,24 +55,24 @@ npm run build
 
 Variables públicas, incluidas en el bundle:
 
-| Variable | Uso |
-| --- | --- |
-| `VITE_APP_NAME` | Nombre visible |
-| `VITE_APPS_SCRIPT_URL` | URL `/exec` del Web App de Apps Script |
-| `VITE_USE_MOCK_DATA` | Activa repositorios mock |
-| `VITE_DEFAULT_CURRENCY` | Moneda de presentación |
-| `VITE_DEFAULT_PAGE_SIZE` | Tamaño de página |
+| Variable                 | Uso                                    |
+| ------------------------ | -------------------------------------- |
+| `VITE_APP_NAME`          | Nombre visible                         |
+| `VITE_APPS_SCRIPT_URL`   | URL `/exec` del Web App de Apps Script |
+| `VITE_USE_MOCK_DATA`     | Activa repositorios mock               |
+| `VITE_DEFAULT_CURRENCY`  | Moneda de presentación                 |
+| `VITE_DEFAULT_PAGE_SIZE` | Tamaño de página                       |
 
 Variables privadas de Vercel:
 
-| Variable | Uso |
-| --- | --- |
-| `APP_PASSWORD_HASH` | Hash bcrypt, nunca la contraseña |
-| `SESSION_SECRET` | Secreto aleatorio de al menos 32 caracteres |
-| `SESSION_TTL_SECONDS` | Duración de la sesión |
-| `FIREBASE_PROJECT_ID` | Proyecto Firebase |
-| `FIREBASE_CLIENT_EMAIL` | Cuenta de servicio |
-| `FIREBASE_PRIVATE_KEY` | Clave PEM; `\n` escapados son admitidos |
+| Variable                | Uso                                         |
+| ----------------------- | ------------------------------------------- |
+| `APP_PASSWORD_HASH`     | Hash bcrypt, nunca la contraseña            |
+| `SESSION_SECRET`        | Secreto aleatorio de al menos 32 caracteres |
+| `SESSION_TTL_SECONDS`   | Duración de la sesión                       |
+| `FIREBASE_PROJECT_ID`   | Proyecto Firebase                           |
+| `FIREBASE_CLIENT_EMAIL` | Cuenta de servicio                          |
+| `FIREBASE_PRIVATE_KEY`  | Clave PEM; `\n` escapados son admitidos     |
 
 Genera el hash:
 
@@ -148,17 +148,23 @@ La Web App ofrece:
 ?resource=metadata
 ?resource=providers
 ?resource=health
+?resource=provider-statuses
 ```
+
+Las búsquedas, detalles y expansiones aceptan `provider=ARJUNKAI_OPTCG` o
+`provider=OPTCG_API`. La pantalla de ajustes guarda esa selección y el tema en
+`app/settings`; también conserva una copia local para aplicar la apariencia antes de
+que React se inicie.
 
 ## Proveedores verificados el 24-07-2026
 
-| Proveedor | Rol | API key | Variantes | Precios | Fallback |
-| --- | --- | ---: | ---: | ---: | ---: |
-| Arjunkai OPTCG | Principal | Configurable/requerida en la instancia pública | Sí | Sí, USD y procedencia | No |
-| OPTCG API | Secundario | No en la API pública documentada | Sí | Sí, USD | Sí |
-| Mock | Desarrollo | No | Sí | Sí | Desarrollo |
+| Proveedor      | Rol        |                                        API key | Variantes |               Precios |   Fallback |
+| -------------- | ---------- | ---------------------------------------------: | --------: | --------------------: | ---------: |
+| Arjunkai OPTCG | Principal  | Configurable/requerida en la instancia pública |        Sí | Sí, USD y procedencia |         No |
+| OPTCG API      | Secundario |               No en la API pública documentada |        Sí |               Sí, USD |         Sí |
+| Mock           | Desarrollo |                                             No |        Sí |                    Sí | Desarrollo |
 
-Arjunkai documenta `/cards`, `/cards/{id}`, `/sets`, filtros, paginación, variantes y precios. Su instancia desplegada restringe orígenes y exige `X-API-Key` fuera de su allowlist. Por eso `ARJUNKAI_API_BASE_URL` no tiene un valor por defecto y el proveedor solo se considera configurado con endpoint y credencial, salvo que se habilite explícitamente el acceso no autenticado para una instancia propia.
+Arjunkai documenta `/cards`, `/cards/{id}`, `/sets`, filtros, paginación, variantes y precios. Su instancia desplegada restringe orígenes y exige `X-API-Key` fuera de su allowlist. `setupScriptProperties` propone la URL pública documentada, pero el proveedor solo se considera configurado al añadir una credencial, salvo que se habilite explícitamente el acceso no autenticado para una instancia propia.
 
 OPTCG API documenta endpoints GET sin autenticación. La implementación usa `/sets/filtered/`, `/sets/card/{id}/` y `/allSets/`, cuyas respuestas se verificaron durante la integración. Como no pagina, Apps Script normaliza, filtra y pagina el resultado; es un fallback de menor riqueza y marca `partialData=true`.
 
@@ -183,7 +189,9 @@ El navegador usa TanStack Query. Apps Script usa `CacheService` con claves que i
 
 Errores temporales (`429`, `500`, `502`, `503`, `504`, red o JSON inválido) admiten retry limitado y fallback. Errores funcionales, parámetros inválidos y autenticación incorrecta no lo hacen. Tras el umbral configurado, el circuito pasa de `CLOSED` a `OPEN` y más tarde a `HALF_OPEN`.
 
-`?resource=providers` muestra estado y capacidades sin claves. `?resource=health` informa disponibilidad, latencia y circuito.
+`?resource=providers` muestra configuración y capacidades sin claves. `?resource=health`
+informa disponibilidad, latencia y circuito. `?resource=provider-statuses` ofrece el
+resumen que usa la pantalla de ajustes, incluida la cantidad de cartas disponible.
 
 ## Imágenes y precios
 

@@ -6,7 +6,6 @@ import {
   Heart,
   Library,
   Menu,
-  Moon,
   Settings,
   ShoppingBag,
   X,
@@ -157,12 +156,6 @@ export function PageHeader({
         {subtitle && <p className="mt-1 text-sm text-slate-600">{subtitle}</p>}
       </div>
       <div className="flex items-center gap-2">
-        <button
-          className="hidden size-11 place-items-center rounded-lg text-slate-700 hover:bg-white lg:grid"
-          aria-label="Cambiar tema"
-        >
-          <Moon className="size-5" />
-        </button>
         {action}
       </div>
     </div>

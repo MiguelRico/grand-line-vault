@@ -1,5 +1,7 @@
 import type {
   Card,
+  CatalogProviderId,
+  CatalogProviderStatus,
   CatalogCriteria,
   CollectionItem,
   PaginatedResult,
@@ -12,6 +14,7 @@ export interface CatalogRepository {
   search(criteria: CatalogCriteria, signal?: AbortSignal): Promise<PaginatedResult<Card>>;
   getById(id: string, signal?: AbortSignal): Promise<Card | null>;
   listSets(signal?: AbortSignal): Promise<Card['set'][]>;
+  getProviderStatuses(signal?: AbortSignal): Promise<CatalogProviderStatus[]>;
 }
 
 export interface PrivateRepository {
@@ -101,10 +104,39 @@ export class MockCatalogRepository implements CatalogRepository {
     await delay(signal);
     return Array.from(new Map(mockCards.map((card) => [card.set.code, card.set])).values());
   }
+
+  async getProviderStatuses(signal?: AbortSignal): Promise<CatalogProviderStatus[]> {
+    await delay(signal);
+    return [
+      {
+        providerId: 'OPTCG_API',
+        name: 'OPTCG API',
+        enabled: true,
+        configured: true,
+        available: true,
+        totalCards: mockCards.length,
+        latencyMs: 0,
+        checkedAt: new Date().toISOString(),
+      },
+      {
+        providerId: 'ARJUNKAI_OPTCG',
+        name: 'Arjunkai OPTCG',
+        enabled: true,
+        configured: true,
+        available: true,
+        totalCards: mockCards.length,
+        latencyMs: 0,
+        checkedAt: new Date().toISOString(),
+      },
+    ];
+  }
 }
 
 export class AppsScriptCatalogRepository implements CatalogRepository {
-  constructor(private readonly baseUrl: string) {}
+  constructor(
+    private readonly baseUrl: string,
+    private readonly provider: Exclude<CatalogProviderId, 'MOCK'> = 'OPTCG_API',
+  ) {}
 
   async search(criteria: CatalogCriteria, signal?: AbortSignal): Promise<PaginatedResult<Card>> {
     const params = new URLSearchParams({
@@ -119,6 +151,7 @@ export class AppsScriptCatalogRepository implements CatalogRepository {
       direction: criteria.direction,
       page: String(criteria.page),
       pageSize: String(criteria.pageSize),
+      provider: this.provider,
     });
     const response = await fetch(`${this.baseUrl}?${params.toString()}`, { signal });
     if (!response.ok) throw new Error('No se pudo cargar el catálogo.');
@@ -135,7 +168,7 @@ export class AppsScriptCatalogRepository implements CatalogRepository {
 
   async getById(id: string, signal?: AbortSignal): Promise<Card | null> {
     const response = await fetch(
-      `${this.baseUrl}?${new URLSearchParams({ resource: 'card', id })}`,
+      `${this.baseUrl}?${new URLSearchParams({ resource: 'card', id, provider: this.provider })}`,
       { signal },
     );
     if (response.status === 404) return null;
@@ -146,7 +179,7 @@ export class AppsScriptCatalogRepository implements CatalogRepository {
 
   async listSets(signal?: AbortSignal): Promise<Card['set'][]> {
     const response = await fetch(
-      `${this.baseUrl}?${new URLSearchParams({ resource: 'sets' })}`,
+      `${this.baseUrl}?${new URLSearchParams({ resource: 'sets', provider: this.provider })}`,
       { signal },
     );
     if (!response.ok) throw new Error('No se pudieron cargar las expansiones.');
@@ -154,6 +187,22 @@ export class AppsScriptCatalogRepository implements CatalogRepository {
       await response.json();
     if (!payload.success || !payload.data)
       throw new Error(payload.error?.message ?? 'Respuesta de expansiones inválida.');
+    return payload.data;
+  }
+
+  async getProviderStatuses(signal?: AbortSignal): Promise<CatalogProviderStatus[]> {
+    const response = await fetch(
+      `${this.baseUrl}?${new URLSearchParams({ resource: 'provider-statuses' })}`,
+      { signal },
+    );
+    if (!response.ok) throw new Error('No se pudo comprobar el estado de las APIs.');
+    const payload: {
+      success: boolean;
+      data?: CatalogProviderStatus[];
+      error?: { message: string };
+    } = await response.json();
+    if (!payload.success || !payload.data)
+      throw new Error(payload.error?.message ?? 'Respuesta de estado inválida.');
     return payload.data;
   }
 }

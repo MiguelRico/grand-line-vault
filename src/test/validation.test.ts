@@ -1,8 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { collectionItemSchema } from '../../api/_shared/schemas';
+import { appSettingsSchema, collectionItemSchema } from '../../api/_shared/schemas';
 import { initialCollection } from '../infrastructure/mockData';
 
 describe('private API validation', () => {
+  it('accepts only supported catalog providers and themes', () => {
+    expect(
+      appSettingsSchema.safeParse({ catalogProvider: 'ARJUNKAI_OPTCG', theme: 'DARK' }).success,
+    ).toBe(true);
+    expect(
+      appSettingsSchema.safeParse({ catalogProvider: 'UNKNOWN', theme: 'SYSTEM' }).success,
+    ).toBe(false);
+  });
+
   it('accepts a valid collection item', () => {
     expect(collectionItemSchema.safeParse(initialCollection[0]).success).toBe(true);
   });

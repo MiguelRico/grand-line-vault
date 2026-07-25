@@ -63,11 +63,17 @@ describe('AppsScriptCatalogRepository', () => {
       ),
     );
 
-    const result = await new AppsScriptCatalogRepository('https://example.test/exec').search(criteria);
+    const result = await new AppsScriptCatalogRepository(
+      'https://example.test/exec',
+      'ARJUNKAI_OPTCG',
+    ).search(criteria);
 
     expect(result.items).toHaveLength(1);
     expect(result.meta.provider).toBe('OPTCG_API');
     expect(result.meta.fallbackUsed).toBe(false);
+    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('provider=ARJUNKAI_OPTCG'), {
+      signal: undefined,
+    });
   });
 
   it('loads every set exposed by Apps Script', async () => {
@@ -93,5 +99,38 @@ describe('AppsScriptCatalogRepository', () => {
       { code: 'OP-01', name: 'Romance Dawn' },
       { code: 'OP-02', name: 'Paramount War' },
     ]);
+  });
+
+  it('loads provider availability from the dedicated resource', async () => {
+    const providerStatuses = [
+      {
+        providerId: 'ARJUNKAI_OPTCG' as const,
+        name: 'Arjunkai OPTCG',
+        enabled: true,
+        configured: true,
+        available: true,
+        totalCards: 4566,
+        latencyMs: 120,
+        checkedAt: '2026-07-25T10:00:00.000Z',
+      },
+    ];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ success: true, data: providerStatuses }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      ),
+    );
+
+    const result = await new AppsScriptCatalogRepository(
+      'https://example.test/exec',
+    ).getProviderStatuses();
+
+    expect(result).toEqual(providerStatuses);
+    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('resource=provider-statuses'), {
+      signal: undefined,
+    });
   });
 });

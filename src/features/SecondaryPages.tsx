@@ -1,25 +1,38 @@
 import {
   Archive,
+  AlertTriangle,
   BarChart3,
   Box,
   CheckCircle2,
+  Database,
   Heart,
   MapPin,
+  Moon,
   PackagePlus,
   Plus,
+  RefreshCw,
   ShoppingBag,
+  Sun,
   Trash2,
+  WifiOff,
 } from 'lucide-react';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { useServices } from '../app/providers/ServicesProvider';
+import { useSettings } from '../app/providers/SettingsProvider';
 import {
   calculateCollectionStats,
   reservedQuantities,
   salesPackAvailabilityWarnings,
 } from '../domain/services';
-import type { SalesPack, SalesPackStatus, StorageBox } from '../domain/models';
+import type {
+  AppSettings,
+  CatalogProviderStatus,
+  SalesPack,
+  SalesPackStatus,
+  StorageBox,
+} from '../domain/models';
 import { PageHeader, SimplePage } from '../shared/AppShell';
 import {
   Button,
@@ -30,13 +43,7 @@ import {
   SearchInput,
 } from '../shared/ui';
 
-function BoxEditor({
-  box,
-  onClose,
-}: {
-  box: StorageBox | null;
-  onClose: () => void;
-}) {
+function BoxEditor({ box, onClose }: { box: StorageBox | null; onClose: () => void }) {
   const services = useServices();
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState(box);
@@ -49,7 +56,11 @@ function BoxEditor({
     },
   });
   return (
-    <ResponsiveDialog open={Boolean(box)} onOpenChange={(open) => !open && onClose()} title="Editar caja">
+    <ResponsiveDialog
+      open={Boolean(box)}
+      onOpenChange={(open) => !open && onClose()}
+      title="Editar caja"
+    >
       {draft && (
         <div>
           <p className="text-xs font-bold uppercase tracking-wide text-violet">Almacenamiento</p>
@@ -227,7 +238,10 @@ export function BoxesPage() {
             const boxItems = (collection.data ?? []).filter((item) => item.boxId === box.id);
             const copies = boxItems.reduce((sum, item) => sum + item.quantity, 0);
             return (
-              <article key={box.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <article
+                key={box.id}
+                className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+              >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex gap-3">
                     <div className="grid size-12 place-items-center rounded-xl bg-indigo-50 text-violet">
@@ -244,7 +258,9 @@ export function BoxesPage() {
                     {copies} copias
                   </span>
                 </div>
-                <p className="mt-4 text-sm text-slate-600">{box.description || 'Sin descripción'}</p>
+                <p className="mt-4 text-sm text-slate-600">
+                  {box.description || 'Sin descripción'}
+                </p>
                 <div className="mt-5 grid gap-2 sm:grid-cols-2">
                   {box.sections.map((section) => {
                     const sectionCopies = boxItems
@@ -266,7 +282,10 @@ export function BoxesPage() {
                         </div>
                         {section.capacity && (
                           <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
-                            <div className="h-full rounded-full bg-violet" style={{ width: `${percent}%` }} />
+                            <div
+                              className="h-full rounded-full bg-violet"
+                              style={{ width: `${percent}%` }}
+                            />
                           </div>
                         )}
                       </div>
@@ -302,13 +321,7 @@ export function BoxesPage() {
   );
 }
 
-function PackEditor({
-  pack,
-  onClose,
-}: {
-  pack: SalesPack | null;
-  onClose: () => void;
-}) {
+function PackEditor({ pack, onClose }: { pack: SalesPack | null; onClose: () => void }) {
   const services = useServices();
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState(pack);
@@ -358,9 +371,15 @@ function PackEditor({
     });
   };
   return (
-    <ResponsiveDialog open={Boolean(pack)} onOpenChange={(open) => !open && onClose()} title="Pack de venta">
+    <ResponsiveDialog
+      open={Boolean(pack)}
+      onOpenChange={(open) => !open && onClose()}
+      title="Pack de venta"
+    >
       <div>
-        <p className="text-xs font-bold uppercase tracking-wide text-violet">Preparación de venta</p>
+        <p className="text-xs font-bold uppercase tracking-wide text-violet">
+          Preparación de venta
+        </p>
         <h2 className="mt-1 pr-10 text-2xl font-black">Configurar pack</h2>
         <div className="mt-6 grid gap-4 sm:grid-cols-[1fr_160px]">
           <label className="text-sm font-semibold">
@@ -420,10 +439,15 @@ function PackEditor({
             <h3 className="mb-3 font-black">Cartas del pack ({draft.items.length})</h3>
             <div className="max-h-72 space-y-2 overflow-y-auto">
               {draft.items.map((item) => {
-                const total = collection.data?.find((entry) => entry.id === item.collectionItemId)?.quantity ?? 0;
+                const total =
+                  collection.data?.find((entry) => entry.id === item.collectionItemId)?.quantity ??
+                  0;
                 const max = Math.max(1, total - (reserved.get(item.collectionItemId) ?? 0));
                 return (
-                  <div key={item.id} className="grid grid-cols-[42px_1fr_auto_40px] items-center gap-2 rounded-lg border border-slate-200 p-2">
+                  <div
+                    key={item.id}
+                    className="grid grid-cols-[42px_1fr_auto_40px] items-center gap-2 rounded-lg border border-slate-200 p-2"
+                  >
                     <CardImage src={item.snapshot.imageUrl} alt={item.snapshot.name} />
                     <div className="min-w-0">
                       <p className="truncate text-sm font-bold">{item.snapshot.name}</p>
@@ -565,7 +589,10 @@ export function SalesPacksPage() {
             );
             const copies = pack.items.reduce((sum, item) => sum + item.quantity, 0);
             return (
-              <article key={pack.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <article
+                key={pack.id}
+                className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+              >
                 <div className="flex items-start justify-between gap-3">
                   <div className="grid size-12 place-items-center rounded-xl bg-indigo-50 text-violet">
                     <ShoppingBag className="size-6" />
@@ -669,7 +696,8 @@ export function StatisticsPage() {
             {stats.estimatedValue.amount.toFixed(2)} {stats.estimatedValue.currency}
           </p>
           <p className="mt-4 max-w-xl text-xs leading-5 text-indigo-100">
-            Estimación orientativa basada en precios de catálogo, separada del precio fijado para cada pack.
+            Estimación orientativa basada en precios de catálogo, separada del precio fijado para
+            cada pack.
           </p>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-6">
@@ -691,7 +719,10 @@ export function StatisticsPage() {
                 <strong>{value}</strong>
               </div>
               <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-                <div className={`h-full rounded-full ${color}`} style={{ width: `${(value / max) * 100}%` }} />
+                <div
+                  className={`h-full rounded-full ${color}`}
+                  style={{ width: `${(value / max) * 100}%` }}
+                />
               </div>
             </div>
           ))}
@@ -711,11 +742,17 @@ export function FavoritesPage() {
   return (
     <SimplePage title="Favoritos">
       {favorites.length === 0 ? (
-        <EmptyState title="No hay favoritas" description="Marca el corazón en cualquier carta del inventario." />
+        <EmptyState
+          title="No hay favoritas"
+          description="Marca el corazón en cualquier carta del inventario."
+        />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {favorites.map((item) => (
-            <article key={item.id} className="grid grid-cols-[72px_1fr_auto] items-center gap-3 rounded-xl border border-slate-200 bg-white p-3">
+            <article
+              key={item.id}
+              className="grid grid-cols-[72px_1fr_auto] items-center gap-3 rounded-xl border border-slate-200 bg-white p-3"
+            >
               <CardImage src={item.cardSnapshot.imageUrl} alt={item.cardSnapshot.name} />
               <div className="min-w-0">
                 <h2 className="truncate font-bold">{item.cardSnapshot.name}</h2>
@@ -731,18 +768,202 @@ export function FavoritesPage() {
 }
 
 export function SettingsPage() {
+  const services = useServices();
+  const { settings, loading, saving, error, updateSettings } = useSettings();
+  const queryClient = useQueryClient();
+  const statuses = useQuery({
+    queryKey: ['provider-statuses'],
+    queryFn: ({ signal }) => services.catalog.getProviderStatuses(signal),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const selectProvider = async (status: CatalogProviderStatus) => {
+    if (!status.configured || !status.enabled) return;
+    try {
+      await updateSettings({ ...settings, catalogProvider: status.providerId });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['catalog'] }),
+        queryClient.invalidateQueries({ queryKey: ['catalog-sets'] }),
+        queryClient.invalidateQueries({ queryKey: ['card'] }),
+      ]);
+    } catch {
+      // SettingsProvider shows the error and restores the previous selection.
+    }
+  };
+
+  const selectTheme = async (theme: AppSettings['theme']) => {
+    try {
+      await updateSettings({ ...settings, theme });
+    } catch {
+      // SettingsProvider shows the error and restores the previous theme.
+    }
+  };
+
+  const statusLabel = (status: CatalogProviderStatus) => {
+    if (!status.enabled) return 'Desactivada';
+    if (!status.configured) return 'Pendiente de configurar';
+    return status.available ? 'Operativa' : 'No disponible';
+  };
+
   return (
-    <SimplePage title="Ajustes">
-      <div className="max-w-2xl rounded-2xl border border-slate-200 bg-white p-6">
-        <h2 className="font-black">Inventario y catálogo</h2>
-        <p className="mt-2 text-sm leading-6 text-slate-600">
-          El catálogo, la prioridad de imágenes y la moneda se configuran mediante variables de
-          entorno. Cajas, secciones, inventario y packs se almacenan de forma privada.
-        </p>
-        <div className="mt-5 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-900">
-          Modo mock activo: puedes probar todo el flujo de ubicación y preparación de packs.
+    <div className="mx-auto max-w-[1100px] p-4 sm:p-6 lg:p-8">
+      <PageHeader
+        title="Ajustes"
+        subtitle="Catálogo, disponibilidad de proveedores y apariencia"
+        action={
+          <Button
+            variant="secondary"
+            onClick={() => void statuses.refetch()}
+            disabled={statuses.isFetching}
+          >
+            <RefreshCw className={`size-4 ${statuses.isFetching ? 'animate-spin' : ''}`} />
+            Comprobar APIs
+          </Button>
+        }
+      />
+
+      <div className="space-y-6">
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-soft sm:p-6">
+          <div className="flex items-start gap-3">
+            <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-indigo-50 text-violet">
+              <Database className="size-5" />
+            </span>
+            <div>
+              <h2 className="text-lg font-black text-slate-950">API del catálogo</h2>
+              <p className="mt-1 text-sm text-slate-600">
+                El proveedor seleccionado se utiliza en búsquedas, filtros, expansiones y detalles.
+              </p>
+            </div>
+          </div>
+
+          {statuses.isLoading ? (
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
+              {[0, 1].map((item) => (
+                <div key={item} className="h-44 animate-pulse rounded-xl bg-slate-100" />
+              ))}
+            </div>
+          ) : statuses.isError ? (
+            <div className="mt-5 flex gap-3 rounded-xl bg-red-50 p-4 text-sm text-red-800">
+              <AlertTriangle className="mt-0.5 size-5 shrink-0" />
+              No se ha podido consultar Apps Script. El catálogo seleccionado no se ha modificado.
+            </div>
+          ) : (
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
+              {statuses.data?.map((status) => {
+                const selected = settings.catalogProvider === status.providerId;
+                return (
+                  <button
+                    key={status.providerId}
+                    type="button"
+                    disabled={!status.configured || !status.enabled || loading || saving}
+                    onClick={() => void selectProvider(status)}
+                    className={`rounded-xl border p-5 text-left transition ${
+                      selected
+                        ? 'border-violet bg-indigo-50 ring-2 ring-violet/15'
+                        : 'border-slate-200 bg-white hover:border-indigo-300'
+                    } disabled:cursor-not-allowed disabled:opacity-70`}
+                  >
+                    <span className="flex items-start justify-between gap-3">
+                      <span>
+                        <span className="block font-black text-slate-950">{status.name}</span>
+                        <span className="mt-1 flex items-center gap-1.5 text-xs font-semibold">
+                          {status.available ? (
+                            <CheckCircle2 className="size-4 text-emerald-600" />
+                          ) : (
+                            <WifiOff className="size-4 text-amber-600" />
+                          )}
+                          <span
+                            className={status.available ? 'text-emerald-700' : 'text-amber-700'}
+                          >
+                            {statusLabel(status)}
+                          </span>
+                        </span>
+                      </span>
+                      <span
+                        className={`mt-0.5 grid size-5 place-items-center rounded-full border ${
+                          selected ? 'border-violet' : 'border-slate-300'
+                        }`}
+                        aria-hidden
+                      >
+                        {selected && <span className="size-2.5 rounded-full bg-violet" />}
+                      </span>
+                    </span>
+                    <span className="mt-5 grid grid-cols-2 gap-3">
+                      <span>
+                        <span className="block text-xs text-slate-500">Cartas disponibles</span>
+                        <span className="mt-0.5 block text-xl font-black text-slate-950">
+                          {status.totalCards === null
+                            ? '—'
+                            : new Intl.NumberFormat('es-ES').format(status.totalCards)}
+                        </span>
+                      </span>
+                      <span>
+                        <span className="block text-xs text-slate-500">Respuesta</span>
+                        <span className="mt-0.5 block text-xl font-black text-slate-950">
+                          {status.configured ? `${status.latencyMs} ms` : '—'}
+                        </span>
+                      </span>
+                    </span>
+                    {!status.configured && status.providerId === 'ARJUNKAI_OPTCG' && (
+                      <span className="mt-4 block rounded-lg bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+                        Añade la URL y la clave X-API-Key en las propiedades de Apps Script.
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-soft sm:p-6">
+          <div className="flex items-start gap-3">
+            <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-indigo-50 text-violet">
+              {settings.theme === 'DARK' ? <Moon className="size-5" /> : <Sun className="size-5" />}
+            </span>
+            <div>
+              <h2 className="text-lg font-black text-slate-950">Apariencia</h2>
+              <p className="mt-1 text-sm text-slate-600">
+                El tema se aplica a todas las pantallas y se conserva para la próxima sesión.
+              </p>
+            </div>
+          </div>
+          <div className="mt-5 grid max-w-md grid-cols-2 gap-3" role="group" aria-label="Tema">
+            {(
+              [
+                ['LIGHT', 'Claro', Sun],
+                ['DARK', 'Oscuro', Moon],
+              ] as const
+            ).map(([value, label, Icon]) => (
+              <button
+                key={value}
+                type="button"
+                disabled={loading || saving}
+                onClick={() => void selectTheme(value)}
+                className={`flex min-h-12 items-center justify-center gap-2 rounded-xl border font-bold transition ${
+                  settings.theme === value
+                    ? 'border-violet bg-violet text-white'
+                    : 'border-slate-200 bg-white text-slate-700 hover:border-indigo-300'
+                }`}
+              >
+                <Icon className="size-4" />
+                {label}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {error && (
+          <div className="flex gap-3 rounded-xl bg-red-50 p-4 text-sm text-red-800">
+            <AlertTriangle className="mt-0.5 size-5 shrink-0" />
+            {error}
+          </div>
+        )}
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs leading-5 text-slate-600">
+          La clave de Arjunkai nunca se envía al navegador: Apps Script realiza las peticiones y
+          mantiene la credencial en sus propiedades privadas.
         </div>
       </div>
-    </SimplePage>
+    </div>
   );
 }

@@ -20,7 +20,7 @@ CATALOG_PRIMARY_PROVIDER=ARJUNKAI_OPTCG
 CATALOG_FALLBACK_PROVIDERS=OPTCG_API
 CATALOG_PROVIDER_FALLBACK_ENABLED=true
 
-ARJUNKAI_API_BASE_URL=https://tu-instancia
+ARJUNKAI_API_BASE_URL=https://optcg-api.arjunbansal-ai.workers.dev
 ARJUNKAI_API_KEY=secreto
 ARJUNKAI_API_KEY_HEADER=X-API-Key
 ARJUNKAI_ENABLED=true
@@ -41,10 +41,12 @@ No incluyas API keys en archivos del repositorio.
 ```text
 https://script.google.com/macros/s/DEPLOYMENT_ID/exec?resource=health
 https://script.google.com/macros/s/DEPLOYMENT_ID/exec?resource=providers
-https://script.google.com/macros/s/DEPLOYMENT_ID/exec?resource=cards&query=luffy&page=1&pageSize=24
+https://script.google.com/macros/s/DEPLOYMENT_ID/exec?resource=provider-statuses
+https://script.google.com/macros/s/DEPLOYMENT_ID/exec?resource=cards&provider=ARJUNKAI_OPTCG&query=luffy&page=1&pageSize=24
 ```
 
-`/providers` nunca devuelve valores de API key.
+`provider` acepta `ARJUNKAI_OPTCG` y `OPTCG_API`. `/providers` y
+`/provider-statuses` nunca devuelven valores de API key.
 
 ## Actualizar mappers
 
