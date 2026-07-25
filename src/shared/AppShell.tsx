@@ -3,6 +3,7 @@ import {
   BarChart3,
   Bell,
   BookOpen,
+  ChartNoAxesColumnIncreasing,
   Heart,
   Library,
   Menu,
@@ -21,6 +22,7 @@ const navigation = [
   { to: '/boxes', label: 'Cajas y secciones', icon: Archive },
   { to: '/sales-packs', label: 'Packs de venta', icon: ShoppingBag },
   { to: '/statistics', label: 'Estadísticas', icon: BarChart3 },
+  { to: '/catalog-statistics', label: 'Catálogo', icon: ChartNoAxesColumnIncreasing },
   { to: '/favorites', label: 'Favoritos', icon: Heart },
 ] as const;
 

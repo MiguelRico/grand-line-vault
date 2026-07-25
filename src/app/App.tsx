@@ -20,6 +20,11 @@ const SalesPacksPage = lazy(() =>
 const StatisticsPage = lazy(() =>
   import('../features/SecondaryPages').then((module) => ({ default: module.StatisticsPage })),
 );
+const CatalogStatisticsPage = lazy(() =>
+  import('../features/CatalogStatisticsPage').then((module) => ({
+    default: module.CatalogStatisticsPage,
+  })),
+);
 const FavoritesPage = lazy(() =>
   import('../features/SecondaryPages').then((module) => ({ default: module.FavoritesPage })),
 );
@@ -113,6 +118,7 @@ export function App() {
             <Route path="/boxes" element={<BoxesPage />} />
             <Route path="/sales-packs" element={<SalesPacksPage />} />
             <Route path="/statistics" element={<StatisticsPage />} />
+            <Route path="/catalog-statistics" element={<CatalogStatisticsPage />} />
             <Route path="/favorites" element={<FavoritesPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route
