@@ -29,16 +29,9 @@ function SidebarContent({ close }: { close?: () => void }) {
   const navigate = useNavigate();
   return (
     <div className="flex h-full flex-col">
-      <div className="flex h-[120px] flex-col items-center justify-start gap-1 px-4 pb-3 pt-3">
-        <div
-          className="aspect-[2.65/1] w-full max-w-[192px] overflow-hidden"
-          aria-label="One Piece"
-        >
-          <img
-            src="/one-piece.svg"
-            alt="One Piece"
-            className="h-full w-full object-contain object-center invert"
-          />
+      <div className="flex flex-col items-center justify-start gap-2 px-3 pb-4 pt-3">
+        <div className="w-full" aria-label="One Piece">
+          <img src="/one-piece.svg" alt="One Piece" className="block h-auto w-full invert" />
         </div>
         <p className="brand-one-piece whitespace-nowrap text-[17px] leading-none text-white">
           GRAND LINE VAULT
@@ -155,20 +148,12 @@ export function PageHeader({
         <h1 className="text-2xl font-black tracking-tight text-slate-950">{title}</h1>
         {subtitle && <p className="mt-1 text-sm text-slate-600">{subtitle}</p>}
       </div>
-      <div className="flex items-center gap-2">
-        {action}
-      </div>
+      <div className="flex items-center gap-2">{action}</div>
     </div>
   );
 }
 
-export function SimplePage({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
+export function SimplePage({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="mx-auto max-w-[1440px] p-4 sm:p-6 lg:p-8">
       <PageHeader title={title} />
