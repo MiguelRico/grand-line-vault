@@ -2,7 +2,6 @@ import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import { config } from '../config';
 import {
   ApiPrivateRepository,
-  MockCatalogRepository,
   MockPrivateRepository,
   type CatalogRepository,
   type PrivateRepository,
@@ -19,9 +18,7 @@ const ServicesContext = createContext<Services | null>(null);
 export function ServicesProvider({ children }: { children: ReactNode }) {
   const services = useMemo<Services>(
     () => ({
-      catalog: config.VITE_USE_MOCK_DATA
-        ? new MockCatalogRepository()
-        : new StaticCatalogRepository(),
+      catalog: new StaticCatalogRepository(),
       privateData: config.VITE_USE_MOCK_DATA
         ? new MockPrivateRepository()
         : new ApiPrivateRepository(),
