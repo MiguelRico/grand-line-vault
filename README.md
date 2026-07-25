@@ -191,7 +191,8 @@ Errores temporales (`429`, `500`, `502`, `503`, `504`, red o JSON inválido) adm
 
 `?resource=providers` muestra configuración y capacidades sin claves. `?resource=health`
 informa disponibilidad, latencia y circuito. `?resource=provider-statuses` ofrece el
-resumen que usa la pantalla de ajustes, incluida la cantidad de cartas disponible.
+resumen que usa la pantalla de ajustes, incluida la cantidad de cartas y los totales
+por expansión, color, tipo, rareza, versión, coste y poder.
 
 ## Imágenes y precios
 

@@ -1,29 +1,52 @@
-function OptcgApiProvider() { this.client = new OptcgApiClient(); }
+function OptcgApiProvider() {
+  this.client = new OptcgApiClient();
+}
 OptcgApiProvider.prototype.getProviderInfo = function () {
-  return { id: 'OPTCG_API', name: 'OPTCG API', baseUrl: Config.get('OPTCG_API_BASE_URL'), documentationUrl: 'https://optcgapi.com/documentation' };
+  return {
+    id: 'OPTCG_API',
+    name: 'OPTCG API',
+    baseUrl: Config.get('OPTCG_API_BASE_URL'),
+    documentationUrl: 'https://optcgapi.com/documentation',
+  };
 };
-OptcgApiProvider.prototype.getCapabilities = function () { return ProviderCapabilities.OPTCG_API; };
-OptcgApiProvider.prototype.isEnabled = function () { return Config.bool('OPTCG_API_ENABLED'); };
-OptcgApiProvider.prototype.isConfigured = function () { return Boolean(Config.get('OPTCG_API_BASE_URL')); };
+OptcgApiProvider.prototype.getCapabilities = function () {
+  return ProviderCapabilities.OPTCG_API;
+};
+OptcgApiProvider.prototype.isEnabled = function () {
+  return Config.bool('OPTCG_API_ENABLED');
+};
+OptcgApiProvider.prototype.isConfigured = function () {
+  return Boolean(Config.get('OPTCG_API_BASE_URL'));
+};
 OptcgApiProvider.prototype.supports = function (operation) {
   return ['search', 'getCard', 'getSets'].indexOf(operation) >= 0;
 };
 OptcgApiProvider.prototype.search = function (criteria) {
   var filters = {
-    card_name: criteria.query, set_id: criteria.set,
-    color: titleCase(criteria.color), card_type: titleCase(criteria.type),
-    rarity: criteria.rarity
+    card_name: criteria.query,
+    set_id: criteria.set,
+    color: titleCase(criteria.color),
+    card_type: titleCase(criteria.type),
+    rarity: criteria.rarity,
   };
   var hasFilters = Object.keys(filters).some(function (key) {
     return filters[key] !== undefined && filters[key] !== null && filters[key] !== '';
   });
-  var response = this.client.get(hasFilters ? '/sets/filtered/' : '/allSetCards/', hasFilters ? filters : {});
+  var response = this.client.get(
+    hasFilters ? '/sets/filtered/' : '/allSetCards/',
+    hasFilters ? filters : {},
+  );
   var rows = response && Array.isArray(response.body) ? response.body : [];
   var cards = OptcgApiCardMapper.mapMany(rows);
   cards = NormalizedFilter.apply(cards, criteria);
   var sorted = NormalizedFilter.sort(cards, criteria.sort, criteria.direction);
   var start = (criteria.page - 1) * criteria.pageSize;
-  return { items: sorted.slice(start, start + criteria.pageSize), page: criteria.page, pageSize: criteria.pageSize, total: sorted.length };
+  return {
+    items: sorted.slice(start, start + criteria.pageSize),
+    page: criteria.page,
+    pageSize: criteria.pageSize,
+    total: sorted.length,
+  };
 };
 OptcgApiProvider.prototype.getCard = function (criteria) {
   var code = String(criteria.code || criteria.id || '').replace(/^BASE::/, '');
@@ -33,8 +56,15 @@ OptcgApiProvider.prototype.getCard = function (criteria) {
 };
 OptcgApiProvider.prototype.getSets = function () {
   var response = this.client.get('/allSets/', {});
-  return (response.body || []).map(function (set) { return { code: set.set_id, name: set.set_name }; });
+  return (response.body || []).map(function (set) {
+    return { code: set.set_id, name: set.set_name };
+  });
 };
 OptcgApiProvider.prototype.healthCheck = function () {
   return Boolean(this.client.get('/allSets/', {}));
+};
+OptcgApiProvider.prototype.getFilterSummary = function () {
+  var response = this.client.get('/allSetCards/', {});
+  var rows = response && Array.isArray(response.body) ? response.body : [];
+  return CatalogFilterSummary.fromCards(OptcgApiCardMapper.mapMany(rows));
 };

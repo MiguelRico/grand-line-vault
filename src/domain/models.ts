@@ -13,22 +13,33 @@ export interface CatalogProviderStatus {
   configured: boolean;
   available: boolean;
   totalCards: number | null;
+  filterSummary: CatalogFilterSummary | null;
   latencyMs: number;
   checkedAt: string;
   documentationUrl?: string;
   errorCode?: string;
 }
+
+export interface CatalogFilterBucket {
+  value: string;
+  label?: string;
+  count: number;
+}
+
+export interface CatalogFilterSummary {
+  sets: CatalogFilterBucket[];
+  colors: CatalogFilterBucket[];
+  types: CatalogFilterBucket[];
+  rarities: CatalogFilterBucket[];
+  variants: CatalogFilterBucket[];
+  costs: CatalogFilterBucket[];
+  powers: CatalogFilterBucket[];
+}
 export type CardLanguage = 'EN' | 'JP' | 'FR' | 'ES' | 'IT' | 'DE' | 'UNKNOWN';
 export type CardColor = 'RED' | 'GREEN' | 'BLUE' | 'PURPLE' | 'BLACK' | 'YELLOW';
 export type CardType = 'LEADER' | 'CHARACTER' | 'EVENT' | 'STAGE' | 'DON';
 export type CardCondition =
-  | 'MINT'
-  | 'NEAR_MINT'
-  | 'EXCELLENT'
-  | 'GOOD'
-  | 'PLAYED'
-  | 'POOR'
-  | 'UNKNOWN';
+  'MINT' | 'NEAR_MINT' | 'EXCELLENT' | 'GOOD' | 'PLAYED' | 'POOR' | 'UNKNOWN';
 export type CardVariantType =
   | 'BASE'
   | 'ALTERNATE_ART'

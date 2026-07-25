@@ -38,6 +38,18 @@ describe('MockCatalogRepository', () => {
     expect(result.total).toBeGreaterThan(3);
     expect(result.items.every((card) => card.type === 'CHARACTER')).toBe(true);
   });
+
+  it('summarizes every filter exposed by the catalog', async () => {
+    const [status] = await new MockCatalogRepository().getProviderStatuses();
+
+    expect(status?.filterSummary?.sets.length).toBeGreaterThan(0);
+    expect(status?.filterSummary?.colors.some((bucket) => bucket.value === 'RED')).toBe(true);
+    expect(status?.filterSummary?.types.some((bucket) => bucket.value === 'CHARACTER')).toBe(true);
+    expect(status?.filterSummary?.rarities.length).toBeGreaterThan(0);
+    expect(status?.filterSummary?.variants.some((bucket) => bucket.value === 'BASE')).toBe(true);
+    expect(status?.filterSummary?.costs.length).toBeGreaterThan(0);
+    expect(status?.filterSummary?.powers.length).toBeGreaterThan(0);
+  });
 });
 
 describe('AppsScriptCatalogRepository', () => {
@@ -110,6 +122,15 @@ describe('AppsScriptCatalogRepository', () => {
         configured: true,
         available: true,
         totalCards: 4566,
+        filterSummary: {
+          sets: [{ value: 'OP-01', label: 'Romance Dawn', count: 121 }],
+          colors: [{ value: 'RED', count: 700 }],
+          types: [{ value: 'CHARACTER', count: 3000 }],
+          rarities: [{ value: 'C', count: 1000 }],
+          variants: [{ value: 'BASE', count: 3500 }],
+          costs: [{ value: '1', count: 400 }],
+          powers: [{ value: '5000', count: 800 }],
+        },
         latencyMs: 120,
         checkedAt: '2026-07-25T10:00:00.000Z',
       },

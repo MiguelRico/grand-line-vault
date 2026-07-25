@@ -82,7 +82,8 @@ export class MockCatalogRepository implements CatalogRepository {
               : criteria.sort === 'cost'
                 ? (b.cost ?? 0)
                 : b[criteria.sort];
-        const result = typeof av === 'number' ? av - Number(bv) : String(av).localeCompare(String(bv));
+        const result =
+          typeof av === 'number' ? av - Number(bv) : String(av).localeCompare(String(bv));
         return criteria.direction === 'asc' ? result : -result;
       });
     const offset = (criteria.page - 1) * criteria.pageSize;
@@ -107,6 +108,7 @@ export class MockCatalogRepository implements CatalogRepository {
 
   async getProviderStatuses(signal?: AbortSignal): Promise<CatalogProviderStatus[]> {
     await delay(signal);
+    const filterSummary = summarizeCatalogCards(mockCards);
     return [
       {
         providerId: 'OPTCG_API',
@@ -115,6 +117,7 @@ export class MockCatalogRepository implements CatalogRepository {
         configured: true,
         available: true,
         totalCards: mockCards.length,
+        filterSummary,
         latencyMs: 0,
         checkedAt: new Date().toISOString(),
       },
@@ -125,11 +128,57 @@ export class MockCatalogRepository implements CatalogRepository {
         configured: true,
         available: true,
         totalCards: mockCards.length,
+        filterSummary,
         latencyMs: 0,
         checkedAt: new Date().toISOString(),
       },
     ];
   }
+}
+
+function summarizeCatalogCards(cards: Card[]): CatalogProviderStatus['filterSummary'] {
+  const dimensions = {
+    sets: new Map<string, { label?: string; count: number }>(),
+    colors: new Map<string, { count: number }>(),
+    types: new Map<string, { count: number }>(),
+    rarities: new Map<string, { count: number }>(),
+    variants: new Map<string, { count: number }>(),
+    costs: new Map<string, { count: number }>(),
+    powers: new Map<string, { count: number }>(),
+  };
+  const increment = (
+    dimension: Map<string, { label?: string; count: number }>,
+    value: string | number | undefined,
+    label?: string,
+  ) => {
+    if (value === undefined || value === '') return;
+    const key = String(value);
+    const current = dimension.get(key);
+    dimension.set(key, { label: label ?? current?.label, count: (current?.count ?? 0) + 1 });
+  };
+  cards.forEach((card) => {
+    increment(dimensions.sets, card.set.code, card.set.name);
+    card.colors.forEach((color) => increment(dimensions.colors, color));
+    increment(dimensions.types, card.type);
+    increment(dimensions.rarities, card.rarity);
+    increment(dimensions.variants, 'BASE');
+    if (card.variants.length) increment(dimensions.variants, 'PARALLEL');
+    increment(dimensions.costs, card.cost);
+    increment(dimensions.powers, card.power);
+  });
+  const buckets = (dimension: Map<string, { label?: string; count: number }>, numeric = false) =>
+    Array.from(dimension, ([value, item]) => ({ value, ...item })).sort((left, right) =>
+      numeric ? Number(left.value) - Number(right.value) : left.value.localeCompare(right.value),
+    );
+  return {
+    sets: buckets(dimensions.sets),
+    colors: buckets(dimensions.colors),
+    types: buckets(dimensions.types),
+    rarities: buckets(dimensions.rarities),
+    variants: buckets(dimensions.variants),
+    costs: buckets(dimensions.costs, true),
+    powers: buckets(dimensions.powers, true),
+  };
 }
 
 export class AppsScriptCatalogRepository implements CatalogRepository {

@@ -28,6 +28,8 @@ import {
 } from '../domain/services';
 import type {
   AppSettings,
+  CatalogFilterBucket,
+  CatalogFilterSummary,
   CatalogProviderStatus,
   SalesPack,
   SalesPackStatus,
@@ -767,6 +769,97 @@ export function FavoritesPage() {
   );
 }
 
+const catalogFilterLabels: Record<string, string> = {
+  RED: 'Rojo',
+  GREEN: 'Verde',
+  BLUE: 'Azul',
+  PURPLE: 'Púrpura',
+  BLACK: 'Negro',
+  YELLOW: 'Amarillo',
+  LEADER: 'Líder',
+  CHARACTER: 'Personaje',
+  EVENT: 'Evento',
+  STAGE: 'Escenario',
+  DON: 'DON!!',
+  L: 'Líder',
+  C: 'Común',
+  UC: 'Infrecuente',
+  R: 'Rara',
+  SR: 'Super Rare',
+  SEC: 'Secret Rare',
+  PR: 'Promo',
+  TR: 'Treasure Rare',
+  BASE: 'Base',
+  PARALLEL: 'Paralela',
+};
+
+const catalogNumber = new Intl.NumberFormat('es-ES');
+
+function FilterTotalGroup({ title, buckets }: { title: string; buckets: CatalogFilterBucket[] }) {
+  if (!buckets.length) return null;
+  return (
+    <div>
+      <h4 className="text-xs font-black uppercase tracking-wide text-slate-500">{title}</h4>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {buckets.map((bucket) => (
+          <span
+            key={bucket.value}
+            className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-700"
+          >
+            {catalogFilterLabels[bucket.value] ?? bucket.label ?? bucket.value}
+            <strong className="text-slate-950">{catalogNumber.format(bucket.count)}</strong>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ProviderFilterSummary({
+  summary,
+  selected,
+}: {
+  summary: CatalogFilterSummary;
+  selected: boolean;
+}) {
+  return (
+    <details className="border-t border-slate-200 px-5 py-4" open={selected || undefined}>
+      <summary className="cursor-pointer text-sm font-black text-slate-800">
+        Totales por filtro
+      </summary>
+      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <FilterTotalGroup title="Color" buckets={summary.colors} />
+        <FilterTotalGroup title="Tipo de carta" buckets={summary.types} />
+        <FilterTotalGroup title="Rareza" buckets={summary.rarities} />
+        <FilterTotalGroup title="Versión" buckets={summary.variants} />
+        <FilterTotalGroup title="Coste" buckets={summary.costs} />
+        <FilterTotalGroup title="Poder" buckets={summary.powers} />
+      </div>
+      {summary.sets.length > 0 && (
+        <div className="mt-4">
+          <h4 className="text-xs font-black uppercase tracking-wide text-slate-500">Expansiones</h4>
+          <div className="mt-2 max-h-52 overflow-y-auto rounded-lg border border-slate-200">
+            {summary.sets.map((set) => (
+              <div
+                key={set.value}
+                className="flex items-center justify-between gap-3 border-b border-slate-100 px-3 py-2 text-xs last:border-b-0"
+              >
+                <span className="min-w-0 truncate text-slate-700">
+                  <strong className="text-slate-950">{set.value}</strong>
+                  {set.label && ` · ${set.label}`}
+                </span>
+                <strong className="shrink-0 text-slate-950">
+                  {catalogNumber.format(set.count)}
+                </strong>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </details>
+  );
+}
+
 export function SettingsPage() {
   const services = useServices();
   const { settings, loading, saving, error, updateSettings } = useSettings();
@@ -852,64 +945,79 @@ export function SettingsPage() {
               {statuses.data?.map((status) => {
                 const selected = settings.catalogProvider === status.providerId;
                 return (
-                  <button
+                  <article
                     key={status.providerId}
-                    type="button"
-                    disabled={!status.configured || !status.enabled || loading || saving}
-                    onClick={() => void selectProvider(status)}
-                    className={`rounded-xl border p-5 text-left transition ${
+                    className={`overflow-hidden rounded-xl border transition ${
                       selected
                         ? 'border-violet bg-indigo-50 ring-2 ring-violet/15'
-                        : 'border-slate-200 bg-white hover:border-indigo-300'
-                    } disabled:cursor-not-allowed disabled:opacity-70`}
+                        : 'border-slate-200 bg-white'
+                    }`}
                   >
-                    <span className="flex items-start justify-between gap-3">
-                      <span>
-                        <span className="block font-black text-slate-950">{status.name}</span>
-                        <span className="mt-1 flex items-center gap-1.5 text-xs font-semibold">
-                          {status.available ? (
-                            <CheckCircle2 className="size-4 text-emerald-600" />
-                          ) : (
-                            <WifiOff className="size-4 text-amber-600" />
-                          )}
-                          <span
-                            className={status.available ? 'text-emerald-700' : 'text-amber-700'}
-                          >
-                            {statusLabel(status)}
+                    <button
+                      type="button"
+                      disabled={!status.configured || !status.enabled || loading || saving}
+                      onClick={() => void selectProvider(status)}
+                      className="block w-full p-5 text-left transition hover:bg-indigo-50/50 disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      <span className="flex items-start justify-between gap-3">
+                        <span>
+                          <span className="block font-black text-slate-950">{status.name}</span>
+                          <span className="mt-1 flex items-center gap-1.5 text-xs font-semibold">
+                            {status.available ? (
+                              <CheckCircle2 className="size-4 text-emerald-600" />
+                            ) : (
+                              <WifiOff className="size-4 text-amber-600" />
+                            )}
+                            <span
+                              className={status.available ? 'text-emerald-700' : 'text-amber-700'}
+                            >
+                              {statusLabel(status)}
+                            </span>
+                          </span>
+                        </span>
+                        <span
+                          className={`mt-0.5 grid size-5 place-items-center rounded-full border ${
+                            selected ? 'border-violet' : 'border-slate-300'
+                          }`}
+                          aria-hidden
+                        >
+                          {selected && <span className="size-2.5 rounded-full bg-violet" />}
+                        </span>
+                      </span>
+                      <span className="mt-5 grid grid-cols-3 gap-3">
+                        <span>
+                          <span className="block text-xs text-slate-500">Cartas</span>
+                          <span className="mt-0.5 block text-xl font-black text-slate-950">
+                            {status.totalCards === null
+                              ? '—'
+                              : catalogNumber.format(status.totalCards)}
+                          </span>
+                        </span>
+                        <span>
+                          <span className="block text-xs text-slate-500">Expansiones</span>
+                          <span className="mt-0.5 block text-xl font-black text-slate-950">
+                            {status.filterSummary
+                              ? catalogNumber.format(status.filterSummary.sets.length)
+                              : '—'}
+                          </span>
+                        </span>
+                        <span>
+                          <span className="block text-xs text-slate-500">Respuesta</span>
+                          <span className="mt-0.5 block text-xl font-black text-slate-950">
+                            {status.configured ? `${status.latencyMs} ms` : '—'}
                           </span>
                         </span>
                       </span>
-                      <span
-                        className={`mt-0.5 grid size-5 place-items-center rounded-full border ${
-                          selected ? 'border-violet' : 'border-slate-300'
-                        }`}
-                        aria-hidden
-                      >
-                        {selected && <span className="size-2.5 rounded-full bg-violet" />}
-                      </span>
-                    </span>
-                    <span className="mt-5 grid grid-cols-2 gap-3">
-                      <span>
-                        <span className="block text-xs text-slate-500">Cartas disponibles</span>
-                        <span className="mt-0.5 block text-xl font-black text-slate-950">
-                          {status.totalCards === null
-                            ? '—'
-                            : new Intl.NumberFormat('es-ES').format(status.totalCards)}
+                      {!status.configured && status.providerId === 'ARJUNKAI_OPTCG' && (
+                        <span className="mt-4 block rounded-lg bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+                          Añade la URL y la clave X-API-Key en las propiedades de Apps Script.
                         </span>
-                      </span>
-                      <span>
-                        <span className="block text-xs text-slate-500">Respuesta</span>
-                        <span className="mt-0.5 block text-xl font-black text-slate-950">
-                          {status.configured ? `${status.latencyMs} ms` : '—'}
-                        </span>
-                      </span>
-                    </span>
-                    {!status.configured && status.providerId === 'ARJUNKAI_OPTCG' && (
-                      <span className="mt-4 block rounded-lg bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
-                        Añade la URL y la clave X-API-Key en las propiedades de Apps Script.
-                      </span>
+                      )}
+                    </button>
+                    {status.filterSummary && (
+                      <ProviderFilterSummary summary={status.filterSummary} selected={selected} />
                     )}
-                  </button>
+                  </article>
                 );
               })}
             </div>
