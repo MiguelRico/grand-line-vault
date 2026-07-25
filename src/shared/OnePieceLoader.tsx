@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { twMerge } from 'tailwind-merge';
 
 const frames = Array.from({ length: 6 }, (_, index) => `/one-piece-spinner-${index + 1}.svg`);
@@ -18,6 +19,10 @@ export function OnePieceLoader({
   size?: keyof typeof sizes;
   className?: string;
 }) {
+  const [frame] = useState(
+    () => frames[Math.floor(Math.random() * frames.length)] ?? frames[0],
+  );
+
   return (
     <span
       role="status"
@@ -31,16 +36,12 @@ export function OnePieceLoader({
       <span className="absolute inset-0 rounded-full border-2 border-indigo-200/80 border-t-violet one-piece-loader-orbit" />
       <span className="absolute inset-[4px] rounded-full bg-white/90 shadow-sm ring-1 ring-indigo-100 dark:bg-slate-900/90 dark:ring-slate-700" />
       <span className="relative size-[72%] overflow-hidden rounded-full">
-        {frames.map((source, index) => (
-          <img
-            key={source}
-            src={source}
-            alt=""
-            aria-hidden="true"
-            className="one-piece-loader-frame absolute inset-0 size-full object-contain"
-            style={{ animationDelay: `${index * 180}ms` }}
-          />
-        ))}
+        <img
+          src={frame}
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 size-full object-contain"
+        />
       </span>
       <span className="sr-only">{label}</span>
     </span>

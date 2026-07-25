@@ -138,44 +138,15 @@ button {
   animation: one-piece-loader-spin 1.08s linear infinite;
 }
 
-.one-piece-loader-frame {
-  opacity: 0;
-  animation: one-piece-loader-frame 1.08s linear infinite;
-}
-
 @keyframes one-piece-loader-spin {
   to {
     transform: rotate(360deg);
   }
 }
 
-@keyframes one-piece-loader-frame {
-  0%,
-  16.65% {
-    opacity: 1;
-    transform: scale(1);
-  }
-
-  16.66%,
-  100% {
-    opacity: 0;
-    transform: scale(0.92);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .one-piece-loader-orbit,
-  .one-piece-loader-frame {
+  .one-piece-loader-orbit {
     animation: none !important;
-  }
-
-  .one-piece-loader-frame {
-    display: none;
-  }
-
-  .one-piece-loader-frame:first-of-type {
-    display: block;
-    opacity: 1;
   }
 
   *,

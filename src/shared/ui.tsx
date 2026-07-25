@@ -5,15 +5,18 @@ import {
   ChevronLeft,
   ChevronRight,
   Heart,
-  ImageOff,
   Minus,
   Plus,
   Search,
   X,
 } from 'lucide-react';
-import { useState, type ButtonHTMLAttributes, type ReactNode } from 'react';
+import { useEffect, useState, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import { twMerge } from 'tailwind-merge';
 import type { Card } from '../domain/models';
+import { OnePieceLoader } from './OnePieceLoader';
+
+const LOCAL_IMAGE_DELAY_MS = 1_500;
+const unavailableCardImage = `${import.meta.env.BASE_URL}one-piece-user.svg`.replace(/^\/{2,}/, '/');
 
 export function Button({
   className,
@@ -79,7 +82,23 @@ export function CardImage({
   alt: string;
   className?: string;
 }) {
+  const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
+  const [imageSrc, setImageSrc] = useState(import.meta.env.DEV ? '' : src);
+
+  useEffect(() => {
+    setLoading(true);
+    setFailed(false);
+    if (!import.meta.env.DEV) {
+      setImageSrc(src);
+      return;
+    }
+
+    setImageSrc('');
+    const timeout = window.setTimeout(() => setImageSrc(src), LOCAL_IMAGE_DELAY_MS);
+    return () => window.clearTimeout(timeout);
+  }, [src]);
+
   return (
     <div
       className={twMerge(
@@ -88,18 +107,40 @@ export function CardImage({
       )}
     >
       {failed ? (
-        <div className="flex h-full flex-col items-center justify-center gap-2 p-3 text-center text-xs text-slate-500">
-          <ImageOff className="size-7" aria-hidden />
-          Imagen no disponible
+        <div className="flex h-full items-center justify-center bg-slate-100">
+          <img
+            src={unavailableCardImage}
+            alt=""
+            aria-hidden="true"
+            className="h-auto max-h-[64%] w-[64%] object-contain opacity-65"
+          />
+          <span className="sr-only">Imagen no disponible</span>
         </div>
       ) : (
-        <img
-          src={src}
-          alt={alt}
-          loading="lazy"
-          onError={() => setFailed(true)}
-          className="h-full w-full object-cover"
-        />
+        <>
+          {loading && (
+            <span className="absolute inset-0 grid place-items-center">
+              <OnePieceLoader
+                label={`Cargando ${alt}`}
+                className="pointer-events-none aspect-square h-auto w-[64%]"
+              />
+            </span>
+          )}
+          <img
+            src={imageSrc || undefined}
+            alt={alt}
+            loading="lazy"
+            onLoad={() => setLoading(false)}
+            onError={() => {
+              setLoading(false);
+              setFailed(true);
+            }}
+            className={twMerge(
+              'h-full w-full object-cover transition-opacity duration-200',
+              loading ? 'opacity-0' : 'opacity-100',
+            )}
+          />
+        </>
       )}
     </div>
   );

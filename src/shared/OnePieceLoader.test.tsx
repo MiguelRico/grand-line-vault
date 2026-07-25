@@ -1,6 +1,10 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { OnePieceLoader } from './OnePieceLoader';
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe('OnePieceLoader', () => {
   it('exposes an accessible loading status', () => {
@@ -9,14 +13,13 @@ describe('OnePieceLoader', () => {
     expect(screen.getByRole('status', { name: 'Cargando colección' })).toBeInTheDocument();
   });
 
-  it('renders the six supplied animation frames in order', () => {
+  it('renders only one randomly selected SVG', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0.5);
     const { container } = render(<OnePieceLoader />);
     const sources = Array.from(container.querySelectorAll('img'), (image) =>
       image.getAttribute('src'),
     );
 
-    expect(sources).toEqual(
-      Array.from({ length: 6 }, (_, index) => `/one-piece-spinner-${index + 1}.svg`),
-    );
+    expect(sources).toEqual(['/one-piece-spinner-4.svg']);
   });
 });
