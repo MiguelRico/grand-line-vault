@@ -71,7 +71,7 @@ function SidebarContent({ close }: { close?: () => void }) {
         >
           <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-full bg-indigo-200 p-1.5">
             <img
-              src="/one-piece.svg"
+              src="/one-piece-user.svg"
               alt=""
               className="size-full object-contain"
               aria-hidden="true"
