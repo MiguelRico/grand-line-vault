@@ -35,9 +35,9 @@ function SidebarContent({ close }: { close?: () => void }) {
           aria-label="One Piece"
         >
           <img
-            src="/one-piece.png"
+            src="/one-piece.svg"
             alt="One Piece"
-            className="h-full w-full object-cover object-center invert"
+            className="h-full w-full object-contain object-center invert"
           />
         </div>
         <p className="brand-one-piece whitespace-nowrap text-[17px] leading-none text-white">
