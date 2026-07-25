@@ -58,6 +58,28 @@ export function resolveCatalogUrl(url = '/catalog/manifest.json'): string {
   return `${import.meta.env.BASE_URL}catalog/${relative}`.replace(/\/{2,}/g, '/');
 }
 
+const OFFICIAL_IMAGE_ORIGIN = 'https://en.onepiece-cardgame.com';
+const OFFICIAL_IMAGE_PATH = '/images/cardlist/card/';
+const SAFE_IMAGE_FILE = /^[A-Za-z0-9_-]+\.png$/;
+const SAFE_IMAGE_VERSION = /^\d{1,16}$/;
+
+export function resolveCatalogImageUrl(url: string | null): string {
+  if (!url) return '';
+  try {
+    const parsed = new URL(url);
+    if (parsed.origin !== OFFICIAL_IMAGE_ORIGIN) return url;
+    if (!parsed.pathname.startsWith(OFFICIAL_IMAGE_PATH)) return '';
+    const file = parsed.pathname.slice(OFFICIAL_IMAGE_PATH.length);
+    const version = parsed.search.slice(1);
+    if (!SAFE_IMAGE_FILE.test(file) || (version && !SAFE_IMAGE_VERSION.test(version))) return '';
+    const query = new URLSearchParams({ file });
+    if (version) query.set('v', version);
+    return `${import.meta.env.BASE_URL}api/catalog-image?${query.toString()}`.replace(/^\/{2,}/, '/');
+  } catch {
+    return '';
+  }
+}
+
 function assertObject(value: unknown, label: string): asserts value is Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new Error(`${label} no tiene el formato esperado.`);

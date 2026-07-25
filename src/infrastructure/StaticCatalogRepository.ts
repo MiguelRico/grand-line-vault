@@ -7,6 +7,7 @@ import type {
 import type { CatalogRepository } from './repositories';
 import {
   loadStaticCatalog,
+  resolveCatalogImageUrl,
   toCardColor,
   toCardType,
   type LoadedStaticCatalog,
@@ -53,7 +54,7 @@ function mapCards(catalog: LoadedStaticCatalog): Card[] {
       effect: base.effect ?? undefined,
       trigger: base.trigger ?? undefined,
       language: 'EN',
-      imageUrl: base.imageUrl ?? '',
+      imageUrl: resolveCatalogImageUrl(base.imageUrl),
       prices: [],
       sources: [source],
       variants: versions
@@ -66,7 +67,7 @@ function mapCards(catalog: LoadedStaticCatalog): Card[] {
             version.variant.type === 'reprint'
               ? `Reprint ${version.variant.number ?? ''}`.trim()
               : `Parallel ${version.variant.number ?? ''}`.trim(),
-          imageUrl: version.imageUrl ?? base.imageUrl ?? '',
+          imageUrl: resolveCatalogImageUrl(version.imageUrl ?? base.imageUrl),
           language: 'EN' as const,
           prices: [],
           sources: [{ ...source, providerVariantId: version.sourceId }],

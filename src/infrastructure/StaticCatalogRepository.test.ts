@@ -3,6 +3,7 @@ import type { CatalogCriteria } from '../domain/models';
 import { StaticCatalogRepository } from './StaticCatalogRepository';
 import {
   loadStaticCatalog,
+  resolveCatalogImageUrl,
   resetStaticCatalogCache,
   type StaticCatalogManifest,
 } from './staticCatalog';
@@ -97,6 +98,22 @@ afterEach(() => {
 });
 
 describe('StaticCatalogRepository', () => {
+  it('routes official card images through the same-origin proxy', () => {
+    expect(
+      resolveCatalogImageUrl(
+        'https://en.onepiece-cardgame.com/images/cardlist/card/EB01-012_p3.png?260715',
+      ),
+    ).toBe('/api/catalog-image?file=EB01-012_p3.png&v=260715');
+    expect(resolveCatalogImageUrl('https://example.test/card.png')).toBe(
+      'https://example.test/card.png',
+    );
+    expect(
+      resolveCatalogImageUrl(
+        'https://en.onepiece-cardgame.com/images/cardlist/card/../../secret.png',
+      ),
+    ).toBe('');
+  });
+
   it('loads manifest and catalog once and builds base/variant indexes', async () => {
     const fetchMock = mockCatalog();
     const repository = new StaticCatalogRepository();
