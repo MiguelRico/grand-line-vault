@@ -32,12 +32,12 @@ function SidebarContent({ close }: { close?: () => void }) {
   return (
     <div className="flex h-full flex-col">
       <div className="flex flex-col items-center justify-start px-3 pb-2 pt-2">
-        <div className="w-full" aria-label="One Piece">
-          <img src="/one-piece.svg" alt="One Piece" className="block h-auto w-full invert" />
-        </div>
-        <p className="brand-one-piece whitespace-nowrap text-[17px] leading-none text-white">
+        <p className="brand-one-piece whitespace-nowrap text-[24px] leading-none text-white">
           GRAND LINE VAULT
         </p>
+        <div className="mt-2 w-[68%]" aria-label="One Piece">
+          <img src="/one-piece.svg" alt="One Piece" className="block h-auto w-full invert" />
+        </div>
       </div>
       <nav className="flex flex-1 flex-col justify-center px-3" aria-label="Navegación principal">
         <div className="space-y-1">
@@ -96,7 +96,7 @@ export function AppShell() {
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 bg-navy lg:block">
         <SidebarContent />
       </aside>
-      <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-white/5 bg-navy px-4 text-white lg:hidden">
+      <header className="sticky top-0 z-30 flex h-16 items-center border-b border-white/5 bg-navy px-4 text-white lg:hidden">
         <button
           className="grid size-11 place-items-center rounded-lg"
           onClick={() => setMenuOpen(true)}
@@ -104,7 +104,7 @@ export function AppShell() {
         >
           <Menu className="size-5" />
         </button>
-        <span className="brand-one-piece text-[17px] uppercase leading-none">
+        <span className="brand-one-piece flex min-w-0 flex-1 items-center justify-center self-stretch px-2 text-center text-[clamp(17px,5.5vw,28px)] uppercase leading-none">
           {config.VITE_APP_NAME}
         </span>
         <button className="grid size-11 place-items-center rounded-lg" aria-label="Notificaciones">

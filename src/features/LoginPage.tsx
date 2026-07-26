@@ -42,12 +42,12 @@ export function LoginPage() {
       <div className="relative w-full max-w-md">
         <div className="mb-4 text-center text-white">
           <div className="mx-auto flex w-full flex-col items-center px-5 sm:px-6">
-            <div className="w-full" aria-label="One Piece">
-              <img src="/one-piece.svg" alt="One Piece" className="block h-auto w-full invert" />
-            </div>
-            <h1 className="brand-one-piece whitespace-nowrap text-[23px] leading-none text-white">
+            <h1 className="brand-one-piece whitespace-nowrap text-[clamp(32px,10vw,48px)] leading-none text-white">
               GRAND LINE VAULT
             </h1>
+            <div className="mt-3 w-[62%]" aria-label="One Piece">
+              <img src="/one-piece.svg" alt="One Piece" className="block h-auto w-full invert" />
+            </div>
           </div>
           <p className="mt-1 text-sm text-slate-400">Tu colección. Tus reglas. Un único acceso.</p>
         </div>
