@@ -29,9 +29,20 @@ const card: Card = {
   slug: 'monkey-d-luffy',
   type: 'singles',
   card_number: 'OP01-001',
+  normalized_card_number: 'OP01-001',
   rarity: 'L',
+  rarity_normalized: 'LEADER',
   color: 'Red',
-  episode: { id: 'OP-01', code: 'OP-01', name: 'Romance Dawn', slug: 'romance-dawn' },
+  artist: { id: 'artist-base', name: 'Base Artist', slug: 'base-artist' },
+  cardmarket_id: 100,
+  tcgplayer_id: 200,
+  episode: {
+    id: 'OP-01',
+    code: 'OP-01',
+    normalized_code: 'OP01',
+    name: 'Romance Dawn',
+    slug: 'romance-dawn',
+  },
   game: {
     card_type: 'LEADER',
     colors: ['RED'],
@@ -51,12 +62,37 @@ const card: Card = {
       base_card_id: 'BASE::OP01-001',
       variant_type: 'PARALLEL',
       label: 'Parallel 1',
+      version: 'V.2',
       image: '/parallel.png',
       language: 'JP',
-      prices: { tcgplayer: { currency: 'USD', market_price: 12 } },
+      prices: {
+        cardmarket: {
+          currency: 'EUR',
+          lowest_near_mint: 10,
+          average_30d: 9,
+          available_items: 8,
+        },
+        tcgplayer: { currency: 'USD', market_price: 12 },
+      },
+      artist: { id: 'artist-variant', name: 'Variant Artist', slug: 'variant-artist' },
+      cardmarket_id: 101,
+      tcgplayer_id: 201,
+      tcgid: 301,
+      links: {
+        cardmarket: 'https://www.cardmarket.com/example',
+        tcgplayer: 'https://www.tcgplayer.com/example',
+      },
       source: { providerId: 'MOCK', fetchedAt: '2026-07-25T00:00:00.000Z' },
     },
   ],
+  enrichment: {
+    status: 'MATCHED',
+    providers: ['ONE_PIECE_API', 'OFFICIAL_STATIC'],
+    matchedExternalIds: ['OP01-001'],
+    fields: ['game.power'],
+    provenance: {},
+    conflicts: [],
+  },
 };
 
 const collectionItems = [
@@ -117,7 +153,7 @@ describe('CardDetails', () => {
     );
 
     await screen.findByRole('heading', { name: card.name });
-    expect(screen.getByText('1.00 USD')).toBeInTheDocument();
+    expect(screen.getAllByText('1.00 USD').length).toBeGreaterThan(0);
     expect(await screen.findByText('2 copias de Arte base')).toBeInTheDocument();
     expect(screen.getByText('Total entre todos los artes: 5')).toBeInTheDocument();
 
@@ -129,8 +165,12 @@ describe('CardDetails', () => {
       'true',
     );
     expect(screen.getByText('Parallel 1')).toBeInTheDocument();
-    expect(screen.getByText('12.00 USD')).toBeInTheDocument();
-    expect(screen.getByText('TCGPlayer')).toBeInTheDocument();
+    expect(screen.getAllByText('12.00 USD').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('TCGPlayer').length).toBeGreaterThan(0);
+    expect(screen.getByText('Variant Artist')).toBeInTheDocument();
+    expect(screen.getByText('101')).toBeInTheDocument();
+    expect(screen.getByText('Media 30 días')).toBeInTheDocument();
+    expect(screen.getByText('9.00 EUR')).toBeInTheDocument();
     expect(screen.getByText(/· JP$/)).toBeInTheDocument();
     expect(screen.getByText(/Fuente de datos:/).parentElement).toHaveTextContent('MOCK');
     expect(screen.getByText('3 copias de Parallel 1')).toBeInTheDocument();
@@ -159,6 +199,9 @@ describe('CardDetails', () => {
         quantity: 2,
         language: 'JP',
         cardSnapshot: expect.objectContaining({
+          schemaVersion: 2,
+          normalizedCardNumber: 'OP01-001',
+          printKey: 'MOCK::p1',
           variantLabel: 'Parallel 1',
           imageUrl: new URL('/parallel.png', window.location.origin).href,
         }),

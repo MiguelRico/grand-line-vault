@@ -2,6 +2,57 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { CatalogCriteria } from '../domain/models';
 import { OnePieceApiRepository } from './OnePieceApiRepository';
 import type { OnePieceApiCard } from './onePieceApi';
+import type { LoadedStaticCatalog } from './staticCatalog';
+
+const emptyStaticCatalog = async (): Promise<LoadedStaticCatalog> => ({
+  manifest: {
+    schemaVersion: 1,
+    catalogVersion: 'test',
+    generatedAt: '2026-07-25T00:00:00.000Z',
+    totalCards: 0,
+    totalBaseCards: 0,
+    totalVariants: 0,
+    totalSets: 0,
+    cardsUrl: '',
+    setsUrl: '',
+    filtersUrl: '',
+    legacyIdMapUrl: '',
+  },
+  cards: [],
+  sets: [],
+  legacyIdMap: {},
+});
+
+const enrichedStaticCatalog = async (): Promise<LoadedStaticCatalog> => {
+  const catalog = await emptyStaticCatalog();
+  return {
+    ...catalog,
+    cards: [
+      {
+        id: 'static-teach',
+        sourceId: 'OP09-093',
+        baseCardId: 'OP09-093',
+        cardNumber: 'OP09-093',
+        name: 'Marshall.D.Teach',
+        category: 'Leader',
+        rarity: 'L',
+        colors: ['Black'],
+        cost: 5,
+        life: 5,
+        power: 5000,
+        counter: null,
+        attributes: ['Special'],
+        traits: ['Blackbeard Pirates'],
+        effect: 'Static catalog effect',
+        trigger: null,
+        imageUrl: null,
+        variant: { type: 'base', number: null },
+        sets: [{ id: 'OP-09', sourceSeriesId: 'OP09', name: 'Emperors' }],
+        contentFingerprint: 'test',
+      },
+    ],
+  };
+};
 
 const baseCard: OnePieceApiCard = {
   id: 28839,
@@ -13,17 +64,30 @@ const baseCard: OnePieceApiCard = {
   rarity: 'LEADER',
   color: 'Black',
   version: null,
+  card_code_number: 'OP09-093 L',
+  hp: 5,
+  supertype: 'Leader',
+  tcgid: 12345,
   cardmarket_id: 843038,
   tcgplayer_id: 646572,
+  artist: { id: 9, name: 'API Artist', slug: 'api-artist' },
   prices: {
-    cardmarket: { currency: 'EUR', lowest_near_mint: 750 },
-    tcgplayer: { currency: 'EUR', market_price: 720 },
+    cardmarket: {
+      currency: 'EUR',
+      lowest_near_mint: 750,
+      '30d_average': 740,
+      available_items: 3,
+    },
+    tcg_player: { currency: 'USD', market_price: 720 },
   },
   episode: {
     id: 366,
     name: 'Emperors in the New World',
     slug: 'emperors-in-the-new-world',
     code: 'OP09',
+    cards_total: 126,
+    cards_printed_total: 178,
+    prices: { tcg_player: { total: 999, currency: 'USD' } },
   },
   image: 'https://images.example.test/teach.webp',
 };
@@ -65,7 +129,7 @@ describe('OnePieceApiRepository', () => {
     );
     vi.stubGlobal('fetch', fetchMock);
 
-    const result = await new OnePieceApiRepository().search(criteria);
+    const result = await new OnePieceApiRepository(enrichedStaticCatalog).search(criteria);
 
     expect(result).toMatchObject({
       page: 2,
@@ -80,6 +144,29 @@ describe('OnePieceApiRepository', () => {
       image: baseCard.image,
       episode: { id: '366', code: 'OP09' },
       source: { providerId: 'ONE_PIECE_API' },
+      game: {
+        card_type: 'LEADER',
+        cost: 5,
+        power: 5000,
+        traits: ['Blackbeard Pirates'],
+      },
+      artist: { name: 'API Artist' },
+      prices: {
+        cardmarket: { average_30d: 740, available_items: 3 },
+        tcgplayer: { currency: 'USD', market_price: 720 },
+      },
+      enrichment: {
+        status: 'MATCHED',
+        providers: ['ONE_PIECE_API', 'OFFICIAL_STATIC'],
+      },
+    });
+    expect(result.items[0]?.episode.prices?.tcgplayer).toEqual({
+      total: 999,
+      currency: 'USD',
+    });
+    expect(result.items[0]?.enrichment.provenance['game.power']).toMatchObject({
+      providerId: 'OFFICIAL_STATIC',
+      confidence: 'HIGH',
     });
     expect(String(fetchMock.mock.calls[0]?.[0])).toContain('episode_id=366');
     expect(String(fetchMock.mock.calls[0]?.[0])).toContain('sort=price_highest');
@@ -96,13 +183,15 @@ describe('OnePieceApiRepository', () => {
       );
     vi.stubGlobal('fetch', fetchMock);
 
-    const card = await new OnePieceApiRepository().getById('ONE_PIECE_API::28839');
+    const card = await new OnePieceApiRepository(emptyStaticCatalog).getById(
+      'ONE_PIECE_API::28839',
+    );
 
     expect(card?.artworks).toHaveLength(1);
     expect(card?.artworks[0]).toMatchObject({
       id: 'ONE_PIECE_API::28840',
       external_id: '28840',
-      variant_type: 'PARALLEL',
+      variant_type: 'UNKNOWN',
       label: 'Versión v2',
     });
   });
@@ -123,7 +212,7 @@ describe('OnePieceApiRepository', () => {
       ),
     );
 
-    await expect(new OnePieceApiRepository().search(criteria)).rejects.toThrow(
+    await expect(new OnePieceApiRepository(emptyStaticCatalog).search(criteria)).rejects.toThrow(
       'One Piece API todavía no está configurada.',
     );
   });

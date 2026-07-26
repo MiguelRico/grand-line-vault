@@ -1,5 +1,11 @@
 import type { Card, CatalogCriteria, PaginatedResult } from '../domain/models';
 import type { CatalogRepository } from './repositories';
+import { normalizeCardNumber, normalizeExpansionCode } from '../domain/catalogNormalization';
+import {
+  loadStaticCatalog,
+  type LoadedStaticCatalog,
+  type StaticCatalogCard,
+} from './staticCatalog';
 import {
   isOnePieceApiCard,
   isOnePieceApiEpisode,
@@ -20,6 +26,47 @@ function apiSort(criteria: CatalogCriteria): string {
 }
 
 export class OnePieceApiRepository implements CatalogRepository {
+  private staticIndexPromise: Promise<Map<string, StaticCatalogCard[]>> | null = null;
+
+  constructor(
+    private readonly staticCatalogLoader: () => Promise<LoadedStaticCatalog> = loadStaticCatalog,
+  ) {}
+
+  private staticIndex(): Promise<Map<string, StaticCatalogCard[]>> {
+    this.staticIndexPromise ??= this.staticCatalogLoader()
+      .then((catalog) => {
+        const index = new Map<string, StaticCatalogCard[]>();
+        catalog.cards.forEach((card) => {
+          const key = normalizeCardNumber(card.cardNumber);
+          index.set(key, [...(index.get(key) ?? []), card]);
+        });
+        return index;
+      })
+      .catch(() => new Map());
+    return this.staticIndexPromise;
+  }
+
+  private staticMatches(
+    card: { card_number: string; name: string; episode: { code: string } },
+    index: Map<string, StaticCatalogCard[]>,
+  ): StaticCatalogCard[] {
+    const candidates = index.get(normalizeCardNumber(card.card_number)) ?? [];
+    const expansionCode = normalizeExpansionCode(card.episode.code);
+    const expansionMatches = candidates.filter((candidate) =>
+      candidate.sets.some(
+        (set) =>
+          normalizeExpansionCode(set.id) === expansionCode ||
+          normalizeExpansionCode(set.sourceSeriesId) === expansionCode,
+      ),
+    );
+    const expansionCompatible = expansionMatches.length > 0 ? expansionMatches : candidates;
+    const normalizedName = card.name.toLocaleUpperCase().replace(/[^A-Z0-9]/g, '');
+    return expansionCompatible.filter(
+      (candidate) =>
+        candidate.name.toLocaleUpperCase().replace(/[^A-Z0-9]/g, '') === normalizedName,
+    );
+  }
+
   private async request<T>(params: URLSearchParams, signal?: AbortSignal): Promise<T> {
     params.set('action', 'one-piece');
     const response = await fetch(`/api/catalog?${params}`, { signal });
@@ -43,10 +90,13 @@ export class OnePieceApiRepository implements CatalogRepository {
     });
     if (criteria.query) params.set('search', criteria.query);
     if (criteria.setCode) params.set('episode_id', criteria.setCode);
-    const result = await this.request<OnePieceApiList<unknown>>(params, signal);
+    const [result, staticIndex] = await Promise.all([
+      this.request<OnePieceApiList<unknown>>(params, signal),
+      this.staticIndex(),
+    ]);
     const cards = result.data.filter(isOnePieceApiCard);
     return {
-      items: cards.map((card) => mapApiCard(card)),
+      items: cards.map((card) => mapApiCard(card, [], this.staticMatches(card, staticIndex))),
       page: result.paging?.current ?? criteria.page,
       pageSize: result.paging?.per_page ?? criteria.pageSize,
       total: result.results ?? cards.length,
@@ -69,16 +119,19 @@ export class OnePieceApiRepository implements CatalogRepository {
     const detail = detailResult.data;
     if (!isOnePieceApiCard(detail))
       throw new Error('La carta recibida no tiene un formato válido.');
-    const relatedResult = await this.request<OnePieceApiList<unknown>>(
-      new URLSearchParams({
-        resource: 'cards',
-        card_number: detail.card_number,
-        per_page: '100',
-      }),
-      signal,
-    );
+    const [relatedResult, staticIndex] = await Promise.all([
+      this.request<OnePieceApiList<unknown>>(
+        new URLSearchParams({
+          resource: 'cards',
+          card_number: detail.card_number,
+          per_page: '100',
+        }),
+        signal,
+      ),
+      this.staticIndex(),
+    ]);
     const related = relatedResult.data.filter(isOnePieceApiCard);
-    return mapApiCard(detail, related);
+    return mapApiCard(detail, related, this.staticMatches(detail, staticIndex));
   }
 
   async listSets(signal?: AbortSignal): Promise<Card['episode'][]> {

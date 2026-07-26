@@ -7,6 +7,7 @@ import type {
   StorageBox,
 } from '../domain/models';
 import { initialBoxes, initialCollection, initialSalesPacks, mockCards } from './mockData';
+import { migrateCollectionItem } from '../domain/catalogNormalization';
 
 export interface CatalogRepository {
   search(criteria: CatalogCriteria, signal?: AbortSignal): Promise<PaginatedResult<Card>>;
@@ -129,9 +130,10 @@ function read<T>(key: string, fallback: T): T {
 
 export class MockPrivateRepository implements PrivateRepository {
   async listCollection(): Promise<CollectionItem[]> {
-    return read(collectionKey, initialCollection);
+    return read<CollectionItem[]>(collectionKey, initialCollection).map(migrateCollectionItem);
   }
   async saveCollection(item: CollectionItem): Promise<CollectionItem> {
+    item = migrateCollectionItem(item);
     const items = await this.listCollection();
     const existing = items.findIndex((entry) => entry.id === item.id);
     const next = [...items];
@@ -188,9 +190,12 @@ export class ApiPrivateRepository implements PrivateRepository {
     return payload.data;
   }
   listCollection(): Promise<CollectionItem[]> {
-    return this.request('/api/collection');
+    return this.request<CollectionItem[]>('/api/collection').then((items) =>
+      items.map(migrateCollectionItem),
+    );
   }
   saveCollection(item: CollectionItem): Promise<CollectionItem> {
+    item = migrateCollectionItem(item);
     return this.request(`/api/collection/${encodeURIComponent(item.id)}`, {
       method: 'PATCH',
       body: JSON.stringify(item),

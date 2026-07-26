@@ -11,6 +11,11 @@ import type {
   StorageBox,
 } from '../domain/models';
 import { calculateCollectionStats, sectionLabel } from '../domain/services';
+import {
+  normalizeCardNumber,
+  normalizeExpansionCode,
+  normalizeRarity,
+} from '../domain/catalogNormalization';
 import { PageHeader } from '../shared/AppShell';
 import { OnePieceLoader } from '../shared/OnePieceLoader';
 import {
@@ -37,11 +42,14 @@ function snapshotToCard(item: CollectionItem): Card {
     slug: item.cardSnapshot.name.toLocaleLowerCase().replace(/[^a-z0-9]+/g, '-'),
     type: 'singles',
     card_number: item.cardSnapshot.code,
+    normalized_card_number: normalizeCardNumber(item.cardSnapshot.code),
     rarity: item.cardSnapshot.rarity,
+    rarity_normalized: normalizeRarity(item.cardSnapshot.rarity),
     color: null,
     episode: {
       id: item.cardSnapshot.setCode,
       code: item.cardSnapshot.setCode,
+      normalized_code: normalizeExpansionCode(item.cardSnapshot.setCode),
       name: item.cardSnapshot.setCode,
       slug: item.cardSnapshot.setCode.toLocaleLowerCase(),
     },
@@ -63,6 +71,14 @@ function snapshotToCard(item: CollectionItem): Card {
         }
       : {},
     source,
+    enrichment: {
+      status: 'SOURCE',
+      providers: [source.providerId],
+      matchedExternalIds: [item.cardSnapshot.sourceCardId ?? item.cardId],
+      fields: [],
+      provenance: {},
+      conflicts: [],
+    },
   };
 }
 

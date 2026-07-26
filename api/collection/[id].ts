@@ -2,13 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { requireSession } from '../_shared/auth.js';
 import { db } from '../_shared/firebase.js';
 import { collectionItemSchema } from '../_shared/schemas.js';
-import {
-  apiError,
-  assertPayloadSize,
-  getPathId,
-  json,
-  methodNotAllowed,
-} from '../_shared/http.js';
+import { apiError, assertPayloadSize, getPathId, json, methodNotAllowed } from '../_shared/http.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
@@ -19,12 +13,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'GET') {
       const snapshot = await ref.get();
       if (!snapshot.exists) return apiError(res, 404, 'NOT_FOUND', 'Carta no encontrada.');
-      return json(res, 200, snapshot.data());
+      const parsed = collectionItemSchema.safeParse(snapshot.data());
+      if (!parsed.success)
+        return apiError(
+          res,
+          500,
+          'COLLECTION_DATA_CORRUPTED',
+          'La carta guardada tiene un formato no válido.',
+        );
+      const originalSnapshot = snapshot.data()?.cardSnapshot as Record<string, unknown> | undefined;
+      if (
+        originalSnapshot?.schemaVersion !== 2 ||
+        typeof originalSnapshot.normalizedCardNumber !== 'string' ||
+        typeof originalSnapshot.printKey !== 'string'
+      ) {
+        await ref.set(parsed.data, { merge: true });
+      }
+      return json(res, 200, parsed.data);
     }
     if (req.method === 'PATCH') {
-      if (!assertPayloadSize(req)) return apiError(res, 413, 'PAYLOAD_TOO_LARGE', 'Solicitud demasiado grande.');
+      if (!assertPayloadSize(req))
+        return apiError(res, 413, 'PAYLOAD_TOO_LARGE', 'Solicitud demasiado grande.');
       const parsed = collectionItemSchema.safeParse({ ...req.body, id });
-      if (!parsed.success) return apiError(res, 400, 'VALIDATION_ERROR', 'Datos de colección inválidos.');
+      if (!parsed.success)
+        return apiError(res, 400, 'VALIDATION_ERROR', 'Datos de colección inválidos.');
       await ref.set(parsed.data, { merge: true });
       return json(res, 200, parsed.data);
     }

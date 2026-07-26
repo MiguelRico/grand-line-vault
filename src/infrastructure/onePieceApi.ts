@@ -1,35 +1,33 @@
-import type {
-  Card,
-  CardArtwork,
-  CardColor,
-  CardType,
-  CatalogEpisode,
-  CatalogPrices,
-} from '../domain/models';
+import type { Card, CardArtwork, CardColor, CardType, CatalogEpisode } from '../domain/models';
+import {
+  normalizeArtist,
+  normalizeCardNumber,
+  normalizeCatalogPrices,
+  normalizeExpansionCode,
+  normalizeRarity,
+} from '../domain/catalogNormalization';
+import { toCardColor, toCardType, type StaticCatalogCard } from './staticCatalog';
 
 export interface OnePieceApiCard {
   id: number;
   name: string;
   name_numbered: string;
   slug: string;
+  card_code_number?: string | null;
   type: string;
   card_number: string;
+  hp?: number | null;
   rarity?: string | null;
   color?: string | null;
   version?: string | null;
+  supertype?: string | null;
+  tcgid?: number | string | null;
   cardmarket_id?: number | null;
   tcgplayer_id?: number | null;
   flavor_text?: string | null;
   artist?: Record<string, unknown> | null;
-  prices?: CatalogPrices | null;
-  episode: {
-    id: number;
-    name: string;
-    slug: string;
-    released_at?: string;
-    logo?: string;
-    code: string;
-  };
+  prices?: unknown;
+  episode: OnePieceApiEpisode;
   image: string;
   tcggo_url?: string;
   links?: { cardmarket?: string; tcgplayer?: string };
@@ -42,12 +40,27 @@ export interface OnePieceApiEpisode {
   released_at?: string;
   logo?: string;
   code: string;
+  cards_total?: number;
+  cards_printed_total?: number;
+  prices?: Record<string, unknown>;
+  game?: { name: string; slug: string };
+  series?: { id: number; name: string; slug: string } | null;
 }
 
 export interface OnePieceApiList<T> {
   data: T[];
   paging?: { current?: number; total?: number; per_page?: number };
   results?: number;
+}
+
+function episodePrice(value: unknown): { total: number; currency: string } | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const price = value as Record<string, unknown>;
+  if (typeof price.total !== 'number' || !Number.isFinite(price.total)) return undefined;
+  return {
+    total: price.total,
+    currency: typeof price.currency === 'string' ? price.currency : 'EUR',
+  };
 }
 
 const colorMap: Record<string, CardColor> = {
@@ -72,9 +85,18 @@ function inferCardType(rarity?: string | null): CardType {
 }
 
 export function mapApiEpisode(episode: OnePieceApiEpisode): CatalogEpisode {
+  const rawPrices = episode.prices ?? {};
   return {
     ...episode,
     id: String(episode.id),
+    normalized_code: normalizeExpansionCode(episode.code),
+    prices: episode.prices
+      ? {
+          cardmarket: episodePrice(rawPrices.cardmarket),
+          tcgplayer: episodePrice(rawPrices.tcgplayer ?? rawPrices.tcg_player),
+        }
+      : undefined,
+    series: episode.series ? { ...episode.series, id: String(episode.series.id) } : episode.series,
   };
 }
 
@@ -83,11 +105,18 @@ function artworkFromApi(card: OnePieceApiCard, baseCardId: string): CardArtwork 
     id: `ONE_PIECE_API::${card.id}`,
     external_id: String(card.id),
     base_card_id: baseCardId,
-    variant_type: card.version ? 'PARALLEL' : 'BASE',
+    variant_type: card.version ? 'UNKNOWN' : 'BASE',
     label: card.version ? `Versión ${card.version}` : 'Base',
+    version: card.version,
     image: card.image,
     language: 'EN',
-    prices: card.prices ?? {},
+    prices: normalizeCatalogPrices(card.prices),
+    artist: normalizeArtist(card.artist),
+    cardmarket_id: card.cardmarket_id,
+    tcgplayer_id: card.tcgplayer_id,
+    tcgid: card.tcgid,
+    links: card.links,
+    tcggo_url: card.tcggo_url,
     source: {
       providerId: 'ONE_PIECE_API',
       providerCardId: String(card.id),
@@ -97,13 +126,70 @@ function artworkFromApi(card: OnePieceApiCard, baseCardId: string): CardArtwork 
   };
 }
 
-export function mapApiCard(raw: OnePieceApiCard, related: OnePieceApiCard[] = []): Card {
+export function mapApiCard(
+  raw: OnePieceApiCard,
+  related: OnePieceApiCard[] = [],
+  staticMatches: StaticCatalogCard[] = [],
+): Card {
   const id = `ONE_PIECE_API::${raw.id}`;
   const source = {
     providerId: 'ONE_PIECE_API' as const,
     providerCardId: String(raw.id),
     fetchedAt: new Date().toISOString(),
   };
+  const baseIds = new Set(staticMatches.map((card) => card.baseCardId));
+  const staticBase =
+    baseIds.size === 1
+      ? (staticMatches.find((card) => card.variant.type === 'base') ?? staticMatches[0])
+      : undefined;
+  const enrichmentStatus = baseIds.size > 1 ? 'AMBIGUOUS' : staticBase ? 'MATCHED' : 'UNMATCHED';
+  const staticColors = staticBase?.colors.map(toCardColor).filter((color) => color !== null) ?? [];
+  const enrichedFields = staticBase
+    ? [
+        'game.card_type',
+        'game.cost',
+        'game.power',
+        'game.counter',
+        'game.life',
+        'game.attributes',
+        'game.traits',
+        'game.effect',
+        'game.trigger',
+      ]
+    : [];
+  const apiProvenance = Object.fromEntries(
+    [
+      ['card_number', 'card_number'],
+      ['name', 'name'],
+      ['rarity', 'rarity'],
+      ['color', 'color'],
+      ['version', 'version'],
+      ['artist', 'artist'],
+      ['prices', 'prices'],
+      ['episode', 'episode'],
+      ['image', 'image'],
+      ['marketplace_ids', 'cardmarket_id/tcgplayer_id/tcgid'],
+      ['links', 'links/tcggo_url'],
+    ].map(([field, sourceField]) => [
+      field,
+      {
+        providerId: 'ONE_PIECE_API' as const,
+        sourceField,
+        confidence: 'EXACT' as const,
+      },
+    ]),
+  );
+  const staticProvenance = Object.fromEntries(
+    enrichedFields.map((field) => [
+      field,
+      {
+        providerId: 'OFFICIAL_STATIC' as const,
+        sourceField: field.slice(5),
+        confidence: 'HIGH' as const,
+      },
+    ]),
+  );
+
   return {
     id,
     external_id: String(raw.id),
@@ -112,27 +198,48 @@ export function mapApiCard(raw: OnePieceApiCard, related: OnePieceApiCard[] = []
     slug: raw.slug,
     type: raw.type,
     card_number: raw.card_number,
+    normalized_card_number: normalizeCardNumber(raw.card_number),
+    card_code_number: raw.card_code_number,
     rarity: raw.rarity ?? undefined,
+    rarity_normalized: normalizeRarity(raw.rarity),
     color: raw.color ?? null,
     version: raw.version,
+    hp: raw.hp,
+    supertype: raw.supertype,
+    tcgid: raw.tcgid,
     cardmarket_id: raw.cardmarket_id,
     tcgplayer_id: raw.tcgplayer_id,
     flavor_text: raw.flavor_text,
-    artist: raw.artist,
-    prices: raw.prices ?? {},
+    prices: normalizeCatalogPrices(raw.prices),
     episode: mapApiEpisode(raw.episode),
+    artist: normalizeArtist(raw.artist),
     image: raw.image,
     tcggo_url: raw.tcggo_url,
     links: raw.links,
     game: {
-      card_type: inferCardType(raw.rarity),
-      colors: gameColors(raw.color),
-      attributes: [],
-      traits: [],
+      card_type: staticBase ? toCardType(staticBase.category) : inferCardType(raw.rarity),
+      colors: staticColors.length > 0 ? staticColors : gameColors(raw.color),
+      cost: staticBase?.cost ?? undefined,
+      power: staticBase?.power ?? undefined,
+      counter: staticBase?.counter ?? undefined,
+      life: staticBase?.life ?? undefined,
+      attributes: staticBase?.attributes ?? [],
+      traits: staticBase?.traits ?? [],
+      effect: staticBase?.effect ?? undefined,
+      trigger: staticBase?.trigger ?? undefined,
       language: 'EN',
     },
     artworks: related.filter((card) => card.id !== raw.id).map((card) => artworkFromApi(card, id)),
     source,
+    enrichment: {
+      status: enrichmentStatus,
+      providers: staticBase ? ['ONE_PIECE_API', 'OFFICIAL_STATIC'] : ['ONE_PIECE_API'],
+      matchedExternalIds: staticMatches.map((card) => card.sourceId),
+      fields: enrichedFields,
+      provenance: { ...apiProvenance, ...staticProvenance },
+      conflicts:
+        baseIds.size > 1 ? [`Varias cartas funcionales coinciden con ${raw.card_number}.`] : [],
+    },
   };
 }
 

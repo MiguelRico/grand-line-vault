@@ -1,5 +1,11 @@
 import type { Card, CollectionItem, SalesPack, StorageBox } from '../domain/models';
 import { catalogPriceList } from '../domain/services';
+import {
+  createCollectionSnapshot,
+  normalizeCardNumber,
+  normalizeExpansionCode,
+  normalizeRarity,
+} from '../domain/catalogNormalization';
 
 const now = '2026-07-21T06:00:00.000Z';
 const providerBase = 'https://en.onepiece-cardgame.com/images/cardlist/card';
@@ -51,9 +57,17 @@ export const mockCards: Card[] = seeds.map(
       slug: name.toLocaleLowerCase().replace(/[^a-z0-9]+/g, '-'),
       type: 'singles',
       card_number: code,
+      normalized_card_number: normalizeCardNumber(code),
       rarity,
+      rarity_normalized: normalizeRarity(rarity),
       color,
-      episode: { id: 'OP-01', code: 'OP-01', name: 'Romance Dawn', slug: 'romance-dawn' },
+      episode: {
+        id: 'OP-01',
+        code: 'OP-01',
+        normalized_code: normalizeExpansionCode('OP-01'),
+        name: 'Romance Dawn',
+        slug: 'romance-dawn',
+      },
       game: {
         card_type: type,
         colors: [color],
@@ -74,6 +88,14 @@ export const mockCards: Card[] = seeds.map(
         tcgplayer: { currency: price.currency, market_price: price.amount },
       },
       source,
+      enrichment: {
+        status: 'SOURCE',
+        providers: ['MOCK'],
+        matchedExternalIds: [code],
+        fields: ['game.card_type', 'game.cost', 'game.power'],
+        provenance: {},
+        conflicts: [],
+      },
       artworks:
         index < 6
           ? [
@@ -102,15 +124,9 @@ function toCollection(card: Card, quantity: number, index: number): CollectionIt
     cardId: card.id,
     cardVariantId: card.id,
     cardSnapshot: {
-      code: card.card_number,
-      name: card.name,
-      setCode: card.episode.code,
-      rarity: card.rarity,
+      ...createCollectionSnapshot(card, null, card.image),
       variantLabel: 'Normal',
-      imageUrl: card.image,
       catalogPrice: catalogPriceList(card.prices)[0],
-      catalogProvider: 'MOCK',
-      catalogFetchedAt: now,
     },
     quantity,
     language: 'EN',

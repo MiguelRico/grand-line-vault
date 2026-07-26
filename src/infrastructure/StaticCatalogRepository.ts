@@ -1,6 +1,11 @@
 import type { Card, CardVariantType, CatalogCriteria, PaginatedResult } from '../domain/models';
 import type { CatalogRepository } from './repositories';
 import {
+  normalizeCardNumber,
+  normalizeExpansionCode,
+  normalizeRarity,
+} from '../domain/catalogNormalization';
+import {
   loadStaticCatalog,
   resolveCatalogImageUrl,
   toCardColor,
@@ -49,12 +54,15 @@ function mapCards(catalog: LoadedStaticCatalog): Card[] {
         slug: slugify(base.name),
         type: 'singles',
         card_number: code,
+        normalized_card_number: normalizeCardNumber(code),
         rarity: base.rarity || undefined,
+        rarity_normalized: normalizeRarity(base.rarity),
         color: base.colors.join('/'),
         prices: {},
         episode: {
           id: primarySet.id,
           code: primarySet.id,
+          normalized_code: normalizeExpansionCode(primarySet.id),
           name: primarySet.name,
           slug: slugify(primarySet.name),
         },
@@ -73,6 +81,49 @@ function mapCards(catalog: LoadedStaticCatalog): Card[] {
           language: 'EN',
         },
         source,
+        enrichment: {
+          status: 'SOURCE',
+          providers: ['OFFICIAL_STATIC'],
+          matchedExternalIds: versions.map((version) => version.sourceId),
+          fields: [
+            'game.card_type',
+            'game.cost',
+            'game.power',
+            'game.counter',
+            'game.life',
+            'game.attributes',
+            'game.traits',
+            'game.effect',
+            'game.trigger',
+          ],
+          provenance: Object.fromEntries(
+            [
+              'card_number',
+              'name',
+              'rarity',
+              'episode',
+              'image',
+              'game.card_type',
+              'game.colors',
+              'game.cost',
+              'game.power',
+              'game.counter',
+              'game.life',
+              'game.attributes',
+              'game.traits',
+              'game.effect',
+              'game.trigger',
+            ].map((field) => [
+              field,
+              {
+                providerId: 'OFFICIAL_STATIC' as const,
+                sourceField: field.startsWith('game.') ? field.slice(5) : field,
+                confidence: 'EXACT' as const,
+              },
+            ]),
+          ),
+          conflicts: [],
+        },
         artworks: versions
           .filter((version) => version.id !== base.id)
           .map((version) => ({
@@ -185,6 +236,7 @@ export class StaticCatalogRepository implements CatalogRepository {
       code: set.id,
       name: set.name,
       slug: slugify(set.name),
+      normalized_code: normalizeExpansionCode(set.id),
     }));
   }
 }

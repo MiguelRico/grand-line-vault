@@ -1,8 +1,9 @@
-import { Box, CalendarClock, Plus } from 'lucide-react';
+import { Box, CalendarClock, ExternalLink, Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Card, CardVariant, CollectionItem } from '../domain/models';
 import { catalogPriceList } from '../domain/services';
+import { collectionItemIdentity, createCollectionSnapshot } from '../domain/catalogNormalization';
 import { useServices } from '../app/providers/ServicesProvider';
 import { Button, CardImage, QuantitySelector, ResponsiveDialog } from '../shared/ui';
 import { OnePieceLoader } from '../shared/OnePieceLoader';
@@ -30,25 +31,12 @@ export function CardDetails({ cardId, onClose }: { cardId: string | null; onClos
   const addMutation = useMutation({
     mutationFn: async ({ card, variant }: { card: Card; variant: CardVariant | null }) => {
       const timestamp = new Date().toISOString();
-      const prices = variant ? variant.prices : card.prices;
-      const source = variant ? variant.source : card.source;
-      const priceList = catalogPriceList(prices);
       const imageUrl = new URL(variant?.image ?? card.image, window.location.origin).href;
-      const item: CollectionItem = {
+      const candidate: CollectionItem = {
         id: crypto.randomUUID(),
         cardId: card.id,
         cardVariantId: variant?.id ?? card.id,
-        cardSnapshot: {
-          code: card.card_number,
-          name: card.name,
-          setCode: card.episode.code,
-          rarity: card.rarity,
-          variantLabel: variant?.label ?? 'Arte base',
-          imageUrl,
-          catalogPrice: priceList[0],
-          catalogProvider: source.providerId,
-          catalogFetchedAt: source.fetchedAt,
-        },
+        cardSnapshot: createCollectionSnapshot(card, variant, imageUrl),
         quantity,
         language: variant?.language ?? card.game.language,
         condition: 'NEAR_MINT',
@@ -56,13 +44,27 @@ export function CardDetails({ cardId, onClose }: { cardId: string | null; onClos
         createdAt: timestamp,
         updatedAt: timestamp,
       };
-      return services.privateData.saveCollection(item);
+      const existing = collectionQuery.data?.find(
+        (item) => collectionItemIdentity(item) === collectionItemIdentity(candidate),
+      );
+      const item = existing
+        ? {
+            ...existing,
+            cardId: card.id,
+            cardVariantId: variant?.id ?? card.id,
+            cardSnapshot: candidate.cardSnapshot,
+            quantity: Math.min(999, existing.quantity + quantity),
+            updatedAt: timestamp,
+          }
+        : candidate;
+      const savedItem = await services.privateData.saveCollection(item);
+      return { savedItem, addedQuantity: quantity };
     },
-    onSuccess: async (savedItem) => {
+    onSuccess: async ({ savedItem }) => {
       setQuantity(1);
       queryClient.setQueryData<CollectionItem[]>(['collection'], (items) => [
         savedItem,
-        ...(items ?? []),
+        ...(items ?? []).filter((item) => item.id !== savedItem.id),
       ]);
       await queryClient.invalidateQueries({ queryKey: ['collection'] });
     },
@@ -77,8 +79,28 @@ export function CardDetails({ cardId, onClose }: { cardId: string | null; onClos
   const selectedPrices = catalogPriceList(
     selectedVariant ? selectedVariant.prices : (card?.prices ?? {}),
   );
+  const selectedPriceDetails = selectedVariant?.prices ?? card?.prices ?? {};
   const selectedSource = selectedVariant ? selectedVariant.source : card?.source;
   const selectedLanguage = selectedVariant?.language ?? card?.game.language;
+  const selectedArtist = selectedVariant?.artist ?? card?.artist;
+  const selectedVersion = selectedVariant?.version ?? card?.version;
+  const selectedCardmarketId = selectedVariant?.cardmarket_id ?? card?.cardmarket_id;
+  const selectedTcgplayerId = selectedVariant?.tcgplayer_id ?? card?.tcgplayer_id;
+  const selectedTcgid = selectedVariant?.tcgid ?? card?.tcgid;
+  const selectedLinks = selectedVariant?.links ?? card?.links;
+  const selectedTcggoUrl = selectedVariant?.tcggo_url ?? card?.tcggo_url;
+  const cardmarket = selectedPriceDetails.cardmarket;
+  const tcgplayer = selectedPriceDetails.tcgplayer;
+  const cardmarketPriceRows = cardmarket
+    ? [
+        ['Mínimo Near Mint', cardmarket.lowest_near_mint],
+        ['Mínimo Near Mint (Francia)', cardmarket.lowest_near_mint_FR],
+        ['Mínimo Near Mint (UE)', cardmarket.lowest_near_mint_EU_only],
+        ['Mínimo Near Mint (Francia/UE)', cardmarket.lowest_near_mint_FR_EU_only],
+        ['Media 30 días', cardmarket.average_30d],
+        ['Media 7 días', cardmarket.average_7d],
+      ].filter((entry): entry is [string, number] => typeof entry[1] === 'number')
+    : [];
   const detailSummary = card
     ? [
         card.game.card_type === 'UNKNOWN' ? 'Carta' : card.game.card_type,
@@ -216,10 +238,77 @@ export function CardDetails({ cardId, onClose }: { cardId: string | null; onClos
                 <p className="mt-2 text-sm leading-6 text-slate-800">{card.game.effect}</p>
               </div>
             )}
+            {card.flavor_text && (
+              <blockquote className="mt-5 border-l-4 border-violet/30 pl-4 text-sm italic leading-6 text-slate-600">
+                {card.flavor_text}
+              </blockquote>
+            )}
+            {card.game.trigger && (
+              <div className="mt-5">
+                <h3 className="text-xs font-bold uppercase text-slate-500">Trigger</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-800">{card.game.trigger}</p>
+              </div>
+            )}
+            {(card.game.attributes.length > 0 || card.game.traits.length > 0) && (
+              <dl className="mt-5 grid gap-3 sm:grid-cols-2">
+                {card.game.attributes.length > 0 && (
+                  <div>
+                    <dt className="text-xs font-bold uppercase text-slate-500">Atributos</dt>
+                    <dd className="mt-1 text-sm text-slate-800">
+                      {card.game.attributes.join(' / ')}
+                    </dd>
+                  </div>
+                )}
+                {card.game.traits.length > 0 && (
+                  <div>
+                    <dt className="text-xs font-bold uppercase text-slate-500">Tipos / rasgos</dt>
+                    <dd className="mt-1 text-sm text-slate-800">{card.game.traits.join(' / ')}</dd>
+                  </div>
+                )}
+              </dl>
+            )}
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               <div className="rounded-xl bg-slate-50 p-4">
                 <p className="text-xs font-bold uppercase text-slate-500">Expansión</p>
-                <p className="mt-1 text-sm font-semibold">{card.episode.name}</p>
+                <div className="mt-1 flex items-center gap-3">
+                  {card.episode.logo && (
+                    <img
+                      src={card.episode.logo}
+                      alt=""
+                      className="max-h-10 max-w-20 object-contain"
+                    />
+                  )}
+                  <p className="text-sm font-semibold">{card.episode.name}</p>
+                </div>
+                <p className="mt-1 text-xs text-slate-600">
+                  {card.episode.code}
+                  {card.episode.released_at ? ` · ${card.episode.released_at}` : ''}
+                </p>
+                {card.episode.series && (
+                  <p className="mt-1 text-xs text-slate-600">Serie: {card.episode.series.name}</p>
+                )}
+                {card.episode.game && (
+                  <p className="mt-1 text-xs text-slate-600">Juego: {card.episode.game.name}</p>
+                )}
+                {(card.episode.cards_total !== undefined ||
+                  card.episode.cards_printed_total !== undefined) && (
+                  <p className="mt-1 text-xs text-slate-600">
+                    {card.episode.cards_total ?? '–'} cartas ·{' '}
+                    {card.episode.cards_printed_total ?? '–'} impresiones
+                  </p>
+                )}
+                {card.episode.prices?.cardmarket && (
+                  <p className="mt-1 text-xs text-slate-600">
+                    Total set Cardmarket: {card.episode.prices.cardmarket.total.toFixed(2)}{' '}
+                    {card.episode.prices.cardmarket.currency}
+                  </p>
+                )}
+                {card.episode.prices?.tcgplayer && (
+                  <p className="mt-1 text-xs text-slate-600">
+                    Total set TCGPlayer: {card.episode.prices.tcgplayer.total.toFixed(2)}{' '}
+                    {card.episode.prices.tcgplayer.currency}
+                  </p>
+                )}
               </div>
               <div className="rounded-xl bg-slate-50 p-4">
                 <p className="text-xs font-bold uppercase text-slate-500">Precio de catálogo</p>
@@ -235,6 +324,164 @@ export function CardDetails({ cardId, onClose }: { cardId: string | null; onClos
                   </p>
                 )}
               </div>
+            </div>
+            <div className="mt-3 rounded-xl border border-slate-200 p-4">
+              <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                Datos de la impresión seleccionada
+              </h3>
+              <dl className="mt-3 grid gap-x-5 gap-y-3 text-sm sm:grid-cols-2">
+                {selectedVersion && (
+                  <div>
+                    <dt className="text-xs text-slate-500">Versión</dt>
+                    <dd className="font-semibold">{selectedVersion}</dd>
+                  </div>
+                )}
+                <div>
+                  <dt className="text-xs text-slate-500">Tipo API</dt>
+                  <dd className="font-semibold">{card.type}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-slate-500">ID de carta en la fuente</dt>
+                  <dd className="font-semibold">{card.external_id}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-slate-500">ID de expansión en la fuente</dt>
+                  <dd className="font-semibold">{card.episode.id}</dd>
+                </div>
+                {selectedArtist && (
+                  <div>
+                    <dt className="text-xs text-slate-500">Artista</dt>
+                    <dd className="font-semibold">{selectedArtist.name}</dd>
+                  </div>
+                )}
+                {card.card_code_number && (
+                  <div>
+                    <dt className="text-xs text-slate-500">Código completo</dt>
+                    <dd className="font-semibold">{card.card_code_number}</dd>
+                  </div>
+                )}
+                {card.supertype && (
+                  <div>
+                    <dt className="text-xs text-slate-500">Supertipo</dt>
+                    <dd className="font-semibold">{card.supertype}</dd>
+                  </div>
+                )}
+                {card.hp !== null && card.hp !== undefined && (
+                  <div>
+                    <dt className="text-xs text-slate-500">HP</dt>
+                    <dd className="font-semibold">{card.hp}</dd>
+                  </div>
+                )}
+                {selectedCardmarketId !== null && selectedCardmarketId !== undefined && (
+                  <div>
+                    <dt className="text-xs text-slate-500">Cardmarket ID</dt>
+                    <dd className="font-semibold">{selectedCardmarketId}</dd>
+                  </div>
+                )}
+                {selectedTcgplayerId !== null && selectedTcgplayerId !== undefined && (
+                  <div>
+                    <dt className="text-xs text-slate-500">TCGPlayer ID</dt>
+                    <dd className="font-semibold">{selectedTcgplayerId}</dd>
+                  </div>
+                )}
+                {selectedTcgid !== null && selectedTcgid !== undefined && (
+                  <div>
+                    <dt className="text-xs text-slate-500">TCG ID</dt>
+                    <dd className="font-semibold">{selectedTcgid}</dd>
+                  </div>
+                )}
+              </dl>
+              {(selectedLinks?.cardmarket || selectedLinks?.tcgplayer || selectedTcggoUrl) && (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {[
+                    ['Cardmarket', selectedLinks?.cardmarket],
+                    ['TCGPlayer', selectedLinks?.tcgplayer],
+                    ['TCGGO', selectedTcggoUrl],
+                  ].map(
+                    ([label, href]) =>
+                      href && (
+                        <a
+                          key={label}
+                          href={href}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-200"
+                        >
+                          {label} <ExternalLink className="size-3" />
+                        </a>
+                      ),
+                  )}
+                </div>
+              )}
+            </div>
+            {(cardmarketPriceRows.length > 0 ||
+              cardmarket?.available_items !== undefined ||
+              (cardmarket?.graded?.length ?? 0) > 0 ||
+              (tcgplayer?.market_price !== null && tcgplayer?.market_price !== undefined)) && (
+              <div className="mt-3 rounded-xl border border-slate-200 p-4">
+                <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                  Mercado de la impresión
+                </h3>
+                <dl className="mt-3 grid gap-x-5 gap-y-3 text-sm sm:grid-cols-2">
+                  {cardmarketPriceRows.map(([label, value]) => (
+                    <div key={label}>
+                      <dt className="text-xs text-slate-500">{label}</dt>
+                      <dd className="font-semibold">
+                        {value.toFixed(2)} {cardmarket?.currency}
+                      </dd>
+                    </div>
+                  ))}
+                  {cardmarket?.available_items !== undefined && (
+                    <div>
+                      <dt className="text-xs text-slate-500">Unidades disponibles</dt>
+                      <dd className="font-semibold">{cardmarket.available_items}</dd>
+                    </div>
+                  )}
+                  {tcgplayer?.market_price !== null && tcgplayer?.market_price !== undefined && (
+                    <div>
+                      <dt className="text-xs text-slate-500">TCGPlayer — precio de mercado</dt>
+                      <dd className="font-semibold">
+                        {tcgplayer.market_price.toFixed(2)} {tcgplayer.currency}
+                      </dd>
+                    </div>
+                  )}
+                  {cardmarket?.graded?.map((graded) => (
+                    <div key={graded.grade}>
+                      <dt className="text-xs text-slate-500">Graduada {graded.grade}</dt>
+                      <dd className="font-semibold">
+                        {graded.price.toFixed(2)} {cardmarket.currency}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            )}
+            <div className="mt-3 rounded-xl bg-violet/5 px-4 py-3 text-xs text-slate-700">
+              <p className="font-bold">Normalización: {card.enrichment.status}</p>
+              <p className="mt-1">
+                Proveedores: {card.enrichment.providers.join(' + ')}
+                {card.enrichment.fields.length > 0
+                  ? ` · ${card.enrichment.fields.length} campos enriquecidos`
+                  : ''}
+              </p>
+              {card.enrichment.conflicts.map((conflict) => (
+                <p key={conflict} className="mt-1 font-semibold text-amber-800">
+                  {conflict}
+                </p>
+              ))}
+              {Object.keys(card.enrichment.provenance).length > 0 && (
+                <details className="mt-2">
+                  <summary className="cursor-pointer font-semibold">Procedencia por campo</summary>
+                  <ul className="mt-2 space-y-1">
+                    {Object.entries(card.enrichment.provenance).map(([field, provenance]) => (
+                      <li key={field}>
+                        {field}: {provenance.providerId} · {provenance.sourceField} ·{' '}
+                        {provenance.confidence}
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
             </div>
             <div className="mt-6 grid gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2">
               <div aria-live="polite">
@@ -282,9 +529,9 @@ export function CardDetails({ cardId, onClose }: { cardId: string | null; onClos
                 role="status"
                 className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700"
               >
-                Se han añadido {addMutation.data.quantity}{' '}
-                {addMutation.data.quantity === 1 ? 'copia' : 'copias'} de{' '}
-                {addMutation.data.cardSnapshot.variantLabel}.
+                Se han añadido {addMutation.data.addedQuantity}{' '}
+                {addMutation.data.addedQuantity === 1 ? 'copia' : 'copias'} de{' '}
+                {addMutation.data.savedItem.cardSnapshot.variantLabel}.
               </p>
             )}
             {addMutation.isError && (

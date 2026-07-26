@@ -23,6 +23,17 @@ export type CardVariantType =
   | 'REPRINT'
   | 'DON'
   | 'UNKNOWN';
+export type CanonicalRarity =
+  | 'COMMON'
+  | 'UNCOMMON'
+  | 'RARE'
+  | 'SUPER_RARE'
+  | 'SECRET_RARE'
+  | 'LEADER'
+  | 'PROMO'
+  | 'TREASURE_RARE'
+  | 'SPECIAL'
+  | 'UNKNOWN';
 
 export interface Money {
   amount: number;
@@ -43,10 +54,21 @@ export interface CatalogSourceReference {
   fetchedAt: string;
 }
 
+export interface CatalogFieldProvenance {
+  providerId: CatalogProviderId;
+  sourceField: string;
+  confidence: 'EXACT' | 'HIGH' | 'MEDIUM' | 'LOW';
+}
+
 export interface CardMarketPrices {
   currency: string;
   lowest_near_mint?: number;
   lowest_near_mint_FR?: number;
+  lowest_near_mint_EU_only?: number;
+  lowest_near_mint_FR_EU_only?: number;
+  average_30d?: number;
+  average_7d?: number;
+  available_items?: number;
   graded?: { grade: string; price: number }[];
 }
 
@@ -67,6 +89,21 @@ export interface CatalogEpisode {
   released_at?: string;
   logo?: string;
   code: string;
+  normalized_code: string;
+  cards_total?: number;
+  cards_printed_total?: number;
+  prices?: {
+    cardmarket?: { total: number; currency: string };
+    tcgplayer?: { total: number; currency: string };
+  };
+  game?: { name: string; slug: string };
+  series?: { id: string; name: string; slug: string } | null;
+}
+
+export interface CatalogArtist {
+  id: string;
+  name: string;
+  slug: string;
 }
 
 export interface CardGameDetails {
@@ -89,9 +126,16 @@ export interface CardArtwork {
   base_card_id: string;
   variant_type: CardVariantType;
   label: string;
+  version?: string | null;
   image: string;
   language: CardLanguage;
   prices: CatalogPrices;
+  artist?: CatalogArtist | null;
+  cardmarket_id?: number | null;
+  tcgplayer_id?: number | null;
+  tcgid?: number | string | null;
+  links?: { cardmarket?: string; tcgplayer?: string };
+  tcggo_url?: string;
   source: CatalogSourceReference;
 }
 
@@ -107,13 +151,19 @@ export interface Card {
   slug: string;
   type: string;
   card_number: string;
+  normalized_card_number: string;
+  card_code_number?: string | null;
   rarity?: string;
+  rarity_normalized: CanonicalRarity;
   color: string | null;
   version?: string | null;
+  hp?: number | null;
+  supertype?: string | null;
+  tcgid?: number | string | null;
   cardmarket_id?: number | null;
   tcgplayer_id?: number | null;
   flavor_text?: string | null;
-  artist?: Record<string, unknown> | null;
+  artist?: CatalogArtist | null;
   prices: CatalogPrices;
   episode: CatalogEpisode;
   image: string;
@@ -122,6 +172,14 @@ export interface Card {
   game: CardGameDetails;
   artworks: CardArtwork[];
   source: CatalogSourceReference;
+  enrichment: {
+    status: 'SOURCE' | 'MATCHED' | 'UNMATCHED' | 'AMBIGUOUS';
+    providers: CatalogProviderId[];
+    matchedExternalIds: string[];
+    fields: string[];
+    provenance: Record<string, CatalogFieldProvenance>;
+    conflicts: string[];
+  };
 }
 
 export interface CollectionItem {
@@ -129,6 +187,9 @@ export interface CollectionItem {
   cardId: string;
   cardVariantId: string;
   cardSnapshot: {
+    schemaVersion: 2;
+    normalizedCardNumber: string;
+    printKey: string;
     code: string;
     name: string;
     setCode: string;
@@ -137,6 +198,8 @@ export interface CollectionItem {
     imageUrl: string;
     catalogPrice?: CardPrice;
     catalogProvider?: CatalogProviderId;
+    sourceCardId?: string;
+    sourceVariantId?: string;
     catalogFetchedAt?: string;
   };
   quantity: number;
