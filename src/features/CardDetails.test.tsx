@@ -12,6 +12,7 @@ const serviceMocks = vi.hoisted(() => ({
 
 vi.mock('../app/providers/ServicesProvider', () => ({
   useServices: () => ({
+    catalogProvider: 'OFFICIAL_STATIC',
     catalog: { getById: serviceMocks.getById },
     privateData: {
       listCollection: serviceMocks.listCollection,
@@ -22,30 +23,38 @@ vi.mock('../app/providers/ServicesProvider', () => ({
 
 const card: Card = {
   id: 'BASE::OP01-001',
-  code: 'OP01-001',
+  external_id: 'OP01-001',
   name: 'Monkey D. Luffy',
-  type: 'LEADER',
-  colors: ['RED'],
+  name_numbered: 'Monkey D. Luffy OP01-001',
+  slug: 'monkey-d-luffy',
+  type: 'singles',
+  card_number: 'OP01-001',
   rarity: 'L',
-  set: { code: 'OP-01', name: 'Romance Dawn' },
-  life: 5,
-  power: 5000,
-  attributes: ['Strike'],
-  traits: ['Straw Hat Crew'],
-  language: 'EN',
-  imageUrl: '/base.png',
-  prices: [{ amount: 1, currency: 'USD', source: 'base-price', marketType: 'MARKET' }],
-  sources: [{ providerId: 'OFFICIAL_STATIC', fetchedAt: '2026-07-25T00:00:00.000Z' }],
-  variants: [
+  color: 'Red',
+  episode: { id: 'OP-01', code: 'OP-01', name: 'Romance Dawn', slug: 'romance-dawn' },
+  game: {
+    card_type: 'LEADER',
+    colors: ['RED'],
+    life: 5,
+    power: 5000,
+    attributes: ['Strike'],
+    traits: ['Straw Hat Crew'],
+    language: 'EN',
+  },
+  image: '/base.png',
+  prices: { tcgplayer: { currency: 'USD', market_price: 1 } },
+  source: { providerId: 'OFFICIAL_STATIC', fetchedAt: '2026-07-25T00:00:00.000Z' },
+  artworks: [
     {
       id: 'VARIANT::OP01-001::p1',
-      baseCardId: 'BASE::OP01-001',
-      type: 'PARALLEL',
+      external_id: 'p1',
+      base_card_id: 'BASE::OP01-001',
+      variant_type: 'PARALLEL',
       label: 'Parallel 1',
-      imageUrl: '/parallel.png',
+      image: '/parallel.png',
       language: 'JP',
-      prices: [{ amount: 12, currency: 'USD', source: 'variant-price', marketType: 'MARKET' }],
-      sources: [{ providerId: 'MOCK', fetchedAt: '2026-07-25T00:00:00.000Z' }],
+      prices: { tcgplayer: { currency: 'USD', market_price: 12 } },
+      source: { providerId: 'MOCK', fetchedAt: '2026-07-25T00:00:00.000Z' },
     },
   ],
 };
@@ -56,9 +65,9 @@ const collectionItems = [
     cardId: card.id,
     cardVariantId: card.id,
     cardSnapshot: {
-      code: card.code,
+      code: card.card_number,
       name: card.name,
-      setCode: card.set.code,
+      setCode: card.episode.code,
       variantLabel: 'Normal',
       imageUrl: 'https://example.test/base.png',
     },
@@ -72,11 +81,11 @@ const collectionItems = [
   {
     id: 'variant-lot',
     cardId: card.id,
-    cardVariantId: card.variants[0]?.id ?? '',
+    cardVariantId: card.artworks[0]?.id ?? '',
     cardSnapshot: {
-      code: card.code,
+      code: card.card_number,
       name: card.name,
-      setCode: card.set.code,
+      setCode: card.episode.code,
       variantLabel: 'Parallel 1',
       imageUrl: 'https://example.test/parallel.png',
     },
@@ -121,7 +130,7 @@ describe('CardDetails', () => {
     );
     expect(screen.getByText('Parallel 1')).toBeInTheDocument();
     expect(screen.getByText('12.00 USD')).toBeInTheDocument();
-    expect(screen.getByText('variant-price')).toBeInTheDocument();
+    expect(screen.getByText('TCGPlayer')).toBeInTheDocument();
     expect(screen.getByText(/· JP$/)).toBeInTheDocument();
     expect(screen.getByText(/Fuente de datos:/).parentElement).toHaveTextContent('MOCK');
     expect(screen.getByText('3 copias de Parallel 1')).toBeInTheDocument();
@@ -146,7 +155,7 @@ describe('CardDetails', () => {
     expect(serviceMocks.saveCollection).toHaveBeenCalledWith(
       expect.objectContaining({
         cardId: card.id,
-        cardVariantId: card.variants[0]?.id,
+        cardVariantId: card.artworks[0]?.id,
         quantity: 2,
         language: 'JP',
         cardSnapshot: expect.objectContaining({

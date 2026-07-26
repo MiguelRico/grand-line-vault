@@ -1,5 +1,6 @@
 import type {
   Card,
+  CardPrice,
   CollectionItem,
   CollectionStats,
   Money,
@@ -22,7 +23,10 @@ export function calculateCollectionStats(
     setsRepresented: new Set(items.map((item) => item.cardSnapshot.setCode)).size,
     duplicateCopies: items.reduce((sum, item) => sum + Math.max(0, item.quantity - 1), 0),
     favoriteCards: items.filter((item) => item.favorite).length,
-    storedCopies: items.reduce((sum, item) => sum + (item.boxId && item.sectionId ? item.quantity : 0), 0),
+    storedCopies: items.reduce(
+      (sum, item) => sum + (item.boxId && item.sectionId ? item.quantity : 0),
+      0,
+    ),
     unassignedCopies: items.reduce(
       (sum, item) => sum + (!item.boxId || !item.sectionId ? item.quantity : 0),
       0,
@@ -85,6 +89,33 @@ export function salesPackAvailabilityWarnings(
 }
 
 export function preferredPrice(card: Card): Money | undefined {
-  const price = card.prices[0];
-  return price ? { amount: price.amount, currency: price.currency } : undefined;
+  const cardmarket = card.prices.cardmarket;
+  if (cardmarket?.lowest_near_mint !== undefined) {
+    return { amount: cardmarket.lowest_near_mint, currency: cardmarket.currency };
+  }
+  const tcgplayer = card.prices.tcgplayer;
+  return tcgplayer?.market_price !== undefined && tcgplayer.market_price !== null
+    ? { amount: tcgplayer.market_price, currency: tcgplayer.currency }
+    : undefined;
+}
+
+export function catalogPriceList(prices: Card['prices']): CardPrice[] {
+  const result: CardPrice[] = [];
+  if (prices.cardmarket?.lowest_near_mint !== undefined) {
+    result.push({
+      amount: prices.cardmarket.lowest_near_mint,
+      currency: prices.cardmarket.currency,
+      source: 'Cardmarket',
+      marketType: 'LOW',
+    });
+  }
+  if (prices.tcgplayer?.market_price !== undefined && prices.tcgplayer.market_price !== null) {
+    result.push({
+      amount: prices.tcgplayer.market_price,
+      currency: prices.tcgplayer.currency,
+      source: 'TCGPlayer',
+      marketType: 'MARKET',
+    });
+  }
+  return result;
 }

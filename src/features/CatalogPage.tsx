@@ -45,16 +45,26 @@ function FilterFields({
   setCriteria,
   sets,
   setsLoading,
+  remote,
 }: {
   criteria: CatalogCriteria;
   setCriteria: (criteria: CatalogCriteria) => void;
-  sets: Card['set'][];
+  sets: Card['episode'][];
   setsLoading: boolean;
+  remote: boolean;
 }) {
-  const update = (patch: Partial<CatalogCriteria>) =>
+  const update = (patch: Partial<CatalogCriteria>) => {
+    if (remote && !Object.prototype.hasOwnProperty.call(patch, 'setCode')) return;
     setCriteria({ ...criteria, ...patch, page: 1 });
+  };
   return (
     <div className="space-y-5">
+      {remote && (
+        <p className="rounded-lg bg-indigo-50 p-3 text-xs leading-5 text-indigo-800">
+          One Piece API permite buscar y filtrar por expansión. Los filtros de juego no están
+          disponibles en esta fuente.
+        </p>
+      )}
       <label className="block text-sm font-semibold">
         Expansión
         <select
@@ -64,7 +74,7 @@ function FilterFields({
         >
           <option value="">Todas las expansiones</option>
           {sets.map((set) => (
-            <option key={set.code} value={set.code}>
+            <option key={set.id} value={set.id}>
               {set.name} [{set.code}]
             </option>
           ))}
@@ -91,6 +101,7 @@ function FilterFields({
               <input
                 type="radio"
                 name="color"
+                disabled={remote}
                 checked={criteria.color === value}
                 onChange={() => update({ color: value as CardColor })}
                 className="sr-only"
@@ -104,6 +115,7 @@ function FilterFields({
         </div>
         {criteria.color && (
           <button
+            disabled={remote}
             onClick={() => update({ color: '' })}
             className="mt-2 text-xs font-semibold text-violet"
           >
@@ -114,6 +126,7 @@ function FilterFields({
       <label className="block text-sm font-semibold">
         Tipo de carta
         <select
+          disabled={remote}
           value={criteria.type}
           onChange={(event) => update({ type: event.target.value as CardType | '' })}
           className="mt-2 h-11 w-full rounded-lg border-slate-300 text-sm"
@@ -128,6 +141,7 @@ function FilterFields({
       <label className="block text-sm font-semibold">
         Rareza
         <select
+          disabled={remote}
           value={criteria.rarity}
           onChange={(event) => update({ rarity: event.target.value })}
           className="mt-2 h-11 w-full rounded-lg border-slate-300 text-sm"
@@ -143,6 +157,7 @@ function FilterFields({
       <label className="block text-sm font-semibold">
         Versión
         <select
+          disabled={remote}
           value={criteria.variant}
           onChange={(event) => update({ variant: event.target.value as CardVariantType | '' })}
           className="mt-2 h-11 w-full rounded-lg border-slate-300 text-sm"
@@ -157,6 +172,7 @@ function FilterFields({
         <div className="mt-2 grid grid-cols-2 gap-2">
           <input
             type="number"
+            disabled={remote}
             min="0"
             max="10"
             placeholder="Mín."
@@ -169,6 +185,7 @@ function FilterFields({
           />
           <input
             type="number"
+            disabled={remote}
             min="0"
             max="10"
             placeholder="Máx."
@@ -186,6 +203,7 @@ function FilterFields({
         <div className="mt-2 grid grid-cols-2 gap-2">
           <input
             type="number"
+            disabled={remote}
             min="0"
             max="13000"
             step="1000"
@@ -199,6 +217,7 @@ function FilterFields({
           />
           <input
             type="number"
+            disabled={remote}
             min="0"
             max="13000"
             step="1000"
@@ -238,6 +257,23 @@ export function CatalogPage() {
     page: Number(params.get('page') ?? 1),
     sort: (params.get('sort') as CatalogCriteria['sort']) ?? 'code',
   });
+  const remote = services.catalogProvider === 'ONE_PIECE_API';
+
+  useEffect(() => {
+    if (!remote) return;
+    setCriteria((current) => ({
+      ...current,
+      color: '',
+      type: '',
+      rarity: '',
+      variant: '',
+      minCost: undefined,
+      maxCost: undefined,
+      minPower: undefined,
+      maxPower: undefined,
+      sort: current.sort === 'price' ? 'price' : 'code',
+    }));
+  }, [remote]);
 
   useEffect(() => {
     setCriteria((current) => ({ ...current, query: debouncedQuery, page: 1 }));
@@ -262,7 +298,7 @@ export function CatalogPage() {
   }, [criteria, selectedCard, setParams]);
 
   const result = useQuery({
-    queryKey: ['catalog', criteria],
+    queryKey: ['catalog', services.catalogProvider, criteria],
     queryFn: ({ signal }) => services.catalog.search(criteria, signal),
     staleTime: 5 * 60 * 1000,
   });
@@ -271,7 +307,7 @@ export function CatalogPage() {
     queryFn: () => services.privateData.listCollection(),
   });
   const sets = useQuery({
-    queryKey: ['catalog-sets'],
+    queryKey: ['catalog-sets', services.catalogProvider],
     queryFn: ({ signal }) => services.catalog.listSets(signal),
     staleTime: 24 * 60 * 60 * 1000,
   });
@@ -313,10 +349,16 @@ export function CatalogPage() {
             className="h-11 min-w-40 rounded-lg border-slate-300 text-sm"
           >
             <option value="code">Código (A-Z)</option>
-            <option value="name">Nombre (A-Z)</option>
+            <option value="name" disabled={remote}>
+              Nombre (A-Z)
+            </option>
             <option value="price">Precio</option>
-            <option value="power">Poder</option>
-            <option value="cost">Coste</option>
+            <option value="power" disabled={remote}>
+              Poder
+            </option>
+            <option value="cost" disabled={remote}>
+              Coste
+            </option>
           </select>
         </label>
       </div>
@@ -339,6 +381,7 @@ export function CatalogPage() {
             setCriteria={setCriteria}
             sets={sets.data ?? []}
             setsLoading={sets.isPending}
+            remote={remote}
           />
         </aside>
         <section>
@@ -428,6 +471,7 @@ export function CatalogPage() {
               setCriteria={setCriteria}
               sets={sets.data ?? []}
               setsLoading={sets.isPending}
+              remote={remote}
             />
             <Button onClick={() => setFiltersOpen(false)} className="mt-8 w-full">
               Ver {result.data?.total ?? 0} cartas

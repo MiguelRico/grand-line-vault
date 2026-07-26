@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 export const appSettingsSchema = z.object({
   theme: z.enum(['LIGHT', 'DARK']),
+  catalogDataSource: z.enum(['OFFICIAL_STATIC', 'ONE_PIECE_API']).default('OFFICIAL_STATIC'),
 });
 
 const priceSchema = z.object({

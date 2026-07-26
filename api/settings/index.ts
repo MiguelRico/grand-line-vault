@@ -6,6 +6,7 @@ import { appSettingsSchema } from '../_shared/schemas.js';
 
 const defaults = {
   theme: 'LIGHT' as const,
+  catalogDataSource: 'OFFICIAL_STATIC' as const,
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

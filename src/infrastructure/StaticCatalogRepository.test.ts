@@ -68,15 +68,14 @@ const criteria: CatalogCriteria = {
 function mockCatalog(overrides: Partial<StaticCatalogManifest> = {}): ReturnType<typeof vi.fn> {
   const nextManifest = { ...manifest, ...overrides };
   const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-    const url =
-      typeof input === 'string'
-        ? input
-        : input instanceof URL
-          ? input.href
-          : input.url;
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
     if (url.endsWith('manifest.json')) return Response.json(nextManifest);
     if (url.includes('/cards.'))
-      return Response.json({ schemaVersion: 1, catalogVersion: version, cards: [baseCard, variantCard] });
+      return Response.json({
+        schemaVersion: 1,
+        catalogVersion: version,
+        cards: [baseCard, variantCard],
+      });
     if (url.includes('/sets.'))
       return Response.json({
         schemaVersion: 1,
@@ -117,16 +116,21 @@ describe('StaticCatalogRepository', () => {
   it('loads manifest and catalog once and builds base/variant indexes', async () => {
     const fetchMock = mockCatalog();
     const repository = new StaticCatalogRepository();
-    const [result, card] = await Promise.all([repository.search(criteria), repository.getById('OP01-001_p1')]);
+    const [result, card] = await Promise.all([
+      repository.search(criteria),
+      repository.getById('OP01-001_p1'),
+    ]);
     expect(result.items[0]).toMatchObject({ id: 'BASE::OP01-001', name: 'Luffy' });
-    expect(result.items[0]?.variants[0]?.id).toBe('VARIANT::OP01-001::OP01-001_p1');
+    expect(result.items[0]?.artworks[0]?.id).toBe('VARIANT::OP01-001::OP01-001_p1');
     expect(card?.id).toBe('BASE::OP01-001');
     expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 
   it('resolves legacy IDs', async () => {
     mockCatalog();
-    expect((await new StaticCatalogRepository().getById('legacy-provider-id'))?.code).toBe('OP01-001');
+    expect((await new StaticCatalogRepository().getById('legacy-provider-id'))?.card_number).toBe(
+      'OP01-001',
+    );
   });
 
   it('rejects incompatible manifest schemas', async () => {

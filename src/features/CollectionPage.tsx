@@ -31,19 +31,38 @@ function snapshotToCard(item: CollectionItem): Card {
   };
   return {
     id: item.cardId,
-    code: item.cardSnapshot.code,
+    external_id: item.cardId,
     name: item.cardSnapshot.name,
-    type: 'CHARACTER',
-    colors: [],
+    name_numbered: `${item.cardSnapshot.name} ${item.cardSnapshot.code}`,
+    slug: item.cardSnapshot.name.toLocaleLowerCase().replace(/[^a-z0-9]+/g, '-'),
+    type: 'singles',
+    card_number: item.cardSnapshot.code,
     rarity: item.cardSnapshot.rarity,
-    set: { code: item.cardSnapshot.setCode, name: item.cardSnapshot.setCode },
-    attributes: [],
-    traits: [],
-    language: item.language,
-    imageUrl: item.cardSnapshot.imageUrl,
-    variants: [],
-    prices: item.cardSnapshot.catalogPrice ? [item.cardSnapshot.catalogPrice] : [],
-    sources: [source],
+    color: null,
+    episode: {
+      id: item.cardSnapshot.setCode,
+      code: item.cardSnapshot.setCode,
+      name: item.cardSnapshot.setCode,
+      slug: item.cardSnapshot.setCode.toLocaleLowerCase(),
+    },
+    game: {
+      card_type: 'CHARACTER',
+      colors: [],
+      attributes: [],
+      traits: [],
+      language: item.language,
+    },
+    image: item.cardSnapshot.imageUrl,
+    artworks: [],
+    prices: item.cardSnapshot.catalogPrice
+      ? {
+          tcgplayer: {
+            currency: item.cardSnapshot.catalogPrice.currency,
+            market_price: item.cardSnapshot.catalogPrice.amount,
+          },
+        }
+      : {},
+    source,
   };
 }
 

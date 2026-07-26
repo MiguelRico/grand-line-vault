@@ -1,4 +1,5 @@
 import type { Card, CollectionItem, SalesPack, StorageBox } from '../domain/models';
+import { catalogPriceList } from '../domain/services';
 
 const now = '2026-07-21T06:00:00.000Z';
 const providerBase = 'https://en.onepiece-cardgame.com/images/cardlist/card';
@@ -44,38 +45,50 @@ export const mockCards: Card[] = seeds.map(
     };
     return {
       id,
-      code,
+      external_id: code,
       name,
-      type,
-      colors: [color],
+      name_numbered: `${name} ${code}`,
+      slug: name.toLocaleLowerCase().replace(/[^a-z0-9]+/g, '-'),
+      type: 'singles',
+      card_number: code,
       rarity,
-      set: { code: 'OP-01', name: 'Romance Dawn' },
-      cost,
-      power,
-      counter: type === 'CHARACTER' ? 1000 : undefined,
-      life: type === 'LEADER' ? 5 : undefined,
-      attributes: index % 2 === 0 ? ['Strike'] : ['Slash'],
-      traits: ['Straw Hat Crew'],
-      effect:
-        index < 4
-          ? '[DON!! x1] [Your Turn] One of your Characters gains +1000 power this turn.'
-          : undefined,
-      language: 'EN',
-      imageUrl,
-      prices: [price],
-      sources: [source],
-      variants:
+      color,
+      episode: { id: 'OP-01', code: 'OP-01', name: 'Romance Dawn', slug: 'romance-dawn' },
+      game: {
+        card_type: type,
+        colors: [color],
+        cost,
+        power,
+        counter: type === 'CHARACTER' ? 1000 : undefined,
+        life: type === 'LEADER' ? 5 : undefined,
+        attributes: index % 2 === 0 ? ['Strike'] : ['Slash'],
+        traits: ['Straw Hat Crew'],
+        effect:
+          index < 4
+            ? '[DON!! x1] [Your Turn] One of your Characters gains +1000 power this turn.'
+            : undefined,
+        language: 'EN',
+      },
+      image: imageUrl,
+      prices: {
+        tcgplayer: { currency: price.currency, market_price: price.amount },
+      },
+      source,
+      artworks:
         index < 6
           ? [
               {
                 id: `VARIANT::${code}::P1`,
-                baseCardId: id,
-                type: 'ALTERNATE_ART',
+                external_id: `${code}_p1`,
+                base_card_id: id,
+                variant_type: 'ALTERNATE_ART',
                 label: 'Alternate Art',
-                imageUrl: `${providerBase}/${code}_p1.png`,
+                image: `${providerBase}/${code}_p1.png`,
                 language: 'EN',
-                prices: [{ ...price, amount: amount * 8.4 }],
-                sources: [{ ...source, providerVariantId: `${code}_p1` }],
+                prices: {
+                  tcgplayer: { currency: price.currency, market_price: amount * 8.4 },
+                },
+                source: { ...source, providerVariantId: `${code}_p1` },
               },
             ]
           : [],
@@ -89,13 +102,13 @@ function toCollection(card: Card, quantity: number, index: number): CollectionIt
     cardId: card.id,
     cardVariantId: card.id,
     cardSnapshot: {
-      code: card.code,
+      code: card.card_number,
       name: card.name,
-      setCode: card.set.code,
+      setCode: card.episode.code,
       rarity: card.rarity,
       variantLabel: 'Normal',
-      imageUrl: card.imageUrl,
-      catalogPrice: card.prices[0],
+      imageUrl: card.image,
+      catalogPrice: catalogPriceList(card.prices)[0],
       catalogProvider: 'MOCK',
       catalogFetchedAt: now,
     },
@@ -113,7 +126,9 @@ function toCollection(card: Card, quantity: number, index: number): CollectionIt
 
 export const initialCollection = mockCards
   .slice(0, 12)
-  .map((card, index) => toCollection(card, [3, 2, 1, 2, 4, 2, 1, 2, 1, 3, 1, 2][index] ?? 1, index));
+  .map((card, index) =>
+    toCollection(card, [3, 2, 1, 2, 4, 2, 1, 2, 1, 3, 1, 2][index] ?? 1, index),
+  );
 
 export const initialBoxes: StorageBox[] = [
   {

@@ -2,6 +2,7 @@ import { Box, CalendarClock, Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Card, CardVariant, CollectionItem } from '../domain/models';
+import { catalogPriceList } from '../domain/services';
 import { useServices } from '../app/providers/ServicesProvider';
 import { Button, CardImage, QuantitySelector, ResponsiveDialog } from '../shared/ui';
 import { OnePieceLoader } from '../shared/OnePieceLoader';
@@ -17,7 +18,7 @@ export function CardDetails({ cardId, onClose }: { cardId: string | null; onClos
     setQuantity(1);
   }, [cardId]);
   const cardQuery = useQuery({
-    queryKey: ['card', cardId],
+    queryKey: ['card', services.catalogProvider, cardId],
     queryFn: ({ signal }) => services.catalog.getById(cardId ?? '', signal),
     enabled: Boolean(cardId),
   });
@@ -30,25 +31,26 @@ export function CardDetails({ cardId, onClose }: { cardId: string | null; onClos
     mutationFn: async ({ card, variant }: { card: Card; variant: CardVariant | null }) => {
       const timestamp = new Date().toISOString();
       const prices = variant ? variant.prices : card.prices;
-      const sources = variant ? variant.sources : card.sources;
-      const imageUrl = new URL(variant?.imageUrl ?? card.imageUrl, window.location.origin).href;
+      const source = variant ? variant.source : card.source;
+      const priceList = catalogPriceList(prices);
+      const imageUrl = new URL(variant?.image ?? card.image, window.location.origin).href;
       const item: CollectionItem = {
         id: crypto.randomUUID(),
         cardId: card.id,
         cardVariantId: variant?.id ?? card.id,
         cardSnapshot: {
-          code: card.code,
+          code: card.card_number,
           name: card.name,
-          setCode: card.set.code,
+          setCode: card.episode.code,
           rarity: card.rarity,
           variantLabel: variant?.label ?? 'Arte base',
           imageUrl,
-          catalogPrice: prices[0],
-          catalogProvider: sources[0]?.providerId,
-          catalogFetchedAt: sources[0]?.fetchedAt,
+          catalogPrice: priceList[0],
+          catalogProvider: source.providerId,
+          catalogFetchedAt: source.fetchedAt,
         },
         quantity,
-        language: variant?.language ?? card.language,
+        language: variant?.language ?? card.game.language,
         condition: 'NEAR_MINT',
         favorite: false,
         createdAt: timestamp,
@@ -68,12 +70,24 @@ export function CardDetails({ cardId, onClose }: { cardId: string | null; onClos
 
   const card = cardQuery.data;
   const selectedVariant =
-    card?.variants.find((variant) => variant.id === selectedVariantId) ?? null;
-  const selectedImageUrl = selectedVariant?.imageUrl ?? card?.imageUrl ?? '';
-  const selectedLabel = selectedVariant?.label ?? 'Arte base';
-  const selectedPrices = selectedVariant ? selectedVariant.prices : (card?.prices ?? []);
-  const selectedSources = selectedVariant ? selectedVariant.sources : (card?.sources ?? []);
-  const selectedLanguage = selectedVariant?.language ?? card?.language;
+    card?.artworks.find((variant) => variant.id === selectedVariantId) ?? null;
+  const selectedImageUrl = selectedVariant?.image ?? card?.image ?? '';
+  const selectedLabel =
+    selectedVariant?.label ?? (card?.version ? `Versión ${card.version}` : 'Arte base');
+  const selectedPrices = catalogPriceList(
+    selectedVariant ? selectedVariant.prices : (card?.prices ?? {}),
+  );
+  const selectedSource = selectedVariant ? selectedVariant.source : card?.source;
+  const selectedLanguage = selectedVariant?.language ?? card?.game.language;
+  const detailSummary = card
+    ? [
+        card.game.card_type === 'UNKNOWN' ? 'Carta' : card.game.card_type,
+        card.game.traits.length > 0 ? card.game.traits.join(' / ') : null,
+        selectedLanguage,
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    : '';
   const selectedCollectionId = selectedVariant?.id ?? card?.id;
   const cardCollectionItems =
     collectionQuery.data?.filter((item) => item.cardId === card?.id) ?? [];
@@ -99,6 +113,10 @@ export function CardDetails({ cardId, onClose }: { cardId: string | null; onClos
         <div className="grid h-[420px] animate-pulse place-items-center rounded-xl bg-slate-100">
           <OnePieceLoader size="lg" label="Cargando detalle de carta" />
         </div>
+      ) : cardQuery.isError ? (
+        <p role="alert" className="m-4 rounded-xl bg-red-50 p-6 text-center text-red-800">
+          {cardQuery.error.message}
+        </p>
       ) : !card ? (
         <p className="p-8 text-center text-slate-600">No se ha encontrado la carta.</p>
       ) : (
@@ -109,7 +127,7 @@ export function CardDetails({ cardId, onClose }: { cardId: string | null; onClos
               alt={`Carta ${card.name} — ${selectedLabel}`}
               className="shadow-soft"
             />
-            {card.variants.length > 0 && (
+            {card.artworks.length > 0 && (
               <div className="mt-4">
                 <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">
                   Artes disponibles
@@ -129,14 +147,9 @@ export function CardDetails({ cardId, onClose }: { cardId: string | null; onClos
                         : 'opacity-70 hover:opacity-100'
                     }`}
                   >
-                    <CardImage
-                      src={card.imageUrl}
-                      alt=""
-                      className="w-full"
-                      showFailureText={false}
-                    />
+                    <CardImage src={card.image} alt="" className="w-full" showFailureText={false} />
                   </button>
-                  {card.variants.map((variant) => (
+                  {card.artworks.map((variant) => (
                     <button
                       key={variant.id}
                       type="button"
@@ -153,7 +166,7 @@ export function CardDetails({ cardId, onClose }: { cardId: string | null; onClos
                       }`}
                     >
                       <CardImage
-                        src={variant.imageUrl}
+                        src={variant.image}
                         alt=""
                         className="w-full"
                         showFailureText={false}
@@ -165,14 +178,12 @@ export function CardDetails({ cardId, onClose }: { cardId: string | null; onClos
             )}
           </div>
           <div className="min-w-0 pt-2">
-            <p className="text-xs font-semibold text-slate-500">{card.code}</p>
+            <p className="text-xs font-semibold text-slate-500">{card.card_number}</p>
             <h2 className="mt-1 pr-10 text-2xl font-black text-slate-950">{card.name}</h2>
             <p className="mt-1 text-sm font-semibold text-violet">{selectedLabel}</p>
-            <p className="mt-1 text-sm text-slate-600">
-              {card.type} · {card.traits.join(' / ')} · {selectedLanguage}
-            </p>
+            <p className="mt-1 text-sm text-slate-600">{detailSummary}</p>
             <div className="mt-3 flex flex-wrap gap-2">
-              {card.colors.map((color) => (
+              {card.game.colors.map((color) => (
                 <span
                   key={color}
                   className="rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-700"
@@ -188,10 +199,10 @@ export function CardDetails({ cardId, onClose }: { cardId: string | null; onClos
             </div>
             <dl className="mt-5 grid grid-cols-4 gap-3 border-y border-slate-200 py-4">
               {[
-                ['Coste', card.cost],
-                ['Poder', card.power],
-                ['Counter', card.counter],
-                ['Vidas', card.life],
+                ['Coste', card.game.cost],
+                ['Poder', card.game.power],
+                ['Counter', card.game.counter],
+                ['Vidas', card.game.life],
               ].map(([label, value]) => (
                 <div key={String(label)}>
                   <dt className="text-[10px] font-bold uppercase text-slate-500">{label}</dt>
@@ -199,16 +210,16 @@ export function CardDetails({ cardId, onClose }: { cardId: string | null; onClos
                 </div>
               ))}
             </dl>
-            {card.effect && (
+            {card.game.effect && (
               <div className="mt-5">
                 <h3 className="text-xs font-bold uppercase text-slate-500">Efecto</h3>
-                <p className="mt-2 text-sm leading-6 text-slate-800">{card.effect}</p>
+                <p className="mt-2 text-sm leading-6 text-slate-800">{card.game.effect}</p>
               </div>
             )}
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               <div className="rounded-xl bg-slate-50 p-4">
                 <p className="text-xs font-bold uppercase text-slate-500">Expansión</p>
-                <p className="mt-1 text-sm font-semibold">{card.set.name}</p>
+                <p className="mt-1 text-sm font-semibold">{card.episode.name}</p>
               </div>
               <div className="rounded-xl bg-slate-50 p-4">
                 <p className="text-xs font-bold uppercase text-slate-500">Precio de catálogo</p>
@@ -241,7 +252,7 @@ export function CardDetails({ cardId, onClose }: { cardId: string | null; onClos
                       {selectedOwnedTotal} {selectedOwnedTotal === 1 ? 'copia' : 'copias'} de{' '}
                       {selectedLabel}
                     </p>
-                    {card.variants.length > 0 && (
+                    {card.artworks.length > 0 && (
                       <p className="mt-1 text-xs text-slate-600">
                         Total entre todos los artes: {ownedTotal}
                       </p>
@@ -305,7 +316,7 @@ export function CardDetails({ cardId, onClose }: { cardId: string | null; onClos
             </div>
             <div className="mt-3 flex justify-center gap-1 text-xs text-slate-500">
               <Box className="size-3.5" /> Fuente de datos:{' '}
-              {selectedSources[0]?.providerId ?? 'desconocida'}
+              {selectedSource?.providerId ?? 'desconocida'}
             </div>
           </div>
         </div>

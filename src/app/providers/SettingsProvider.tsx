@@ -12,7 +12,7 @@ import { config } from '../config';
 import { useAuth } from './AuthProvider';
 
 const storageKey = 'grand-line-vault:settings';
-const defaults: AppSettings = { theme: 'LIGHT' };
+const defaults: AppSettings = { theme: 'LIGHT', catalogDataSource: 'OFFICIAL_STATIC' };
 
 function readLocalSettings(): AppSettings {
   try {
@@ -21,6 +21,8 @@ function readLocalSettings(): AppSettings {
     const value = JSON.parse(stored) as Partial<AppSettings>;
     return {
       theme: value.theme === 'DARK' ? 'DARK' : 'LIGHT',
+      catalogDataSource:
+        value.catalogDataSource === 'ONE_PIECE_API' ? 'ONE_PIECE_API' : 'OFFICIAL_STATIC',
     };
   } catch {
     return defaults;
@@ -58,7 +60,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       .then(async (response) => {
         if (!response.ok) throw new Error('No se pudieron cargar los ajustes.');
         const payload = (await response.json()) as { data: AppSettings };
-        if (active) setSettings(payload.data);
+        if (active) setSettings({ ...defaults, ...payload.data });
       })
       .catch(() => {
         if (active) setError('Se están usando los ajustes guardados en este dispositivo.');
@@ -71,28 +73,33 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     };
   }, [auth.authenticated]);
 
-  const updateSettings = useCallback(async (next: AppSettings) => {
-    const previous = settings;
-    setSettings(next);
-    setSaving(true);
-    setError(null);
-    try {
-      if (!config.VITE_USE_MOCK_DATA) {
-        const response = await fetch('/api/settings', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(next),
-        });
-        if (!response.ok) throw new Error('No se pudieron guardar los ajustes.');
+  const updateSettings = useCallback(
+    async (next: AppSettings) => {
+      const previous = settings;
+      setSettings(next);
+      setSaving(true);
+      setError(null);
+      try {
+        if (!config.VITE_USE_MOCK_DATA) {
+          const response = await fetch('/api/settings', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(next),
+          });
+          if (!response.ok) throw new Error('No se pudieron guardar los ajustes.');
+        }
+      } catch (saveError) {
+        setSettings(previous);
+        setError(
+          saveError instanceof Error ? saveError.message : 'No se pudieron guardar los ajustes.',
+        );
+        throw saveError;
+      } finally {
+        setSaving(false);
       }
-    } catch (saveError) {
-      setSettings(previous);
-      setError(saveError instanceof Error ? saveError.message : 'No se pudieron guardar los ajustes.');
-      throw saveError;
-    } finally {
-      setSaving(false);
-    }
-  }, [settings]);
+    },
+    [settings],
+  );
 
   const value = useMemo(
     () => ({ settings, loading, saving, error, updateSettings }),

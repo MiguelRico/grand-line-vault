@@ -11,7 +11,7 @@ import { initialBoxes, initialCollection, initialSalesPacks, mockCards } from '.
 export interface CatalogRepository {
   search(criteria: CatalogCriteria, signal?: AbortSignal): Promise<PaginatedResult<Card>>;
   getById(id: string, signal?: AbortSignal): Promise<Card | null>;
-  listSets(signal?: AbortSignal): Promise<Card['set'][]>;
+  listSets(signal?: AbortSignal): Promise<Card['episode'][]>;
 }
 
 export interface PrivateRepository {
@@ -36,7 +36,11 @@ const delay = async (signal?: AbortSignal): Promise<void> =>
   });
 
 function getPrice(card: Card): number {
-  return card.prices[0]?.amount ?? Number.MAX_SAFE_INTEGER;
+  return (
+    card.prices.cardmarket?.lowest_near_mint ??
+    card.prices.tcgplayer?.market_price ??
+    Number.MAX_SAFE_INTEGER
+  );
 }
 
 export class MockCatalogRepository implements CatalogRepository {
@@ -48,36 +52,40 @@ export class MockCatalogRepository implements CatalogRepository {
         (card) =>
           (!query ||
             card.name.toLocaleLowerCase().includes(query) ||
-            card.code.toLocaleLowerCase().includes(query)) &&
-          (!criteria.setCode || card.set.code === criteria.setCode) &&
-          (!criteria.color || card.colors.includes(criteria.color)) &&
-          (!criteria.type || card.type === criteria.type) &&
+            card.card_number.toLocaleLowerCase().includes(query)) &&
+          (!criteria.setCode || card.episode.id === criteria.setCode) &&
+          (!criteria.color || card.game.colors.includes(criteria.color)) &&
+          (!criteria.type || card.game.card_type === criteria.type) &&
           (!criteria.rarity || card.rarity === criteria.rarity) &&
           (!criteria.variant ||
             criteria.variant === 'BASE' ||
-            card.variants.some((variant) => variant.type === criteria.variant)) &&
-          (criteria.minCost === undefined || (card.cost ?? 0) >= criteria.minCost) &&
-          (criteria.maxCost === undefined || (card.cost ?? 0) <= criteria.maxCost) &&
-          (criteria.minPower === undefined || (card.power ?? 0) >= criteria.minPower) &&
-          (criteria.maxPower === undefined || (card.power ?? 0) <= criteria.maxPower),
+            card.artworks.some((variant) => variant.variant_type === criteria.variant)) &&
+          (criteria.minCost === undefined || (card.game.cost ?? 0) >= criteria.minCost) &&
+          (criteria.maxCost === undefined || (card.game.cost ?? 0) <= criteria.maxCost) &&
+          (criteria.minPower === undefined || (card.game.power ?? 0) >= criteria.minPower) &&
+          (criteria.maxPower === undefined || (card.game.power ?? 0) <= criteria.maxPower),
       )
       .sort((left, right) => {
         const leftValue =
           criteria.sort === 'price'
             ? getPrice(left)
             : criteria.sort === 'power'
-              ? (left.power ?? 0)
+              ? (left.game.power ?? 0)
               : criteria.sort === 'cost'
-                ? (left.cost ?? 0)
-                : left[criteria.sort];
+                ? (left.game.cost ?? 0)
+                : criteria.sort === 'code'
+                  ? left.card_number
+                  : left.name;
         const rightValue =
           criteria.sort === 'price'
             ? getPrice(right)
             : criteria.sort === 'power'
-              ? (right.power ?? 0)
+              ? (right.game.power ?? 0)
               : criteria.sort === 'cost'
-                ? (right.cost ?? 0)
-                : right[criteria.sort];
+                ? (right.game.cost ?? 0)
+                : criteria.sort === 'code'
+                  ? right.card_number
+                  : right.name;
         const comparison =
           typeof leftValue === 'number'
             ? leftValue - Number(rightValue)
@@ -99,11 +107,10 @@ export class MockCatalogRepository implements CatalogRepository {
     return mockCards.find((card) => card.id === id) ?? null;
   }
 
-  async listSets(signal?: AbortSignal): Promise<Card['set'][]> {
+  async listSets(signal?: AbortSignal): Promise<Card['episode'][]> {
     await delay(signal);
-    return [...new Map(mockCards.map((card) => [card.set.code, card.set])).values()];
+    return [...new Map(mockCards.map((card) => [card.episode.id, card.episode])).values()];
   }
-
 }
 
 const collectionKey = 'grand-line-vault:mock-collection';

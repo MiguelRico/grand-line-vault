@@ -5,10 +5,11 @@ import { initialCollection } from '../infrastructure/mockData';
 describe('private API validation', () => {
   it('accepts only supported catalog providers and themes', () => {
     expect(
-      appSettingsSchema.safeParse({ theme: 'DARK' }).success,
+      appSettingsSchema.safeParse({ theme: 'DARK', catalogDataSource: 'ONE_PIECE_API' }).success,
     ).toBe(true);
+    expect(appSettingsSchema.safeParse({ theme: 'SYSTEM' }).success).toBe(false);
     expect(
-      appSettingsSchema.safeParse({ theme: 'SYSTEM' }).success,
+      appSettingsSchema.safeParse({ theme: 'LIGHT', catalogDataSource: 'UNTRUSTED_API' }).success,
     ).toBe(false);
   });
 

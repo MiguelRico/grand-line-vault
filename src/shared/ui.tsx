@@ -179,10 +179,10 @@ export function CardTile({
       <button
         onClick={onOpen}
         className="relative block w-full rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet focus-visible:ring-offset-2"
-        aria-label={`Ver ${card.name}, ${card.code}`}
+        aria-label={`Ver ${card.name}, ${card.card_number}`}
       >
         <CardImage
-          src={card.imageUrl}
+          src={card.image}
           alt={`Carta ${card.name}`}
           className="border border-slate-200 shadow-sm transition group-hover:-translate-y-1 group-hover:shadow-soft"
         />
@@ -199,7 +199,7 @@ export function CardTile({
         )}
       </button>
       <div className="mt-2 min-w-0">
-        <p className="text-[11px] font-medium text-slate-500">{card.code}</p>
+        <p className="text-[11px] font-medium text-slate-500">{card.card_number}</p>
         <h3 className="truncate text-sm font-semibold text-slate-950">{card.name}</h3>
       </div>
     </article>

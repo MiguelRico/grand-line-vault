@@ -1,12 +1,14 @@
-export type CatalogProviderId = 'OFFICIAL_STATIC' | 'MOCK' | 'LEGACY_EXTERNAL';
+export type CatalogProviderId = 'OFFICIAL_STATIC' | 'ONE_PIECE_API' | 'MOCK' | 'LEGACY_EXTERNAL';
+export type CatalogDataSource = 'OFFICIAL_STATIC' | 'ONE_PIECE_API';
 export type AppTheme = 'LIGHT' | 'DARK';
 
 export interface AppSettings {
   theme: AppTheme;
+  catalogDataSource: CatalogDataSource;
 }
 export type CardLanguage = 'EN' | 'JP' | 'FR' | 'ES' | 'IT' | 'DE' | 'UNKNOWN';
 export type CardColor = 'RED' | 'GREEN' | 'BLUE' | 'PURPLE' | 'BLACK' | 'YELLOW';
-export type CardType = 'LEADER' | 'CHARACTER' | 'EVENT' | 'STAGE' | 'DON';
+export type CardType = 'LEADER' | 'CHARACTER' | 'EVENT' | 'STAGE' | 'DON' | 'UNKNOWN';
 export type CardCondition =
   'MINT' | 'NEAR_MINT' | 'EXCELLENT' | 'GOOD' | 'PLAYED' | 'POOR' | 'UNKNOWN';
 export type CardVariantType =
@@ -41,26 +43,35 @@ export interface CatalogSourceReference {
   fetchedAt: string;
 }
 
-export interface CardVariant {
-  id: string;
-  baseCardId: string;
-  type: CardVariantType;
-  label: string;
-  imageUrl: string;
-  language: CardLanguage;
-  prices: CardPrice[];
-  sources: CatalogSourceReference[];
+export interface CardMarketPrices {
+  currency: string;
+  lowest_near_mint?: number;
+  lowest_near_mint_FR?: number;
+  graded?: { grade: string; price: number }[];
 }
 
-export interface Card {
+export interface TcgPlayerPrices {
+  currency: string;
+  market_price?: number | null;
+}
+
+export interface CatalogPrices {
+  cardmarket?: CardMarketPrices | null;
+  tcgplayer?: TcgPlayerPrices | null;
+}
+
+export interface CatalogEpisode {
   id: string;
-  code: string;
   name: string;
-  description?: string;
-  type: CardType;
+  slug: string;
+  released_at?: string;
+  logo?: string;
+  code: string;
+}
+
+export interface CardGameDetails {
+  card_type: CardType;
   colors: CardColor[];
-  rarity?: string;
-  set: { code: string; name: string };
   cost?: number;
   power?: number;
   counter?: number;
@@ -70,10 +81,47 @@ export interface Card {
   effect?: string;
   trigger?: string;
   language: CardLanguage;
-  imageUrl: string;
-  variants: CardVariant[];
-  prices: CardPrice[];
-  sources: CatalogSourceReference[];
+}
+
+export interface CardArtwork {
+  id: string;
+  external_id: string;
+  base_card_id: string;
+  variant_type: CardVariantType;
+  label: string;
+  image: string;
+  language: CardLanguage;
+  prices: CatalogPrices;
+  source: CatalogSourceReference;
+}
+
+export type CardVariant = CardArtwork;
+
+export interface Card {
+  /** Identificador interno con namespace del proveedor. */
+  id: string;
+  /** Identificador original entregado por la fuente. */
+  external_id: string;
+  name: string;
+  name_numbered: string;
+  slug: string;
+  type: string;
+  card_number: string;
+  rarity?: string;
+  color: string | null;
+  version?: string | null;
+  cardmarket_id?: number | null;
+  tcgplayer_id?: number | null;
+  flavor_text?: string | null;
+  artist?: Record<string, unknown> | null;
+  prices: CatalogPrices;
+  episode: CatalogEpisode;
+  image: string;
+  tcggo_url?: string;
+  links?: { cardmarket?: string; tcgplayer?: string };
+  game: CardGameDetails;
+  artworks: CardArtwork[];
+  source: CatalogSourceReference;
 }
 
 export interface CollectionItem {
