@@ -169,6 +169,12 @@ describe('CardDetails', () => {
     expect(screen.getAllByText('TCGPlayer').length).toBeGreaterThan(0);
     expect(screen.getByText('Variant Artist')).toBeInTheDocument();
     expect(screen.getByText('101')).toBeInTheDocument();
+    const printDataHeading = screen.getByText('Datos de la impresión');
+    expect(printDataHeading.nextElementSibling).toHaveClass('grid-cols-3');
+    expect(screen.queryByText('Datos de la impresión seleccionada')).not.toBeInTheDocument();
+    const marketHeading = screen.getByText('Mercado de la impresión');
+    expect(marketHeading.nextElementSibling).toHaveClass('grid-cols-4');
+    expect(screen.getByText('Disponibles')).toBeInTheDocument();
     expect(screen.getByText('Media 30 días')).toBeInTheDocument();
     expect(screen.getByText('9.00 EUR')).toBeInTheDocument();
     expect(screen.getByText(/· JP$/)).toBeInTheDocument();

@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Card, CardVariant, CollectionItem } from '../domain/models';
 import { catalogPriceList } from '../domain/services';
 import { collectionItemIdentity, createCollectionSnapshot } from '../domain/catalogNormalization';
+import { config } from '../app/config';
 import { useServices } from '../app/providers/ServicesProvider';
 import { Button, CardImage, QuantitySelector, ResponsiveDialog } from '../shared/ui';
 import { OnePieceLoader } from '../shared/OnePieceLoader';
@@ -91,14 +92,11 @@ export function CardDetails({ cardId, onClose }: { cardId: string | null; onClos
   const selectedTcggoUrl = selectedVariant?.tcggo_url ?? card?.tcggo_url;
   const cardmarket = selectedPriceDetails.cardmarket;
   const tcgplayer = selectedPriceDetails.tcgplayer;
-  const cardmarketPriceRows = cardmarket
+  const secondaryCardmarketPriceRows = cardmarket
     ? [
-        ['Mínimo Near Mint', cardmarket.lowest_near_mint],
         ['Mínimo Near Mint (Francia)', cardmarket.lowest_near_mint_FR],
         ['Mínimo Near Mint (UE)', cardmarket.lowest_near_mint_EU_only],
         ['Mínimo Near Mint (Francia/UE)', cardmarket.lowest_near_mint_FR_EU_only],
-        ['Media 30 días', cardmarket.average_30d],
-        ['Media 7 días', cardmarket.average_7d],
       ].filter((entry): entry is [string, number] => typeof entry[1] === 'number')
     : [];
   const detailSummary = card
@@ -327,9 +325,9 @@ export function CardDetails({ cardId, onClose }: { cardId: string | null; onClos
             </div>
             <div className="mt-3 rounded-xl border border-slate-200 p-4">
               <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">
-                Datos de la impresión seleccionada
+                Datos de la impresión
               </h3>
-              <dl className="mt-3 grid gap-x-5 gap-y-3 text-sm sm:grid-cols-2">
+              <dl className="mt-3 grid grid-cols-3 gap-x-3 gap-y-3 text-sm">
                 {selectedVersion && (
                   <div>
                     <dt className="text-xs text-slate-500">Versión</dt>
@@ -414,41 +412,57 @@ export function CardDetails({ cardId, onClose }: { cardId: string | null; onClos
                 </div>
               )}
             </div>
-            {(cardmarketPriceRows.length > 0 ||
-              cardmarket?.available_items !== undefined ||
-              (cardmarket?.graded?.length ?? 0) > 0 ||
+            {(cardmarket ||
               (tcgplayer?.market_price !== null && tcgplayer?.market_price !== undefined)) && (
               <div className="mt-3 rounded-xl border border-slate-200 p-4">
                 <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">
                   Mercado de la impresión
                 </h3>
-                <dl className="mt-3 grid gap-x-5 gap-y-3 text-sm sm:grid-cols-2">
-                  {cardmarketPriceRows.map(([label, value]) => (
-                    <div key={label}>
-                      <dt className="text-xs text-slate-500">{label}</dt>
-                      <dd className="font-semibold">
+                <dl className="mt-3 grid grid-cols-4 gap-x-2 gap-y-3 text-sm">
+                  {[
+                    ['Mínimo Near Mint', cardmarket?.lowest_near_mint],
+                    ['Media 30 días', cardmarket?.average_30d],
+                    ['Media 7 días', cardmarket?.average_7d],
+                  ].map(([label, value]) => (
+                    <div key={String(label)} className="min-w-0">
+                      <dt className="text-[11px] leading-tight text-slate-500">{label}</dt>
+                      <dd className="mt-1 break-words font-semibold">
+                        {typeof value === 'number'
+                          ? `${value.toFixed(2)} ${cardmarket?.currency ?? ''}`.trim()
+                          : '–'}
+                      </dd>
+                    </div>
+                  ))}
+                  <div className="min-w-0">
+                    <dt className="text-[11px] leading-tight text-slate-500">Disponibles</dt>
+                    <dd className="mt-1 font-semibold">{cardmarket?.available_items ?? '–'}</dd>
+                  </div>
+                </dl>
+                <dl className="mt-4 grid grid-cols-3 gap-x-3 gap-y-3 border-t border-slate-100 pt-4 text-sm">
+                  {secondaryCardmarketPriceRows.map(([label, value]) => (
+                    <div key={label} className="min-w-0">
+                      <dt className="text-[11px] leading-tight text-slate-500">{label}</dt>
+                      <dd className="mt-1 break-words font-semibold">
                         {value.toFixed(2)} {cardmarket?.currency}
                       </dd>
                     </div>
                   ))}
-                  {cardmarket?.available_items !== undefined && (
-                    <div>
-                      <dt className="text-xs text-slate-500">Unidades disponibles</dt>
-                      <dd className="font-semibold">{cardmarket.available_items}</dd>
-                    </div>
-                  )}
                   {tcgplayer?.market_price !== null && tcgplayer?.market_price !== undefined && (
-                    <div>
-                      <dt className="text-xs text-slate-500">TCGPlayer — precio de mercado</dt>
-                      <dd className="font-semibold">
+                    <div className="min-w-0">
+                      <dt className="text-[11px] leading-tight text-slate-500">
+                        TCGPlayer — precio de mercado
+                      </dt>
+                      <dd className="mt-1 break-words font-semibold">
                         {tcgplayer.market_price.toFixed(2)} {tcgplayer.currency}
                       </dd>
                     </div>
                   )}
                   {cardmarket?.graded?.map((graded) => (
-                    <div key={graded.grade}>
-                      <dt className="text-xs text-slate-500">Graduada {graded.grade}</dt>
-                      <dd className="font-semibold">
+                    <div key={graded.grade} className="min-w-0">
+                      <dt className="text-[11px] leading-tight text-slate-500">
+                        Graduada {graded.grade}
+                      </dt>
+                      <dd className="mt-1 break-words font-semibold">
                         {graded.price.toFixed(2)} {cardmarket.currency}
                       </dd>
                     </div>
@@ -456,33 +470,37 @@ export function CardDetails({ cardId, onClose }: { cardId: string | null; onClos
                 </dl>
               </div>
             )}
-            <div className="mt-3 rounded-xl bg-violet/5 px-4 py-3 text-xs text-slate-700">
-              <p className="font-bold">Normalización: {card.enrichment.status}</p>
-              <p className="mt-1">
-                Proveedores: {card.enrichment.providers.join(' + ')}
-                {card.enrichment.fields.length > 0
-                  ? ` · ${card.enrichment.fields.length} campos enriquecidos`
-                  : ''}
-              </p>
-              {card.enrichment.conflicts.map((conflict) => (
-                <p key={conflict} className="mt-1 font-semibold text-amber-800">
-                  {conflict}
+            {config.VITE_SHOW_CATALOG_NORMALIZATION && (
+              <div className="mt-3 rounded-xl bg-violet/5 px-4 py-3 text-xs text-slate-700">
+                <p className="font-bold">Normalización: {card.enrichment.status}</p>
+                <p className="mt-1">
+                  Proveedores: {card.enrichment.providers.join(' + ')}
+                  {card.enrichment.fields.length > 0
+                    ? ` · ${card.enrichment.fields.length} campos enriquecidos`
+                    : ''}
                 </p>
-              ))}
-              {Object.keys(card.enrichment.provenance).length > 0 && (
-                <details className="mt-2">
-                  <summary className="cursor-pointer font-semibold">Procedencia por campo</summary>
-                  <ul className="mt-2 space-y-1">
-                    {Object.entries(card.enrichment.provenance).map(([field, provenance]) => (
-                      <li key={field}>
-                        {field}: {provenance.providerId} · {provenance.sourceField} ·{' '}
-                        {provenance.confidence}
-                      </li>
-                    ))}
-                  </ul>
-                </details>
-              )}
-            </div>
+                {card.enrichment.conflicts.map((conflict) => (
+                  <p key={conflict} className="mt-1 font-semibold text-amber-800">
+                    {conflict}
+                  </p>
+                ))}
+                {Object.keys(card.enrichment.provenance).length > 0 && (
+                  <details className="mt-2">
+                    <summary className="cursor-pointer font-semibold">
+                      Procedencia por campo
+                    </summary>
+                    <ul className="mt-2 space-y-1">
+                      {Object.entries(card.enrichment.provenance).map(([field, provenance]) => (
+                        <li key={field}>
+                          {field}: {provenance.providerId} · {provenance.sourceField} ·{' '}
+                          {provenance.confidence}
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
+              </div>
+            )}
             <div className="mt-6 grid gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2">
               <div aria-live="polite">
                 <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
