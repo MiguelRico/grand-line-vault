@@ -157,6 +157,13 @@ export interface Card {
   rarity_normalized: CanonicalRarity;
   color: string | null;
   version?: string | null;
+  print?: {
+    variant_type: CardVariantType;
+    label: string;
+    number?: number | null;
+    static_id?: string;
+    confidence: 'EXACT' | 'HIGH' | 'MEDIUM' | 'LOW';
+  };
   hp?: number | null;
   supertype?: string | null;
   tcgid?: number | string | null;

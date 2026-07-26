@@ -134,7 +134,10 @@ export function createCollectionSnapshot(
     name: card.name,
     setCode: card.episode.code,
     rarity: card.rarity,
-    variantLabel: artwork?.label ?? (card.version ? `Versión ${card.version}` : 'Arte base'),
+    variantLabel:
+      artwork?.label ??
+      card.print?.label ??
+      (card.version ? `Versión ${card.version}` : 'Arte base'),
     imageUrl: absoluteImageUrl,
     catalogPrice: catalogPriceList(prices)[0],
     catalogProvider: source.providerId,

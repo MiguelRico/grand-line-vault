@@ -1,4 +1,11 @@
-import type { Card, CardArtwork, CardColor, CardType, CatalogEpisode } from '../domain/models';
+import type {
+  Card,
+  CardArtwork,
+  CardColor,
+  CardType,
+  CardVariantType,
+  CatalogEpisode,
+} from '../domain/models';
 import {
   normalizeArtist,
   normalizeCardNumber,
@@ -100,13 +107,73 @@ export function mapApiEpisode(episode: OnePieceApiEpisode): CatalogEpisode {
   };
 }
 
-function artworkFromApi(card: OnePieceApiCard, baseCardId: string): CardArtwork {
+function normalizedVariantType(card?: StaticCatalogCard): CardVariantType {
+  if (!card) return 'UNKNOWN';
+  if (card.variant.type === 'base') return 'BASE';
+  if (card.variant.type === 'parallel') return 'PARALLEL';
+  if (card.variant.type === 'reprint') return 'REPRINT';
+  return 'UNKNOWN';
+}
+
+function normalizedVariantLabel(card: StaticCatalogCard): string {
+  if (card.variant.type === 'base') return 'Arte base';
+  if (card.variant.type === 'parallel') return `Parallel ${card.variant.number ?? ''}`.trim();
+  if (card.variant.type === 'reprint') return `Reprint ${card.variant.number ?? ''}`.trim();
+  return 'Versión desconocida';
+}
+
+function versionNumber(value?: string | null): number {
+  const match = value?.match(/\d+/);
+  return match ? Number(match[0]) : Number.MAX_SAFE_INTEGER;
+}
+
+function matchStaticPrints(
+  apiPrints: OnePieceApiCard[],
+  staticMatches: StaticCatalogCard[],
+): Map<number, StaticCatalogCard> {
+  const matches = new Map<number, StaticCatalogCard>();
+  const apiBase = apiPrints.filter((card) => !card.version);
+  const staticBase = staticMatches.filter((card) => card.variant.type === 'base');
+  if (apiBase.length === 1 && staticBase.length === 1 && apiBase[0] && staticBase[0])
+    matches.set(apiBase[0].id, staticBase[0]);
+
+  const apiVariants = apiPrints
+    .filter((card) => Boolean(card.version))
+    .sort((left, right) => versionNumber(left.version) - versionNumber(right.version));
+  const staticVariants = staticMatches
+    .filter((card) => card.variant.type !== 'base')
+    .sort(
+      (left, right) =>
+        (left.variant.number ?? Number.MAX_SAFE_INTEGER) -
+          (right.variant.number ?? Number.MAX_SAFE_INTEGER) ||
+        left.sourceId.localeCompare(right.sourceId),
+    );
+  if (
+    apiVariants.length === 1 &&
+    staticVariants.length === 1 &&
+    apiVariants[0] &&
+    staticVariants[0]
+  )
+    matches.set(apiVariants[0].id, staticVariants[0]);
+  return matches;
+}
+
+function artworkFromApi(
+  card: OnePieceApiCard,
+  baseCardId: string,
+  staticPrint?: StaticCatalogCard,
+): CardArtwork {
+  const normalizedType = normalizedVariantType(staticPrint);
   return {
     id: `ONE_PIECE_API::${card.id}`,
     external_id: String(card.id),
     base_card_id: baseCardId,
-    variant_type: card.version ? 'UNKNOWN' : 'BASE',
-    label: card.version ? `Versión ${card.version}` : 'Base',
+    variant_type: staticPrint ? normalizedType : card.version ? 'UNKNOWN' : 'BASE',
+    label: staticPrint
+      ? normalizedVariantLabel(staticPrint)
+      : card.version
+        ? `Versión ${card.version}`
+        : 'Arte base',
     version: card.version,
     image: card.image,
     language: 'EN',
@@ -189,6 +256,9 @@ export function mapApiCard(
       },
     ]),
   );
+  const apiPrints = related.some((card) => card.id === raw.id) ? related : [raw, ...related];
+  const printMatches = matchStaticPrints(apiPrints, staticMatches);
+  const selectedStaticPrint = printMatches.get(raw.id);
 
   return {
     id,
@@ -204,6 +274,21 @@ export function mapApiCard(
     rarity_normalized: normalizeRarity(raw.rarity),
     color: raw.color ?? null,
     version: raw.version,
+    print: {
+      variant_type: selectedStaticPrint
+        ? normalizedVariantType(selectedStaticPrint)
+        : raw.version
+          ? 'UNKNOWN'
+          : 'BASE',
+      label: selectedStaticPrint
+        ? normalizedVariantLabel(selectedStaticPrint)
+        : raw.version
+          ? `Versión ${raw.version}`
+          : 'Arte base',
+      number: selectedStaticPrint?.variant.number,
+      static_id: selectedStaticPrint?.sourceId,
+      confidence: selectedStaticPrint ? 'HIGH' : raw.version ? 'LOW' : 'HIGH',
+    },
     hp: raw.hp,
     supertype: raw.supertype,
     tcgid: raw.tcgid,
@@ -229,7 +314,9 @@ export function mapApiCard(
       trigger: staticBase?.trigger ?? undefined,
       language: 'EN',
     },
-    artworks: related.filter((card) => card.id !== raw.id).map((card) => artworkFromApi(card, id)),
+    artworks: related
+      .filter((card) => card.id !== raw.id)
+      .map((card) => artworkFromApi(card, id, printMatches.get(card.id))),
     source,
     enrichment: {
       status: enrichmentStatus,

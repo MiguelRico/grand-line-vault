@@ -14,6 +14,7 @@ const queryClient = new QueryClient({
     mutations: { retry: 0 },
   },
 });
+queryClient.setQueryDefaults(['collection'], { staleTime: 5 * 60 * 1000 });
 
 const root = document.getElementById('root');
 if (!root) throw new Error('No se encontró el contenedor principal.');
@@ -25,7 +26,7 @@ createRoot(root).render(
         <AuthProvider>
           <SettingsProvider>
             <ServicesProvider>
-            <App />
+              <App />
             </ServicesProvider>
           </SettingsProvider>
         </AuthProvider>

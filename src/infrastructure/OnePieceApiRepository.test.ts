@@ -54,6 +54,25 @@ const enrichedStaticCatalog = async (): Promise<LoadedStaticCatalog> => {
   };
 };
 
+const variantStaticCatalog = async (): Promise<LoadedStaticCatalog> => {
+  const catalog = await enrichedStaticCatalog();
+  const base = catalog.cards[0];
+  if (!base) throw new Error('Static fixture is incomplete.');
+  return {
+    ...catalog,
+    cards: [
+      base,
+      {
+        ...base,
+        id: 'static-teach-p1',
+        sourceId: 'OP09-093_P1',
+        imageUrl: null,
+        variant: { type: 'parallel', number: 1 },
+      },
+    ],
+  };
+};
+
 const baseCard: OnePieceApiCard = {
   id: 28839,
   name: 'Marshall.D.Teach',
@@ -194,6 +213,66 @@ describe('OnePieceApiRepository', () => {
       variant_type: 'UNKNOWN',
       label: 'Versión v2',
     });
+  });
+
+  it('skips the related-print request when the static catalog confirms a single print', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({ data: { data: baseCard } }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const card = await new OnePieceApiRepository(enrichedStaticCatalog).getById(
+      'ONE_PIECE_API::28839',
+    );
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(card?.artworks).toEqual([]);
+  });
+
+  it('reuses related prints when another artwork of the same card is opened', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json({ data: { data: baseCard } }))
+      .mockResolvedValueOnce(
+        Response.json({
+          data: { data: [baseCard, variantCard], paging: { current: 1, total: 1, per_page: 100 } },
+        }),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+    const repository = new OnePieceApiRepository(variantStaticCatalog);
+
+    const base = await repository.getById('ONE_PIECE_API::28839');
+    const variant = await repository.getById('ONE_PIECE_API::28840');
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(base?.artworks[0]).toMatchObject({
+      id: 'ONE_PIECE_API::28840',
+      variant_type: 'PARALLEL',
+      label: 'Parallel 1',
+    });
+    expect(variant?.print).toMatchObject({
+      variant_type: 'PARALLEL',
+      label: 'Parallel 1',
+      static_id: 'OP09-093_P1',
+      confidence: 'HIGH',
+    });
+  });
+
+  it('uses search results as detail cache while they remain fresh', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      Response.json({
+        data: {
+          data: [baseCard],
+          paging: { current: 2, total: 5, per_page: 12 },
+          results: 1,
+        },
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const repository = new OnePieceApiRepository(enrichedStaticCatalog);
+
+    await repository.search(criteria);
+    await repository.getById('ONE_PIECE_API::28839');
+
+    expect(fetchMock).toHaveBeenCalledOnce();
   });
 
   it('surfaces the server message when the API key is not configured', async () => {

@@ -58,6 +58,13 @@ function mapCards(catalog: LoadedStaticCatalog): Card[] {
         rarity: base.rarity || undefined,
         rarity_normalized: normalizeRarity(base.rarity),
         color: base.colors.join('/'),
+        print: {
+          variant_type: 'BASE',
+          label: 'Arte base',
+          number: base.variant.number,
+          static_id: base.sourceId,
+          confidence: 'EXACT',
+        },
         prices: {},
         episode: {
           id: primarySet.id,

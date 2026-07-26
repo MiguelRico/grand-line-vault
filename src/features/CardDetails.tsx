@@ -23,6 +23,7 @@ export function CardDetails({ cardId, onClose }: { cardId: string | null; onClos
     queryKey: ['card', services.catalogProvider, cardId],
     queryFn: ({ signal }) => services.catalog.getById(cardId ?? '', signal),
     enabled: Boolean(cardId),
+    staleTime: 5 * 60 * 1000,
   });
   const collectionQuery = useQuery({
     queryKey: ['collection'],
@@ -76,7 +77,9 @@ export function CardDetails({ cardId, onClose }: { cardId: string | null; onClos
     card?.artworks.find((variant) => variant.id === selectedVariantId) ?? null;
   const selectedImageUrl = selectedVariant?.image ?? card?.image ?? '';
   const selectedLabel =
-    selectedVariant?.label ?? (card?.version ? `Versión ${card.version}` : 'Arte base');
+    selectedVariant?.label ??
+    card?.print?.label ??
+    (card?.version ? `Versión ${card.version}` : 'Arte base');
   const selectedPrices = catalogPriceList(
     selectedVariant ? selectedVariant.prices : (card?.prices ?? {}),
   );
