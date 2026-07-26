@@ -74,7 +74,8 @@ export function resolveCatalogImageUrl(url: string | null): string {
     if (!SAFE_IMAGE_FILE.test(file) || (version && !SAFE_IMAGE_VERSION.test(version))) return '';
     const query = new URLSearchParams({ file });
     if (version) query.set('v', version);
-    return `${import.meta.env.BASE_URL}api/catalog-image?${query.toString()}`.replace(/^\/{2,}/, '/');
+    query.set('action', 'image');
+    return `${import.meta.env.BASE_URL}api/catalog?${query.toString()}`.replace(/^\/{2,}/, '/');
   } catch {
     return '';
   }
@@ -118,7 +119,8 @@ export function loadStaticCatalog(): Promise<LoadedStaticCatalog> {
   catalogPromise = (async () => {
     const manifestValue = await fetchJson('/catalog/manifest.json');
     assertObject(manifestValue, 'manifest');
-    if (manifestValue.schemaVersion !== CATALOG_SCHEMA_VERSION) throw new Error('Schema incompatible.');
+    if (manifestValue.schemaVersion !== CATALOG_SCHEMA_VERSION)
+      throw new Error('Schema incompatible.');
     const manifest = manifestValue as unknown as StaticCatalogManifest;
     const [cardsValue, setsValue, legacyValue] = await Promise.all([
       fetchJson(manifest.cardsUrl),
@@ -130,7 +132,11 @@ export function loadStaticCatalog(): Promise<LoadedStaticCatalog> {
     assertObject(legacyValue, 'legacy-id-map');
     const cards = cardsValue.cards as StaticCatalogCard[];
     const sets = setsValue.sets as StaticCatalogSet[];
-    if (!cards.length || cards.length !== manifest.totalCards || sets.length !== manifest.totalSets) {
+    if (
+      !cards.length ||
+      cards.length !== manifest.totalCards ||
+      sets.length !== manifest.totalSets
+    ) {
       throw new Error('Totales de catálogo inconsistentes.');
     }
     if (import.meta.env.DEV) {

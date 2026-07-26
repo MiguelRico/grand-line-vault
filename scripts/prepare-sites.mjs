@@ -15,7 +15,10 @@ await writeFile(
   `export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    if (url.pathname === '/api/catalog-image') {
+    if (
+      url.pathname === '/api/catalog-image' ||
+      (url.pathname === '/api/catalog' && url.searchParams.get('action') === 'image')
+    ) {
       if (request.method !== 'GET') {
         return Response.json(
           { error: { code: 'METHOD_NOT_ALLOWED', message: 'Método no permitido.' } },
@@ -63,7 +66,10 @@ await writeFile(
         );
       }
     }
-    if (url.pathname === '/api/one-piece-catalog') {
+    if (
+      url.pathname === '/api/one-piece-catalog' ||
+      (url.pathname === '/api/catalog' && url.searchParams.get('action') === 'one-piece')
+    ) {
       if (request.method !== 'GET') {
         return Response.json(
           { error: { code: 'METHOD_NOT_ALLOWED', message: 'Método no permitido.' } },

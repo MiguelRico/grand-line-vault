@@ -102,7 +102,7 @@ describe('StaticCatalogRepository', () => {
       resolveCatalogImageUrl(
         'https://en.onepiece-cardgame.com/images/cardlist/card/EB01-012_p3.png?260715',
       ),
-    ).toBe('/api/catalog-image?file=EB01-012_p3.png&v=260715');
+    ).toBe('/api/catalog?file=EB01-012_p3.png&v=260715&action=image');
     expect(resolveCatalogImageUrl('https://example.test/card.png')).toBe(
       'https://example.test/card.png',
     );

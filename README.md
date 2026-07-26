@@ -36,7 +36,7 @@ npm run catalog:validate
 ```
 
 Desde Ajustes también se puede seleccionar One Piece API. Sus consultas pasan por
-`/api/one-piece-catalog`, que añade `x-rapidapi-key` en el servidor.
+`/api/catalog?action=one-piece`, que añade `x-rapidapi-key` en el servidor.
 
 La guía completa de arquitectura, IDs, caché, actualización, workflow, reversión y limitaciones
 está en [docs/card-catalog.md](docs/card-catalog.md).

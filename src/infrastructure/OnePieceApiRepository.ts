@@ -21,7 +21,8 @@ function apiSort(criteria: CatalogCriteria): string {
 
 export class OnePieceApiRepository implements CatalogRepository {
   private async request<T>(params: URLSearchParams, signal?: AbortSignal): Promise<T> {
-    const response = await fetch(`/api/one-piece-catalog?${params}`, { signal });
+    params.set('action', 'one-piece');
+    const response = await fetch(`/api/catalog?${params}`, { signal });
     const payload = (await response.json().catch(() => null)) as
       ApiEnvelope<T> | { error?: { message?: string } } | null;
     if (!response.ok) {
