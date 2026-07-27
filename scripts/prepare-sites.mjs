@@ -153,6 +153,34 @@ await writeFile(
         );
       }
     }
+    if (url.pathname === '/api/catalog') {
+      const apiOrigin = String(
+        env.CATALOG_API_ORIGIN ?? 'https://grand-line-vault-zeta.vercel.app',
+      ).replace(/\\/$/, '');
+      try {
+        const upstream = await fetch(apiOrigin + url.pathname + url.search, {
+          method: request.method,
+          headers: { Accept: request.headers.get('Accept') ?? 'application/json' },
+        });
+        return new Response(upstream.body, {
+          status: upstream.status,
+          headers: {
+            'Content-Type': upstream.headers.get('Content-Type') ?? 'application/json',
+            'Cache-Control': upstream.headers.get('Cache-Control') ?? 'no-store',
+          },
+        });
+      } catch {
+        return Response.json(
+          {
+            error: {
+              code: 'CATALOG_BACKEND_UNAVAILABLE',
+              message: 'No se pudo conectar con el servicio de catálogo.',
+            },
+          },
+          { status: 502 },
+        );
+      }
+    }
     const response = await env.ASSETS.fetch(request);
     if (response.status !== 404) return response;
     url.pathname = '/index.html';
