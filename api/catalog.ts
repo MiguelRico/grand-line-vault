@@ -195,6 +195,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     if (action === 'detail') return await detail(req, res);
     return apiError(res, 400, 'INVALID_CATALOG_ACTION', 'La operación de catálogo no es válida.');
   } catch (error) {
+    console.error('Catalog API request failed.', error);
     if (error instanceof TcggoError) {
       return apiError(res, error.status, `TCGGO_${error.code}`, error.message);
     }
