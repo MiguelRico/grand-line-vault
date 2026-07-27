@@ -114,7 +114,7 @@ async function indexCards(req: VercelRequest, res: VercelResponse): Promise<void
   if (cursor) query = query.startAfter(...cursor);
   const snapshot = await query.limit(pageSize + 1).get();
   const documents = snapshot.docs.slice(0, pageSize);
-  const last = documents.at(-1);
+  const last = documents[documents.length - 1];
   const hasMore = snapshot.size > pageSize;
   json(res, 200, {
     items: documents.map((document) => document.data()),
