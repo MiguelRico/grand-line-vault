@@ -12,6 +12,12 @@ const schema = z.object({
     .enum(['true', 'false'])
     .default('true')
     .transform((value) => value === 'true'),
+  VITE_CARD_DETAIL_CACHE_TTL_MS: z.coerce
+    .number()
+    .int()
+    .min(10_000)
+    .max(86_400_000)
+    .default(300_000),
 });
 
 export const config = schema.parse(import.meta.env);

@@ -2,7 +2,6 @@ import { z } from 'zod';
 
 export const appSettingsSchema = z.object({
   theme: z.enum(['LIGHT', 'DARK']),
-  catalogDataSource: z.enum(['OFFICIAL_STATIC', 'ONE_PIECE_API']).default('OFFICIAL_STATIC'),
 });
 
 const priceSchema = z.object({
@@ -34,7 +33,7 @@ const snapshotSchema = z
     imageUrl: z.string().url(),
     catalogPrice: priceSchema.optional(),
     catalogProvider: z
-      .enum(['OFFICIAL_STATIC', 'ONE_PIECE_API', 'MOCK', 'LEGACY_EXTERNAL'])
+      .enum(['FIRESTORE_INDEX', 'TCGGO', 'OFFICIAL_STATIC', 'ONE_PIECE_API', 'MOCK', 'LEGACY_EXTERNAL'])
       .optional(),
     sourceCardId: z.string().min(1).max(200).optional(),
     sourceVariantId: z.string().min(1).max(200).optional(),

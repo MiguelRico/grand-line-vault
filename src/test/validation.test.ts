@@ -3,14 +3,9 @@ import { appSettingsSchema, collectionItemSchema } from '../../api/_shared/schem
 import { initialCollection } from '../infrastructure/mockData';
 
 describe('private API validation', () => {
-  it('accepts only supported catalog providers and themes', () => {
-    expect(
-      appSettingsSchema.safeParse({ theme: 'DARK', catalogDataSource: 'ONE_PIECE_API' }).success,
-    ).toBe(true);
+  it('persists appearance without a selectable catalog provider', () => {
+    expect(appSettingsSchema.safeParse({ theme: 'DARK' }).success).toBe(true);
     expect(appSettingsSchema.safeParse({ theme: 'SYSTEM' }).success).toBe(false);
-    expect(
-      appSettingsSchema.safeParse({ theme: 'LIGHT', catalogDataSource: 'UNTRUSTED_API' }).success,
-    ).toBe(false);
   });
 
   it('accepts a valid collection item', () => {

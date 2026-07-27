@@ -162,7 +162,7 @@ describe('OnePieceApiRepository', () => {
       card_number: 'OP09-093',
       image: baseCard.image,
       episode: { id: '366', code: 'OP09' },
-      source: { providerId: 'ONE_PIECE_API' },
+      source: { providerId: 'TCGGO' },
       game: {
         card_type: 'LEADER',
         cost: 5,
@@ -176,7 +176,7 @@ describe('OnePieceApiRepository', () => {
       },
       enrichment: {
         status: 'MATCHED',
-        providers: ['ONE_PIECE_API', 'OFFICIAL_STATIC'],
+        providers: ['TCGGO', 'OFFICIAL_STATIC'],
       },
     });
     expect(result.items[0]?.episode.prices?.tcgplayer).toEqual({

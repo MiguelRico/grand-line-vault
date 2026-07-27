@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useState, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import { twMerge } from 'tailwind-merge';
-import type { Card } from '../domain/models';
+import type { Card, CatalogCard } from '../domain/models';
 import { OnePieceLoader } from './OnePieceLoader';
 
 const LOCAL_IMAGE_DELAY_MS = 1_500;
@@ -169,7 +169,7 @@ export function CardTile({
   quantity,
   onOpen,
 }: {
-  card: Card;
+  card: Card | CatalogCard;
   owned?: boolean;
   quantity?: number;
   onOpen: () => void;

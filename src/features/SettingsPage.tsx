@@ -16,7 +16,7 @@ export function SettingsPage() {
 
   return (
     <div className="mx-auto max-w-[900px] p-4 sm:p-6 lg:p-8">
-      <PageHeader title="Ajustes" subtitle="Fuentes del catálogo y apariencia" />
+      <PageHeader title="Ajustes" subtitle="Catálogo y apariencia" />
       <div className="space-y-6">
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-soft sm:p-6">
           <div className="flex items-start gap-3">
@@ -26,44 +26,16 @@ export function SettingsPage() {
             <div>
               <h2 className="text-lg font-black text-slate-950">Catálogo de cartas</h2>
               <p className="mt-1 text-sm leading-6 text-slate-600">
-                Elige la fuente utilizada para búsquedas, detalles, artes y precios.
+                Las búsquedas usan el índice optimizado de Firestore. El detalle, los artes y los
+                precios se obtienen de TCGGO al abrir una carta.
               </p>
             </div>
           </div>
-          <div
-            className="mt-5 grid gap-3 sm:grid-cols-2"
-            role="group"
-            aria-label="Fuente del catálogo"
-          >
-            {(
-              [
-                [
-                  'OFFICIAL_STATIC',
-                  'Catálogo estático',
-                  'Fuente principal incluida en la aplicación. Funciona sin conexión externa.',
-                ],
-                [
-                  'ONE_PIECE_API',
-                  'One Piece API',
-                  'Catálogo y precios remotos. Requiere ONE_PIECE_API_KEY en el servidor.',
-                ],
-              ] as const
-            ).map(([value, label, description]) => (
-              <button
-                key={value}
-                type="button"
-                disabled={loading || saving}
-                onClick={() => void update({ catalogDataSource: value })}
-                className={`rounded-xl border p-4 text-left transition ${
-                  settings.catalogDataSource === value
-                    ? 'border-violet bg-indigo-50 ring-1 ring-violet'
-                    : 'border-slate-200 bg-white hover:border-indigo-300'
-                }`}
-              >
-                <span className="block font-black text-slate-950">{label}</span>
-                <span className="mt-1 block text-sm leading-5 text-slate-600">{description}</span>
-              </button>
-            ))}
+          <div className="mt-5 rounded-xl border border-violet/20 bg-violet/5 p-4">
+            <span className="block font-black text-slate-950">Firestore + TCGGO</span>
+            <span className="mt-1 block text-sm leading-5 text-slate-600">
+              Arquitectura fija para reducir latencia, consumo de API y tamaño del catálogo local.
+            </span>
           </div>
         </section>
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-soft sm:p-6">

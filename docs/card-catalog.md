@@ -1,93 +1,82 @@
-# Catálogo oficial de cartas
+# Catálogo híbrido Firestore + TCGGO
 
 ## Arquitectura
 
-El catálogo público y la colección privada son dominios independientes:
+El catálogo activo separa la proyección de búsqueda del detalle:
 
 ```text
-Bandai → scraper Node/TypeScript → JSON versionado → public/catalog
-       → CDN de Vercel → StaticCatalogRepository → React
-
-Firestore/API de Vercel → cantidades, ubicación, notas y favoritos
+React → CatalogUseCases → CatalogRepository
+                         ├─ índice: API propia → Firestore
+                         └─ detalle: API propia → cliente TCGGO → mapper → CardDetail
 ```
 
-El navegador nunca ejecuta scraping ni consulta Bandai al cambiar filtros. Descarga una sola vez
-el catálogo referenciado por `manifest.json`, construye índices en memoria y filtra/pagina
-localmente. Firestore y las funciones bajo `api/` siguen atendiendo únicamente datos privados.
+Los componentes no conocen el formato de TCGGO y nunca lo consultan directamente. La
+implementación activa es `HybridCatalogRepository`; sustituir el proveedor requiere otra
+implementación de los puertos definidos en `src/domain/repositories.ts`.
 
-## Actualización y validación
+## Modelos
 
-Requisitos: la versión de Node indicada por el workflow (Node 22 o posterior) y el lockfile npm.
+- `CatalogCard`: proyección mínima del listado.
+- `CardDetail`: ficha completa construida desde el DTO de TCGGO.
+- `CardVariant`: variante o arte seleccionable.
+- `Printing`: impresión o reimpresión.
+- `Price`: precio normalizado.
 
-```bash
-npm ci
-npm run catalog:scrape
-npm run catalog:validate
-npm test
-npm run lint
-npm run build
-```
+`CatalogCard` no contiene habilidades, trigger, DON!!, variantes completas, imágenes de variantes
+ni precios. Los snapshots de la colección mantienen su esquema versionado y sus identificadores de
+origen, por lo que los registros ya persistidos continúan siendo válidos.
 
-`catalog:scrape` descubre las opciones numéricas de `select[name="series"]`, limita la
-concurrencia, aplica pausas, timeout y reintentos, normaliza las cartas y publica el manifest al
-final. Si falla una petición o una validación, el manifest anterior no se sustituye.
+## Índice de Firestore
 
-`catalog:validate` es offline: comprueba esquemas, versiones, rutas, totales, IDs, relaciones,
-expansiones vacías y el umbral mínimo. `prebuild` ejecuta solo esta validación; un build de Vercel
-no depende de Bandai.
+El endpoint `/api/catalog?action=index` consulta exclusivamente:
 
-Los archivos generados son:
+- `catalogIndex`: documentos mínimos, campos de ordenación, prefijos y facetas.
+- `catalogSets`: expansiones disponibles.
 
-- `public/catalog/manifest.json`: punto de entrada revalidable.
-- `public/catalog/cards.<hash>.json`: versiones concretas de cartas.
-- `public/catalog/sets.<hash>.json`: expansiones descubiertas.
-- `public/catalog/filters.<hash>.json`: valores derivados del contenido.
-- `public/catalog/legacy-id-map.<hash>.json`: resolución de IDs anteriores.
-- `public/catalog/metadata.json`: duración, versión del scraper, totales y warnings.
+La paginación utiliza cursores estables formados por el campo de ordenación y el ID del documento.
+Los rangos de coste y poder se materializan como facetas booleanas durante la sincronización para
+evitar consultas de desigualdad incompatibles con otras ordenaciones. Los índices compuestos de
+búsqueda están declarados en `firestore.indexes.json`.
 
-El hash SHA-256 truncado se calcula sobre cartas y expansiones normalizadas; las fechas y la
-duración no cambian `catalogVersion`. Los archivos con hash usan caché inmutable y el manifest se
-revalida.
+## Detalle y caché
 
-## IDs y compatibilidad
+Al abrir una carta se toma `tcggoId` del índice y se ejecuta
+`/api/catalog?action=detail&id=...`. El cliente de servidor aplica autenticación, limitación de
+frecuencia, timeout, reintentos exponenciales y errores normalizados. Después, el mapper transforma
+el DTO a `CardDetail`.
 
-`sourceId` e `id` conservan el ID exacto del nodo oficial (`OP01-001`, `OP01-001_p1`,
-`OP01-001_r1`). `cardNumber` y `baseCardId` representan el número impreso. Los sufijos `_pN` y
-`_rN` se clasifican como paralela y reimpresión; otros sufijos se preservan como `unknown`.
+`ExpiringLocalCache` es el único servicio de caché del detalle. Su TTL se configura con
+`VITE_CARD_DETAIL_CACHE_TTL_MS`. Un fallo conserva la información básica de `CatalogCard` y permite
+reintentar sin bloquear la aplicación.
 
-La UI continúa exponiendo `BASE::<cardNumber>` y
-`VARIANT::<cardNumber>::<sourceId>`, que eran los formatos de la fachada anterior. El mapa legado
-también acepta IDs oficiales y antiguos. La resolución ocurre en memoria; no existe una migración
-automática ni destructiva de Firestore. Los snapshots ya guardados se conservan por
-retrocompatibilidad, pero el catálogo global no se escribe en Firestore.
+## Sincronización
 
-## Cambios futuros del HTML
+`google-apps-script/catalog-sync` contiene un proceso independiente del frontend. Recorre TCGGO,
+agrupa impresiones por número de carta y actualiza:
 
-Los selectores están centralizados en `scraper/config/scraper-config.ts`. Primero se actualizan
-las fixtures mínimas de `scraper/test/fixtures/`, después el parser y sus pruebas. No deben
-añadirse IDs de series a mano. Un warning de conflicto indica que dos series oficiales publicaron
-valores incompatibles para una misma versión; se conserva el primer valor determinista y todas
-las relaciones de expansión. Un fallo de validación requiere revisar el HTML o los datos antes de
-publicar.
+- cartas y expansiones nuevas;
+- miniaturas;
+- campos filtrables;
+- artista;
+- número y clases de variantes;
+- prefijos y campos auxiliares de ordenación.
 
-## GitHub Actions y reversión
+Nunca persiste efectos, triggers, DON!!, precios, históricos, variantes completas ni imágenes de
+variantes. Consulta su README para configurar Script Properties, ejecutar la carga inicial e
+instalar el trigger diario.
 
-`.github/workflows/update-card-catalog.yml` se ejecuta los lunes a las 04:00 UTC y mediante
-**Actions → Update official card catalog → Run workflow**. Instala con `npm ci`, prueba, extrae,
-valida y solo crea un commit si `public/catalog` cambia.
+## Variables de servidor
 
-Para revertir una actualización, se revierte el commit `chore(catalog): update official card
-data`. Al desplegar ese commit, el manifest vuelve a apuntar a la versión anterior. No se deben
-editar JSON generados manualmente.
+Preferidas:
 
-## Imágenes, límites y uso de los datos
+- `TCGGO_API_KEY`
+- `TCGGO_API_BASE_URL`
 
-Las imágenes permanecen en URLs oficiales, con el componente común de lazy loading y fallback;
-no se copian miles de imágenes al repositorio. Una indisponibilidad temporal del servidor de
-imágenes puede activar el placeholder aunque los datos del catálogo estén disponibles.
+Los nombres históricos `ONE_PIECE_API_KEY` y `ONE_PIECE_API_BASE_URL` se aceptan temporalmente para
+no romper despliegues existentes. Ninguna clave debe usar el prefijo `VITE_`.
 
-El parser tolera cambios menores, no un rediseño completo del sitio. Antes de distribuir
-públicamente datos o imágenes debe revisarse la política de uso vigente del sitio oficial. Los
-datos proceden de la web oficial de ONE PIECE CARD GAME. Este proyecto no está afiliado ni
-respaldado por Bandai; las marcas e imágenes pertenecen a sus respectivos titulares. El scraper
-limita concurrencia y frecuencia para reducir carga.
+## Catálogo histórico
+
+Los JSON y adaptadores estáticos anteriores permanecen únicamente por compatibilidad y por sus
+pruebas de migración. `ServicesProvider` no los instancia, Ajustes no permite seleccionarlos y el
+flujo activo no los descarga.

@@ -12,7 +12,7 @@ import { config } from '../config';
 import { useAuth } from './AuthProvider';
 
 const storageKey = 'grand-line-vault:settings';
-const defaults: AppSettings = { theme: 'LIGHT', catalogDataSource: 'OFFICIAL_STATIC' };
+const defaults: AppSettings = { theme: 'LIGHT' };
 
 function readLocalSettings(): AppSettings {
   try {
@@ -21,8 +21,6 @@ function readLocalSettings(): AppSettings {
     const value = JSON.parse(stored) as Partial<AppSettings>;
     return {
       theme: value.theme === 'DARK' ? 'DARK' : 'LIGHT',
-      catalogDataSource:
-        value.catalogDataSource === 'ONE_PIECE_API' ? 'ONE_PIECE_API' : 'OFFICIAL_STATIC',
     };
   } catch {
     return defaults;

@@ -6,7 +6,6 @@ import { appSettingsSchema } from '../_shared/schemas.js';
 
 const defaults = {
   theme: 'LIGHT' as const,
-  catalogDataSource: 'OFFICIAL_STATIC' as const,
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -26,7 +25,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const parsed = appSettingsSchema.safeParse(req.body);
       if (!parsed.success)
         return apiError(res, 400, 'VALIDATION_ERROR', 'Los ajustes no son válidos.');
-      await reference.set({ ...parsed.data, updatedAt: new Date().toISOString() }, { merge: true });
+      await reference.set({ ...parsed.data, updatedAt: new Date().toISOString() });
       return json(res, 200, parsed.data);
     }
 

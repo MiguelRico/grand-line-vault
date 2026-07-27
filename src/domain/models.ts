@@ -1,10 +1,14 @@
-export type CatalogProviderId = 'OFFICIAL_STATIC' | 'ONE_PIECE_API' | 'MOCK' | 'LEGACY_EXTERNAL';
-export type CatalogDataSource = 'OFFICIAL_STATIC' | 'ONE_PIECE_API';
+export type CatalogProviderId =
+  | 'FIRESTORE_INDEX'
+  | 'TCGGO'
+  | 'OFFICIAL_STATIC'
+  | 'ONE_PIECE_API'
+  | 'MOCK'
+  | 'LEGACY_EXTERNAL';
 export type AppTheme = 'LIGHT' | 'DARK';
 
 export interface AppSettings {
   theme: AppTheme;
-  catalogDataSource: CatalogDataSource;
 }
 export type CardLanguage = 'EN' | 'JP' | 'FR' | 'ES' | 'IT' | 'DE' | 'UNKNOWN';
 export type CardColor = 'RED' | 'GREEN' | 'BLUE' | 'PURPLE' | 'BLACK' | 'YELLOW';
@@ -40,12 +44,14 @@ export interface Money {
   currency: string;
 }
 
-export interface CardPrice extends Money {
+export interface Price extends Money {
   source: string;
   sourceProductId?: string;
   updatedAt?: string;
   marketType: 'MARKET' | 'LOW' | 'MID' | 'LISTED' | 'UNKNOWN';
 }
+/** @deprecated Usa Price. Se conserva para snapshots persistidos anteriores. */
+export type CardPrice = Price;
 
 export interface CatalogSourceReference {
   providerId: CatalogProviderId;
@@ -117,13 +123,13 @@ export interface CardGameDetails {
   traits: string[];
   effect?: string;
   trigger?: string;
+  don?: string;
   language: CardLanguage;
 }
 
-export interface CardArtwork {
+export interface Printing {
   id: string;
   external_id: string;
-  base_card_id: string;
   variant_type: CardVariantType;
   label: string;
   version?: string | null;
@@ -139,9 +145,36 @@ export interface CardArtwork {
   source: CatalogSourceReference;
 }
 
-export type CardVariant = CardArtwork;
+export interface CardVariant extends Printing {
+  base_card_id: string;
+}
 
-export interface Card {
+/** @deprecated Nombre histórico del modelo de variante. */
+export type CardArtwork = CardVariant;
+
+/**
+ * Proyección mínima persistida en Firestore. No contiene reglas, precios ni
+ * datos detallados que pertenezcan a TCGGO.
+ */
+export interface CatalogCard {
+  id: string;
+  tcggoId: string;
+  name: string;
+  card_number: string;
+  normalized_card_number: string;
+  image: string;
+  episode: Pick<CatalogEpisode, 'id' | 'name' | 'code' | 'normalized_code'>;
+  rarity?: string;
+  rarity_normalized: CanonicalRarity;
+  color: string | null;
+  artist?: CatalogArtist | null;
+  game: Pick<CardGameDetails, 'card_type' | 'colors' | 'cost' | 'power' | 'attributes'>;
+  variantTypes: CardVariantType[];
+  totalVariants: number;
+  source: CatalogSourceReference;
+}
+
+export interface CardDetail {
   /** Identificador interno con namespace del proveedor. */
   id: string;
   /** Identificador original entregado por la fuente. */
@@ -177,7 +210,8 @@ export interface Card {
   tcggo_url?: string;
   links?: { cardmarket?: string; tcgplayer?: string };
   game: CardGameDetails;
-  artworks: CardArtwork[];
+  artworks: CardVariant[];
+  printings?: Printing[];
   source: CatalogSourceReference;
   enrichment: {
     status: 'SOURCE' | 'MATCHED' | 'UNMATCHED' | 'AMBIGUOUS';
@@ -188,6 +222,9 @@ export interface Card {
     conflicts: string[];
   };
 }
+
+/** @deprecated Compatibilidad de componentes ajenos al catálogo. */
+export type Card = CardDetail;
 
 export interface CollectionItem {
   id: string;
@@ -288,6 +325,7 @@ export interface CatalogCriteria {
   direction: 'asc' | 'desc';
   page: number;
   pageSize: number;
+  cursor?: string;
 }
 
 export interface PaginatedResult<T> {
@@ -295,6 +333,7 @@ export interface PaginatedResult<T> {
   page: number;
   pageSize: number;
   total: number;
+  nextCursor?: string;
   meta: {
     provider: CatalogProviderId;
     fallbackUsed: boolean;

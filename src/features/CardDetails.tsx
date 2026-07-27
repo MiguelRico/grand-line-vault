@@ -1,37 +1,52 @@
 import { Box, CalendarClock, ExternalLink, Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { Card, CardVariant, CollectionItem } from '../domain/models';
+import type { CardDetail, CardVariant, CatalogCard, CollectionItem } from '../domain/models';
 import { catalogPriceList } from '../domain/services';
-import { collectionItemIdentity, createCollectionSnapshot } from '../domain/catalogNormalization';
+import {
+  collectionItemIdentity,
+  createCollectionSnapshot,
+  normalizeCardNumber,
+} from '../domain/catalogNormalization';
 import { config } from '../app/config';
 import { useServices } from '../app/providers/ServicesProvider';
 import { Button, CardImage, QuantitySelector, ResponsiveDialog } from '../shared/ui';
 import { OnePieceLoader } from '../shared/OnePieceLoader';
 
-export function CardDetails({ cardId, onClose }: { cardId: string | null; onClose: () => void }) {
+export function CardDetails({
+  card: catalogCard,
+  cardId,
+  onClose,
+}: {
+  card?: CatalogCard | null;
+  /** @deprecated Compatibilidad con consumidores anteriores. */
+  cardId?: string | null;
+  onClose: () => void;
+}) {
   const services = useServices();
   const queryClient = useQueryClient();
   const [quantity, setQuantity] = useState(1);
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
 
+  const detailId = catalogCard?.tcggoId ?? cardId ?? null;
+
   useEffect(() => {
     setSelectedVariantId(null);
     setQuantity(1);
-  }, [cardId]);
+  }, [detailId]);
   const cardQuery = useQuery({
-    queryKey: ['card', services.catalogProvider, cardId],
-    queryFn: ({ signal }) => services.catalog.getById(cardId ?? '', signal),
-    enabled: Boolean(cardId),
+    queryKey: ['card-detail', detailId],
+    queryFn: ({ signal }) => services.catalog.getById(detailId ?? '', signal),
+    enabled: Boolean(detailId),
     staleTime: 5 * 60 * 1000,
   });
   const collectionQuery = useQuery({
     queryKey: ['collection'],
     queryFn: () => services.privateData.listCollection(),
-    enabled: Boolean(cardId),
+    enabled: Boolean(detailId),
   });
   const addMutation = useMutation({
-    mutationFn: async ({ card, variant }: { card: Card; variant: CardVariant | null }) => {
+    mutationFn: async ({ card, variant }: { card: CardDetail; variant: CardVariant | null }) => {
       const timestamp = new Date().toISOString();
       const imageUrl = new URL(variant?.image ?? card.image, window.location.origin).href;
       const candidate: CollectionItem = {
@@ -113,7 +128,11 @@ export function CardDetails({ cardId, onClose }: { cardId: string | null; onClos
     : '';
   const selectedCollectionId = selectedVariant?.id ?? card?.id;
   const cardCollectionItems =
-    collectionQuery.data?.filter((item) => item.cardId === card?.id) ?? [];
+    collectionQuery.data?.filter(
+      (item) =>
+        (item.cardSnapshot.normalizedCardNumber ?? normalizeCardNumber(item.cardSnapshot.code)) ===
+        card?.normalized_card_number,
+    ) ?? [];
   const ownedTotal = cardCollectionItems.reduce((sum, item) => sum + item.quantity, 0);
   const selectedOwnedTotal = cardCollectionItems
     .filter((item) => item.cardVariantId === selectedCollectionId)
@@ -122,7 +141,7 @@ export function CardDetails({ cardId, onClose }: { cardId: string | null; onClos
 
   return (
     <ResponsiveDialog
-      open={Boolean(cardId)}
+      open={Boolean(detailId)}
       onOpenChange={(open) => {
         if (!open) {
           addMutation.reset();
@@ -137,9 +156,24 @@ export function CardDetails({ cardId, onClose }: { cardId: string | null; onClos
           <OnePieceLoader size="lg" label="Cargando detalle de carta" />
         </div>
       ) : cardQuery.isError ? (
-        <p role="alert" className="m-4 rounded-xl bg-red-50 p-6 text-center text-red-800">
-          {cardQuery.error.message}
-        </p>
+        <div className="grid gap-6 p-4 sm:grid-cols-[220px_1fr]">
+          <CardImage
+            src={catalogCard?.image ?? ''}
+            alt={`Carta ${catalogCard?.name ?? ''}`}
+            className="shadow-soft"
+          />
+          <div className="self-center">
+            <p className="text-xs font-semibold text-slate-500">{catalogCard?.card_number}</p>
+            <h2 className="mt-1 text-2xl font-black text-slate-950">{catalogCard?.name}</h2>
+            <p role="alert" className="mt-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">
+              No se pudo cargar el detalle enriquecido desde TCGGO. Se muestra la información
+              básica disponible en el índice.
+            </p>
+            <Button className="mt-4" variant="secondary" onClick={() => void cardQuery.refetch()}>
+              Reintentar
+            </Button>
+          </div>
+        </div>
       ) : !card ? (
         <p className="p-8 text-center text-slate-600">No se ha encontrado la carta.</p>
       ) : (
@@ -248,6 +282,12 @@ export function CardDetails({ cardId, onClose }: { cardId: string | null; onClos
               <div className="mt-5">
                 <h3 className="text-xs font-bold uppercase text-slate-500">Trigger</h3>
                 <p className="mt-2 text-sm leading-6 text-slate-800">{card.game.trigger}</p>
+              </div>
+            )}
+            {card.game.don && (
+              <div className="mt-5">
+                <h3 className="text-xs font-bold uppercase text-slate-500">DON!!</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-800">{card.game.don}</p>
               </div>
             )}
             {(card.game.attributes.length > 0 || card.game.traits.length > 0) && (

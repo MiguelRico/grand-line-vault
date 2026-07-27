@@ -32,6 +32,16 @@ export interface OnePieceApiCard {
   cardmarket_id?: number | null;
   tcgplayer_id?: number | null;
   flavor_text?: string | null;
+  card_type?: string | null;
+  cost?: number | null;
+  power?: number | null;
+  counter?: number | null;
+  life?: number | null;
+  attributes?: string[] | string | null;
+  traits?: string[] | string | null;
+  effect?: string | null;
+  trigger?: string | null;
+  don?: string | null;
   artist?: Record<string, unknown> | null;
   prices?: unknown;
   episode: OnePieceApiEpisode;
@@ -89,6 +99,16 @@ function gameColors(color?: string | null): CardColor[] {
 
 function inferCardType(rarity?: string | null): CardType {
   return rarity?.toLocaleUpperCase().includes('LEADER') ? 'LEADER' : 'UNKNOWN';
+}
+
+function strings(value?: string[] | string | null): string[] {
+  if (Array.isArray(value)) return value.map(String).filter(Boolean);
+  return value
+    ? value
+        .split(/[,/]/)
+        .map((entry) => entry.trim())
+        .filter(Boolean)
+    : [];
 }
 
 export function mapApiEpisode(episode: OnePieceApiEpisode): CatalogEpisode {
@@ -185,7 +205,7 @@ function artworkFromApi(
     links: card.links,
     tcggo_url: card.tcggo_url,
     source: {
-      providerId: 'ONE_PIECE_API',
+      providerId: 'TCGGO',
       providerCardId: String(card.id),
       providerVariantId: card.version ? String(card.id) : undefined,
       fetchedAt: new Date().toISOString(),
@@ -200,7 +220,7 @@ export function mapApiCard(
 ): Card {
   const id = `ONE_PIECE_API::${raw.id}`;
   const source = {
-    providerId: 'ONE_PIECE_API' as const,
+    providerId: 'TCGGO' as const,
     providerCardId: String(raw.id),
     fetchedAt: new Date().toISOString(),
   };
@@ -209,7 +229,7 @@ export function mapApiCard(
     baseIds.size === 1
       ? (staticMatches.find((card) => card.variant.type === 'base') ?? staticMatches[0])
       : undefined;
-  const enrichmentStatus = baseIds.size > 1 ? 'AMBIGUOUS' : staticBase ? 'MATCHED' : 'UNMATCHED';
+  const enrichmentStatus = baseIds.size > 1 ? 'AMBIGUOUS' : staticBase ? 'MATCHED' : 'SOURCE';
   const staticColors = staticBase?.colors.map(toCardColor).filter((color) => color !== null) ?? [];
   const enrichedFields = staticBase
     ? [
@@ -240,7 +260,7 @@ export function mapApiCard(
     ].map(([field, sourceField]) => [
       field,
       {
-        providerId: 'ONE_PIECE_API' as const,
+        providerId: 'TCGGO' as const,
         sourceField,
         confidence: 'EXACT' as const,
       },
@@ -302,25 +322,31 @@ export function mapApiCard(
     tcggo_url: raw.tcggo_url,
     links: raw.links,
     game: {
-      card_type: staticBase ? toCardType(staticBase.category) : inferCardType(raw.rarity),
+      card_type: staticBase
+        ? toCardType(staticBase.category)
+        : raw.card_type
+          ? toCardType(raw.card_type)
+          : inferCardType(raw.rarity),
       colors: staticColors.length > 0 ? staticColors : gameColors(raw.color),
-      cost: staticBase?.cost ?? undefined,
-      power: staticBase?.power ?? undefined,
-      counter: staticBase?.counter ?? undefined,
-      life: staticBase?.life ?? undefined,
-      attributes: staticBase?.attributes ?? [],
-      traits: staticBase?.traits ?? [],
-      effect: staticBase?.effect ?? undefined,
-      trigger: staticBase?.trigger ?? undefined,
+      cost: staticBase?.cost ?? raw.cost ?? undefined,
+      power: staticBase?.power ?? raw.power ?? undefined,
+      counter: staticBase?.counter ?? raw.counter ?? undefined,
+      life: staticBase?.life ?? raw.life ?? undefined,
+      attributes: staticBase?.attributes ?? strings(raw.attributes),
+      traits: staticBase?.traits ?? strings(raw.traits),
+      effect: staticBase?.effect ?? raw.effect ?? undefined,
+      trigger: staticBase?.trigger ?? raw.trigger ?? undefined,
+      don: raw.don ?? undefined,
       language: 'EN',
     },
     artworks: related
       .filter((card) => card.id !== raw.id)
       .map((card) => artworkFromApi(card, id, printMatches.get(card.id))),
+    printings: apiPrints.map((card) => artworkFromApi(card, id, printMatches.get(card.id))),
     source,
     enrichment: {
       status: enrichmentStatus,
-      providers: staticBase ? ['ONE_PIECE_API', 'OFFICIAL_STATIC'] : ['ONE_PIECE_API'],
+      providers: staticBase ? ['TCGGO', 'OFFICIAL_STATIC'] : ['TCGGO'],
       matchedExternalIds: staticMatches.map((card) => card.sourceId),
       fields: enrichedFields,
       provenance: { ...apiProvenance, ...staticProvenance },

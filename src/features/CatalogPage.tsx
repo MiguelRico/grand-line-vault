@@ -1,14 +1,22 @@
 import { Filter, SlidersHorizontal, X } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
-import type { Card, CardColor, CardType, CardVariantType, CatalogCriteria } from '../domain/models';
+import type {
+  CatalogCard,
+  CardColor,
+  CardType,
+  CardVariantType,
+  CatalogCriteria,
+  CatalogEpisode,
+} from '../domain/models';
 import { useServices } from '../app/providers/ServicesProvider';
 import { CardDetails } from './CardDetails';
 import { PageHeader } from '../shared/AppShell';
-import { Button, CardTile, EmptyState, ErrorState, Pagination, SearchInput } from '../shared/ui';
+import { Button, CardTile, EmptyState, ErrorState, SearchInput } from '../shared/ui';
 import { useDebouncedValue } from '../shared/hooks';
 import { OnePieceLoader } from '../shared/OnePieceLoader';
+import { normalizeCardNumber } from '../domain/catalogNormalization';
 
 const defaultCriteria: CatalogCriteria = {
   query: '',
@@ -24,14 +32,14 @@ const defaultCriteria: CatalogCriteria = {
 };
 
 const rarityOptions = [
-  ['L', 'Leader'],
-  ['C', 'Common'],
-  ['UC', 'Uncommon'],
-  ['R', 'Rare'],
-  ['SR', 'Super Rare'],
-  ['SEC', 'Secret Rare'],
-  ['PR', 'Promo'],
-  ['TR', 'Treasure Rare'],
+  ['LEADER', 'Leader'],
+  ['COMMON', 'Common'],
+  ['UNCOMMON', 'Uncommon'],
+  ['RARE', 'Rare'],
+  ['SUPER_RARE', 'Super Rare'],
+  ['SECRET_RARE', 'Secret Rare'],
+  ['PROMO', 'Promo'],
+  ['TREASURE_RARE', 'Treasure Rare'],
 ] as const;
 
 function optionalNumberParam(value: string | null): number | undefined {
@@ -45,26 +53,17 @@ function FilterFields({
   setCriteria,
   sets,
   setsLoading,
-  remote,
 }: {
   criteria: CatalogCriteria;
   setCriteria: (criteria: CatalogCriteria) => void;
-  sets: Card['episode'][];
+  sets: CatalogEpisode[];
   setsLoading: boolean;
-  remote: boolean;
 }) {
   const update = (patch: Partial<CatalogCriteria>) => {
-    if (remote && !Object.prototype.hasOwnProperty.call(patch, 'setCode')) return;
     setCriteria({ ...criteria, ...patch, page: 1 });
   };
   return (
     <div className="space-y-5">
-      {remote && (
-        <p className="rounded-lg bg-indigo-50 p-3 text-xs leading-5 text-indigo-800">
-          One Piece API permite buscar y filtrar por expansión. Los filtros de juego no están
-          disponibles en esta fuente.
-        </p>
-      )}
       <label className="block text-sm font-semibold">
         Expansión
         <select
@@ -74,7 +73,7 @@ function FilterFields({
         >
           <option value="">Todas las expansiones</option>
           {sets.map((set) => (
-            <option key={set.id} value={set.id}>
+            <option key={set.id} value={set.normalized_code}>
               {set.name} [{set.code}]
             </option>
           ))}
@@ -101,7 +100,6 @@ function FilterFields({
               <input
                 type="radio"
                 name="color"
-                disabled={remote}
                 checked={criteria.color === value}
                 onChange={() => update({ color: value as CardColor })}
                 className="sr-only"
@@ -115,7 +113,6 @@ function FilterFields({
         </div>
         {criteria.color && (
           <button
-            disabled={remote}
             onClick={() => update({ color: '' })}
             className="mt-2 text-xs font-semibold text-violet"
           >
@@ -126,7 +123,6 @@ function FilterFields({
       <label className="block text-sm font-semibold">
         Tipo de carta
         <select
-          disabled={remote}
           value={criteria.type}
           onChange={(event) => update({ type: event.target.value as CardType | '' })}
           className="mt-2 h-11 w-full rounded-lg border-slate-300 text-sm"
@@ -141,7 +137,6 @@ function FilterFields({
       <label className="block text-sm font-semibold">
         Rareza
         <select
-          disabled={remote}
           value={criteria.rarity}
           onChange={(event) => update({ rarity: event.target.value })}
           className="mt-2 h-11 w-full rounded-lg border-slate-300 text-sm"
@@ -149,7 +144,7 @@ function FilterFields({
           <option value="">Todas las rarezas</option>
           {rarityOptions.map(([value, label]) => (
             <option key={value} value={value}>
-              {label} [{value}]
+              {label}
             </option>
           ))}
         </select>
@@ -157,7 +152,6 @@ function FilterFields({
       <label className="block text-sm font-semibold">
         Versión
         <select
-          disabled={remote}
           value={criteria.variant}
           onChange={(event) => update({ variant: event.target.value as CardVariantType | '' })}
           className="mt-2 h-11 w-full rounded-lg border-slate-300 text-sm"
@@ -172,7 +166,6 @@ function FilterFields({
         <div className="mt-2 grid grid-cols-2 gap-2">
           <input
             type="number"
-            disabled={remote}
             min="0"
             max="10"
             placeholder="Mín."
@@ -185,7 +178,6 @@ function FilterFields({
           />
           <input
             type="number"
-            disabled={remote}
             min="0"
             max="10"
             placeholder="Máx."
@@ -203,7 +195,6 @@ function FilterFields({
         <div className="mt-2 grid grid-cols-2 gap-2">
           <input
             type="number"
-            disabled={remote}
             min="0"
             max="13000"
             step="1000"
@@ -217,7 +208,6 @@ function FilterFields({
           />
           <input
             type="number"
-            disabled={remote}
             min="0"
             max="13000"
             step="1000"
@@ -240,8 +230,10 @@ export function CatalogPage() {
   const [params, setParams] = useSearchParams();
   const [query, setQuery] = useState(params.get('query') ?? '');
   const debouncedQuery = useDebouncedValue(query);
-  const [selectedCard, setSelectedCard] = useState<string | null>(params.get('card'));
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(params.get('card'));
+  const [selectedCard, setSelectedCard] = useState<CatalogCard | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
   const [criteria, setCriteria] = useState<CatalogCriteria>({
     ...defaultCriteria,
     query: params.get('query') ?? '',
@@ -254,26 +246,9 @@ export function CatalogPage() {
     maxCost: optionalNumberParam(params.get('maxCost')),
     minPower: optionalNumberParam(params.get('minPower')),
     maxPower: optionalNumberParam(params.get('maxPower')),
-    page: Number(params.get('page') ?? 1),
+    page: 1,
     sort: (params.get('sort') as CatalogCriteria['sort']) ?? 'code',
   });
-  const remote = services.catalogProvider === 'ONE_PIECE_API';
-
-  useEffect(() => {
-    if (!remote) return;
-    setCriteria((current) => ({
-      ...current,
-      color: '',
-      type: '',
-      rarity: '',
-      variant: '',
-      minCost: undefined,
-      maxCost: undefined,
-      minPower: undefined,
-      maxPower: undefined,
-      sort: current.sort === 'price' ? 'price' : 'code',
-    }));
-  }, [remote]);
 
   useEffect(() => {
     setCriteria((current) => ({ ...current, query: debouncedQuery, page: 1 }));
@@ -282,7 +257,6 @@ export function CatalogPage() {
   useEffect(() => {
     const next = new URLSearchParams();
     if (criteria.query) next.set('query', criteria.query);
-    if (criteria.page > 1) next.set('page', String(criteria.page));
     if (criteria.sort !== 'code') next.set('sort', criteria.sort);
     if (criteria.setCode) next.set('set', criteria.setCode);
     if (criteria.color) next.set('color', criteria.color);
@@ -293,15 +267,50 @@ export function CatalogPage() {
     if (criteria.maxCost !== undefined) next.set('maxCost', String(criteria.maxCost));
     if (criteria.minPower !== undefined) next.set('minPower', String(criteria.minPower));
     if (criteria.maxPower !== undefined) next.set('maxPower', String(criteria.maxPower));
-    if (selectedCard) next.set('card', selectedCard);
+    if (selectedCardId) next.set('card', selectedCardId);
     setParams(next, { replace: true });
-  }, [criteria, selectedCard, setParams]);
+  }, [criteria, selectedCardId, setParams]);
 
-  const result = useQuery({
+  const result = useInfiniteQuery({
     queryKey: ['catalog', services.catalogProvider, criteria],
-    queryFn: ({ signal }) => services.catalog.search(criteria, signal),
+    queryFn: ({ signal, pageParam }) =>
+      services.catalog.search({ ...criteria, cursor: pageParam }, signal),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
     staleTime: 5 * 60 * 1000,
   });
+  const cards = useMemo(
+    () => result.data?.pages.flatMap((page) => page.items) ?? [],
+    [result.data],
+  );
+  const total = result.data?.pages[0]?.total ?? 0;
+  const { fetchNextPage, hasNextPage, isFetchingNextPage } = result;
+  const selectedIndexCard = useQuery({
+    queryKey: ['catalog-index-card', selectedCardId],
+    queryFn: ({ signal }) => services.catalog.getIndexCard(selectedCardId ?? '', signal),
+    enabled: Boolean(selectedCardId && !selectedCard),
+    staleTime: 24 * 60 * 60 * 1000,
+  });
+
+  useEffect(() => {
+    if (selectedCard || !selectedCardId) return;
+    const match =
+      cards.find((card) => card.tcggoId === selectedCardId) ?? selectedIndexCard.data ?? undefined;
+    if (match) setSelectedCard(match);
+  }, [cards, selectedCard, selectedCardId, selectedIndexCard.data]);
+
+  useEffect(() => {
+    const element = loadMoreRef.current;
+    if (!element || !hasNextPage) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting && !isFetchingNextPage) void fetchNextPage();
+      },
+      { rootMargin: '500px' },
+    );
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
   const collection = useQuery({
     queryKey: ['collection'],
     queryFn: () => services.privateData.listCollection(),
@@ -311,8 +320,14 @@ export function CatalogPage() {
     queryFn: ({ signal }) => services.catalog.listSets(signal),
     staleTime: 24 * 60 * 60 * 1000,
   });
-  const ownedIds = useMemo(
-    () => new Set(collection.data?.map((item) => item.cardId) ?? []),
+  const ownedCardNumbers = useMemo(
+    () =>
+      new Set(
+        collection.data?.map(
+          (item) =>
+            item.cardSnapshot.normalizedCardNumber ?? normalizeCardNumber(item.cardSnapshot.code),
+        ) ?? [],
+      ),
     [collection.data],
   );
   const activeFilters = [
@@ -349,16 +364,9 @@ export function CatalogPage() {
             className="h-11 min-w-40 rounded-lg border-slate-300 text-sm"
           >
             <option value="code">Código (A-Z)</option>
-            <option value="name" disabled={remote}>
-              Nombre (A-Z)
-            </option>
-            <option value="price">Precio</option>
-            <option value="power" disabled={remote}>
-              Poder
-            </option>
-            <option value="cost" disabled={remote}>
-              Coste
-            </option>
+            <option value="name">Nombre (A-Z)</option>
+            <option value="power">Poder</option>
+            <option value="cost">Coste</option>
           </select>
         </label>
       </div>
@@ -381,19 +389,13 @@ export function CatalogPage() {
             setCriteria={setCriteria}
             sets={sets.data ?? []}
             setsLoading={sets.isPending}
-            remote={remote}
           />
         </aside>
         <section>
           <div className="mb-4 flex items-center justify-between">
             <p className="text-sm text-slate-600" aria-live="polite">
-              {result.data?.total ?? 0} cartas encontradas
+              {total} cartas encontradas
             </p>
-            {result.data?.meta.fallbackUsed && (
-              <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800">
-                Datos de respaldo
-              </span>
-            )}
           </div>
           {result.isPending ? (
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-5">
@@ -408,7 +410,7 @@ export function CatalogPage() {
             </div>
           ) : result.isError ? (
             <ErrorState message={result.error.message} retry={() => void result.refetch()} />
-          ) : result.data.items.length === 0 ? (
+          ) : cards.length === 0 ? (
             <EmptyState
               title="No hay cartas con estos filtros"
               description="Prueba a ampliar la búsqueda o limpiar los filtros."
@@ -426,21 +428,28 @@ export function CatalogPage() {
           ) : (
             <>
               <div className="grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-                {result.data.items.map((card) => (
+                {cards.map((card) => (
                   <CardTile
                     key={card.id}
                     card={card}
-                    owned={ownedIds.has(card.id)}
-                    onOpen={() => setSelectedCard(card.id)}
+                    owned={ownedCardNumbers.has(card.normalized_card_number)}
+                    onOpen={() => {
+                      setSelectedCard(card);
+                      setSelectedCardId(card.tcggoId);
+                    }}
                   />
                 ))}
               </div>
-              <div className="mt-8">
-                <Pagination
-                  page={criteria.page}
-                  pages={Math.ceil(result.data.total / criteria.pageSize)}
-                  onChange={(page) => setCriteria({ ...criteria, page })}
-                />
+              <div ref={loadMoreRef} className="mt-8 flex min-h-14 items-center justify-center">
+                {result.isFetchingNextPage ? (
+                  <OnePieceLoader size="sm" label="Cargando más cartas" />
+                ) : result.hasNextPage ? (
+                  <Button variant="secondary" onClick={() => void result.fetchNextPage()}>
+                    Cargar más
+                  </Button>
+                ) : (
+                  <p className="text-xs text-slate-500">Has llegado al final del catálogo.</p>
+                )}
               </div>
             </>
           )}
@@ -471,15 +480,20 @@ export function CatalogPage() {
               setCriteria={setCriteria}
               sets={sets.data ?? []}
               setsLoading={sets.isPending}
-              remote={remote}
             />
             <Button onClick={() => setFiltersOpen(false)} className="mt-8 w-full">
-              Ver {result.data?.total ?? 0} cartas
+              Ver {total} cartas
             </Button>
           </aside>
         </div>
       )}
-      <CardDetails cardId={selectedCard} onClose={() => setSelectedCard(null)} />
+      <CardDetails
+        card={selectedCard}
+        onClose={() => {
+          setSelectedCard(null);
+          setSelectedCardId(null);
+        }}
+      />
     </div>
   );
 }

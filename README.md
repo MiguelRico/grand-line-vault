@@ -14,32 +14,32 @@ Variables principales:
 - `VITE_USE_MOCK_DATA=true|false`
 - `VITE_DEFAULT_CURRENCY=EUR`
 - `VITE_DEFAULT_PAGE_SIZE=24`
-- `ONE_PIECE_API_KEY` (solo servidor; necesaria para la fuente remota opcional)
-- `ONE_PIECE_API_BASE_URL` (opcional; usa el host oficial de RapidAPI por defecto)
-- Variables de Firebase Admin y autenticación documentadas por el entorno de despliegue.
+- `VITE_CARD_DETAIL_CACHE_TTL_MS=300000`
+- `TCGGO_API_KEY` y `TCGGO_API_BASE_URL`, solo en el servidor
+- variables de Firebase Admin y autenticación documentadas en `.env.example`
 
-Los datos privados se sirven desde las funciones `/api` y Firestore. La clave de One Piece API
-nunca se entrega al navegador.
+Las credenciales TCGGO nunca se exponen mediante variables `VITE_`.
 
-## Catálogo global
+## Catálogo
 
-El catálogo estático continúa siendo la fuente principal y predeterminada:
+El catálogo activo usa una arquitectura híbrida:
 
 ```text
-Bandai → scraper Node/TypeScript → public/catalog → CDN
-       → StaticCatalogRepository → React
+Catálogo/listado → API propia → índice mínimo de Firestore
+Detalle          → caso de uso → repositorio → API propia → TCGGO
 ```
 
-```bash
-npm run catalog:scrape
-npm run catalog:validate
-```
+El listado, la búsqueda, los filtros, la ordenación y el scroll infinito no consultan TCGGO. El
+detalle se solicita bajo demanda y se conserva en una caché local con TTL. Si TCGGO no responde,
+la interfaz mantiene visible la ficha mínima procedente de Firestore.
 
-Desde Ajustes también se puede seleccionar One Piece API. Sus consultas pasan por
-`/api/catalog?action=one-piece`, que añade `x-rapidapi-key` en el servidor.
+El sincronizador independiente se encuentra en
+`google-apps-script/catalog-sync`. El catálogo JSON histórico sigue en el repositorio por
+compatibilidad y validación, pero no es una fuente seleccionable ni participa en el flujo del
+catálogo.
 
-La guía completa de arquitectura, IDs, caché, actualización, workflow, reversión y limitaciones
-está en [docs/card-catalog.md](docs/card-catalog.md).
+La guía de arquitectura y operación está en
+[docs/card-catalog.md](docs/card-catalog.md).
 
 ## Calidad y build
 
@@ -49,5 +49,3 @@ npm run lint
 npm test
 npm run build
 ```
-
-`prebuild` valida el catálogo existente sin conectarse a la web oficial.
