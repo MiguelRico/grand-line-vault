@@ -1,7 +1,14 @@
 import { Box, CalendarClock, ExternalLink, Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { CardDetail, CardVariant, CatalogCard, CollectionItem } from '../domain/models';
+import type { InfiniteData } from '@tanstack/react-query';
+import type {
+  CardDetail,
+  CardVariant,
+  CatalogCard,
+  CollectionItem,
+  PaginatedResult,
+} from '../domain/models';
 import { catalogPriceList } from '../domain/services';
 import {
   collectionItemIdentity,
@@ -28,7 +35,7 @@ export function CardDetails({
   const [quantity, setQuantity] = useState(1);
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
 
-  const detailId = catalogCard?.tcggoId ?? cardId ?? null;
+  const detailId = catalogCard?.id ?? cardId ?? null;
 
   useEffect(() => {
     setSelectedVariantId(null);
@@ -36,10 +43,56 @@ export function CardDetails({
   }, [detailId]);
   const cardQuery = useQuery({
     queryKey: ['card-detail', detailId],
-    queryFn: ({ signal }) => services.catalog.getById(detailId ?? '', signal),
+    queryFn: ({ signal }) =>
+      services.catalog.getById(
+        catalogCard?.tcggoId ?? cardId ?? null,
+        signal,
+        catalogCard
+          ? { cardNumber: catalogCard.card_number, catalogId: catalogCard.id }
+          : undefined,
+      ),
     enabled: Boolean(detailId),
     staleTime: 5 * 60 * 1000,
   });
+  const baseCard = cardQuery.data;
+  const selectedVariant =
+    baseCard?.artworks.find((variant) => variant.id === selectedVariantId) ?? null;
+  const variantQuery = useQuery({
+    queryKey: ['card-variant-detail', selectedVariant?.external_id],
+    queryFn: ({ signal }) =>
+      services.catalog.getVariantById(selectedVariant?.external_id ?? '', signal),
+    enabled: Boolean(selectedVariant?.external_id),
+    staleTime: 5 * 60 * 1000,
+  });
+  const card = variantQuery.data ?? baseCard;
+
+  useEffect(() => {
+    if (!catalogCard || !baseCard || catalogCard.image === baseCard.image) return;
+    const enrichedIndexCard: CatalogCard = {
+      ...catalogCard,
+      tcggoId: baseCard.external_id,
+      image: baseCard.image,
+      artist: baseCard.artist,
+      source: baseCard.source,
+    };
+    queryClient.setQueryData(['catalog-index-card', catalogCard.id], enrichedIndexCard);
+    queryClient.setQueriesData<InfiniteData<PaginatedResult<CatalogCard>>>(
+      { queryKey: ['catalog'] },
+      (current) =>
+        current
+          ? {
+              ...current,
+              pages: current.pages.map((page) => ({
+                ...page,
+                items: page.items.map((item) =>
+                  item.id === catalogCard.id ? enrichedIndexCard : item,
+                ),
+              })),
+            }
+          : current,
+    );
+  }, [baseCard, catalogCard, queryClient]);
+
   const collectionQuery = useQuery({
     queryKey: ['collection'],
     queryFn: () => services.privateData.listCollection(),
@@ -51,7 +104,7 @@ export function CardDetails({
       const imageUrl = new URL(variant?.image ?? card.image, window.location.origin).href;
       const candidate: CollectionItem = {
         id: crypto.randomUUID(),
-        cardId: card.id,
+        cardId: catalogCard?.id ?? baseCard?.id ?? card.id,
         cardVariantId: variant?.id ?? card.id,
         cardSnapshot: createCollectionSnapshot(card, variant, imageUrl),
         quantity,
@@ -67,7 +120,7 @@ export function CardDetails({
       const item = existing
         ? {
             ...existing,
-            cardId: card.id,
+            cardId: catalogCard?.id ?? baseCard?.id ?? card.id,
             cardVariantId: variant?.id ?? card.id,
             cardSnapshot: candidate.cardSnapshot,
             quantity: Math.min(999, existing.quantity + quantity),
@@ -87,27 +140,30 @@ export function CardDetails({
     },
   });
 
-  const card = cardQuery.data;
-  const selectedVariant =
-    card?.artworks.find((variant) => variant.id === selectedVariantId) ?? null;
-  const selectedImageUrl = selectedVariant?.image ?? card?.image ?? '';
+  const selectedImageUrl = variantQuery.data?.image ?? selectedVariant?.image ?? card?.image ?? '';
   const selectedLabel =
+    variantQuery.data?.print?.label ??
     selectedVariant?.label ??
     card?.print?.label ??
     (card?.version ? `Versión ${card.version}` : 'Arte base');
   const selectedPrices = catalogPriceList(
-    selectedVariant ? selectedVariant.prices : (card?.prices ?? {}),
+    variantQuery.data?.prices ?? selectedVariant?.prices ?? card?.prices ?? {},
   );
-  const selectedPriceDetails = selectedVariant?.prices ?? card?.prices ?? {};
-  const selectedSource = selectedVariant ? selectedVariant.source : card?.source;
-  const selectedLanguage = selectedVariant?.language ?? card?.game.language;
-  const selectedArtist = selectedVariant?.artist ?? card?.artist;
-  const selectedVersion = selectedVariant?.version ?? card?.version;
-  const selectedCardmarketId = selectedVariant?.cardmarket_id ?? card?.cardmarket_id;
-  const selectedTcgplayerId = selectedVariant?.tcgplayer_id ?? card?.tcgplayer_id;
-  const selectedTcgid = selectedVariant?.tcgid ?? card?.tcgid;
-  const selectedLinks = selectedVariant?.links ?? card?.links;
-  const selectedTcggoUrl = selectedVariant?.tcggo_url ?? card?.tcggo_url;
+  const selectedPriceDetails =
+    variantQuery.data?.prices ?? selectedVariant?.prices ?? card?.prices ?? {};
+  const selectedSource = variantQuery.data?.source ?? selectedVariant?.source ?? card?.source;
+  const selectedLanguage =
+    variantQuery.data?.game.language ?? selectedVariant?.language ?? card?.game.language;
+  const selectedArtist = variantQuery.data?.artist ?? selectedVariant?.artist ?? card?.artist;
+  const selectedVersion = variantQuery.data?.version ?? selectedVariant?.version ?? card?.version;
+  const selectedCardmarketId =
+    variantQuery.data?.cardmarket_id ?? selectedVariant?.cardmarket_id ?? card?.cardmarket_id;
+  const selectedTcgplayerId =
+    variantQuery.data?.tcgplayer_id ?? selectedVariant?.tcgplayer_id ?? card?.tcgplayer_id;
+  const selectedTcgid = variantQuery.data?.tcgid ?? selectedVariant?.tcgid ?? card?.tcgid;
+  const selectedLinks = variantQuery.data?.links ?? selectedVariant?.links ?? card?.links;
+  const selectedTcggoUrl =
+    variantQuery.data?.tcggo_url ?? selectedVariant?.tcggo_url ?? card?.tcggo_url;
   const cardmarket = selectedPriceDetails.cardmarket;
   const tcgplayer = selectedPriceDetails.tcgplayer;
   const secondaryCardmarketPriceRows = cardmarket
@@ -126,7 +182,25 @@ export function CardDetails({
         .filter(Boolean)
         .join(' · ')
     : '';
-  const selectedCollectionId = selectedVariant?.id ?? card?.id;
+  const selectedPrinting: CardVariant | null =
+    selectedVariant && variantQuery.data
+      ? {
+          ...selectedVariant,
+          id: variantQuery.data.id,
+          external_id: variantQuery.data.external_id,
+          image: variantQuery.data.image,
+          language: variantQuery.data.game.language,
+          prices: variantQuery.data.prices,
+          artist: variantQuery.data.artist,
+          cardmarket_id: variantQuery.data.cardmarket_id,
+          tcgplayer_id: variantQuery.data.tcgplayer_id,
+          tcgid: variantQuery.data.tcgid,
+          links: variantQuery.data.links,
+          tcggo_url: variantQuery.data.tcggo_url,
+          source: variantQuery.data.source,
+        }
+      : selectedVariant;
+  const selectedCollectionId = selectedPrinting?.id ?? card?.id;
   const cardCollectionItems =
     collectionQuery.data?.filter(
       (item) =>
@@ -166,8 +240,8 @@ export function CardDetails({
             <p className="text-xs font-semibold text-slate-500">{catalogCard?.card_number}</p>
             <h2 className="mt-1 text-2xl font-black text-slate-950">{catalogCard?.name}</h2>
             <p role="alert" className="mt-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">
-              No se pudo cargar el detalle enriquecido desde TCGGO. Se muestra la información
-              básica disponible en el índice.
+              No se pudo cargar el detalle enriquecido desde TCGGO. Se muestra la información básica
+              disponible en el índice.
             </p>
             <Button className="mt-4" variant="secondary" onClick={() => void cardQuery.refetch()}>
               Reintentar
@@ -179,12 +253,19 @@ export function CardDetails({
       ) : (
         <div className="grid gap-7 md:grid-cols-[260px_1fr]">
           <div>
-            <CardImage
-              src={selectedImageUrl}
-              alt={`Carta ${card.name} — ${selectedLabel}`}
-              className="shadow-soft"
-            />
-            {card.artworks.length > 0 && (
+            <div className="relative">
+              <CardImage
+                src={selectedImageUrl}
+                alt={`Carta ${card.name} — ${selectedLabel}`}
+                className="shadow-soft"
+              />
+              {variantQuery.isPending && selectedVariant && (
+                <div className="absolute inset-0 grid place-items-center rounded-xl bg-white/75">
+                  <OnePieceLoader size="lg" label="Cargando variante" />
+                </div>
+              )}
+            </div>
+            {(baseCard?.artworks.length ?? 0) > 0 && (
               <div className="mt-4">
                 <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">
                   Artes disponibles
@@ -204,9 +285,14 @@ export function CardDetails({
                         : 'opacity-70 hover:opacity-100'
                     }`}
                   >
-                    <CardImage src={card.image} alt="" className="w-full" showFailureText={false} />
+                    <CardImage
+                      src={baseCard?.image ?? card.image}
+                      alt=""
+                      className="w-full"
+                      showFailureText={false}
+                    />
                   </button>
-                  {card.artworks.map((variant) => (
+                  {baseCard?.artworks.map((variant) => (
                     <button
                       key={variant.id}
                       type="button"
@@ -560,7 +646,7 @@ export function CardDetails({
                       {selectedOwnedTotal} {selectedOwnedTotal === 1 ? 'copia' : 'copias'} de{' '}
                       {selectedLabel}
                     </p>
-                    {card.artworks.length > 0 && (
+                    {(baseCard?.artworks.length ?? 0) > 0 && (
                       <p className="mt-1 text-xs text-slate-600">
                         Total entre todos los artes: {ownedTotal}
                       </p>
@@ -605,8 +691,8 @@ export function CardDetails({
             )}
             <div className="mt-6">
               <Button
-                onClick={() => addMutation.mutate({ card, variant: selectedVariant })}
-                disabled={addMutation.isPending}
+                onClick={() => addMutation.mutate({ card, variant: selectedPrinting })}
+                disabled={addMutation.isPending || variantQuery.isPending}
                 className="w-full"
               >
                 {addMutation.isPending ? (

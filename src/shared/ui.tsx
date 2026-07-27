@@ -197,6 +197,11 @@ export function CardTile({
             ×{quantity}
           </span>
         )}
+        {'variantCount' in card && card.variantCount > 0 && (
+          <span className="absolute left-2 top-2 rounded-full bg-violet/95 px-2 py-1 text-[11px] font-bold text-white shadow">
+            {card.variantCount} {card.variantCount === 1 ? 'variante' : 'variantes'}
+          </span>
+        )}
       </button>
       <div className="mt-2 min-w-0">
         <p className="text-[11px] font-medium text-slate-500">{card.card_number}</p>

@@ -12,11 +12,19 @@ export class CatalogUseCases {
     return this.repository.listSets(signal);
   }
 
-  getIndexCard(tcggoId: string, signal?: AbortSignal) {
-    return this.repository.getIndexCard(tcggoId, signal);
+  getIndexCard(catalogId: string, signal?: AbortSignal) {
+    return this.repository.getIndexCard(catalogId, signal);
   }
 
-  getById(tcggoId: string, signal?: AbortSignal) {
-    return this.repository.getById(tcggoId, signal);
+  getById(
+    tcggoId: string | null,
+    signal?: AbortSignal,
+    fallback?: { cardNumber: string; catalogId: string },
+  ) {
+    return this.repository.getById(tcggoId, signal, fallback);
+  }
+
+  getVariantById(tcggoId: string, signal?: AbortSignal) {
+    return this.repository.getVariantById(tcggoId, signal);
   }
 }

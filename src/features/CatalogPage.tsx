@@ -295,7 +295,7 @@ export function CatalogPage() {
   useEffect(() => {
     if (selectedCard || !selectedCardId) return;
     const match =
-      cards.find((card) => card.tcggoId === selectedCardId) ?? selectedIndexCard.data ?? undefined;
+      cards.find((card) => card.id === selectedCardId) ?? selectedIndexCard.data ?? undefined;
     if (match) setSelectedCard(match);
   }, [cards, selectedCard, selectedCardId, selectedIndexCard.data]);
 
@@ -435,7 +435,7 @@ export function CatalogPage() {
                     owned={ownedCardNumbers.has(card.normalized_card_number)}
                     onOpen={() => {
                       setSelectedCard(card);
-                      setSelectedCardId(card.tcggoId);
+                      setSelectedCardId(card.id);
                     }}
                   />
                 ))}

@@ -1,10 +1,5 @@
 export type CatalogProviderId =
-  | 'FIRESTORE_INDEX'
-  | 'TCGGO'
-  | 'OFFICIAL_STATIC'
-  | 'ONE_PIECE_API'
-  | 'MOCK'
-  | 'LEGACY_EXTERNAL';
+  'FIRESTORE_INDEX' | 'TCGGO' | 'OFFICIAL_STATIC' | 'ONE_PIECE_API' | 'MOCK' | 'LEGACY_EXTERNAL';
 export type AppTheme = 'LIGHT' | 'DARK';
 
 export interface AppSettings {
@@ -158,18 +153,25 @@ export type CardArtwork = CardVariant;
  */
 export interface CatalogCard {
   id: string;
-  tcggoId: string;
+  /** Se completa de forma progresiva al consultar el detalle en TCGGO. */
+  tcggoId: string | null;
   name: string;
+  normalizedName: string;
   card_number: string;
   normalized_card_number: string;
   image: string;
   episode: Pick<CatalogEpisode, 'id' | 'name' | 'code' | 'normalized_code'>;
+  /** Expansiones en las que aparece cualquiera de sus impresiones. */
+  setCodes: string[];
   rarity?: string;
   rarity_normalized: CanonicalRarity;
   color: string | null;
   artist?: CatalogArtist | null;
   game: Pick<CardGameDetails, 'card_type' | 'colors' | 'cost' | 'power' | 'attributes'>;
   variantTypes: CardVariantType[];
+  /** Variantes adicionales a la impresión base. */
+  variantCount: number;
+  /** Número total de impresiones, incluida la base. */
   totalVariants: number;
   source: CatalogSourceReference;
 }

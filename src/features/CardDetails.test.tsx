@@ -6,6 +6,7 @@ import { CardDetails } from './CardDetails';
 
 const serviceMocks = vi.hoisted(() => ({
   getById: vi.fn(),
+  getVariantById: vi.fn(),
   listCollection: vi.fn(),
   saveCollection: vi.fn(),
 }));
@@ -13,7 +14,10 @@ const serviceMocks = vi.hoisted(() => ({
 vi.mock('../app/providers/ServicesProvider', () => ({
   useServices: () => ({
     catalogProvider: 'OFFICIAL_STATIC',
-    catalog: { getById: serviceMocks.getById },
+    catalog: {
+      getById: serviceMocks.getById,
+      getVariantById: serviceMocks.getVariantById,
+    },
     privateData: {
       listCollection: serviceMocks.listCollection,
       saveCollection: serviceMocks.saveCollection,
@@ -137,6 +141,27 @@ const collectionItems = [
 beforeEach(() => {
   vi.clearAllMocks();
   serviceMocks.getById.mockResolvedValue(card);
+  serviceMocks.getVariantById.mockResolvedValue({
+    ...card,
+    id: card.artworks[0]?.id,
+    external_id: card.artworks[0]?.external_id,
+    version: card.artworks[0]?.version,
+    print: {
+      variant_type: 'PARALLEL',
+      label: 'Parallel 1',
+      confidence: 'HIGH',
+    },
+    image: card.artworks[0]?.image,
+    prices: card.artworks[0]?.prices,
+    artist: card.artworks[0]?.artist,
+    cardmarket_id: card.artworks[0]?.cardmarket_id,
+    tcgplayer_id: card.artworks[0]?.tcgplayer_id,
+    tcgid: card.artworks[0]?.tcgid,
+    links: card.artworks[0]?.links,
+    source: card.artworks[0]?.source,
+    game: { ...card.game, language: 'JP' },
+    artworks: [],
+  });
   serviceMocks.listCollection.mockResolvedValue(collectionItems);
   serviceMocks.saveCollection.mockImplementation(async (item: unknown) => item);
 });
@@ -159,6 +184,9 @@ describe('CardDetails', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Mostrar Parallel 1' }));
 
+    await waitFor(() =>
+      expect(serviceMocks.getVariantById).toHaveBeenCalledWith('p1', expect.any(AbortSignal)),
+    );
     expect(screen.getByAltText(`Carta ${card.name} — Parallel 1`)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Mostrar Parallel 1' })).toHaveAttribute(
       'aria-pressed',
@@ -194,6 +222,9 @@ describe('CardDetails', () => {
 
     await screen.findByRole('heading', { name: card.name });
     fireEvent.click(screen.getByRole('button', { name: 'Mostrar Parallel 1' }));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /adir 1 copia de Parallel 1/ })).not.toBeDisabled(),
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Aumentar cantidad' }));
     fireEvent.click(screen.getByRole('button', { name: 'Añadir 2 copias de Parallel 1' }));
 

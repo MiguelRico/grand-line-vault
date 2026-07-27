@@ -1,13 +1,23 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { FieldPath, type Query } from 'firebase-admin/firestore';
+import { timingSafeEqual } from 'node:crypto';
+import { FieldPath, type Query, type WhereFilterOp } from 'firebase-admin/firestore';
 import { db } from './_shared/firebase.js';
 import { apiError, json, methodNotAllowed } from './_shared/http.js';
 import { tcggoClient, TcggoError } from './_shared/tcggoClient.js';
+import {
+  buildCatalogDocuments,
+  buildSetDocuments,
+  type StaticCatalogCard,
+  type StaticCatalogManifest,
+  type StaticCatalogSet,
+} from './_shared/catalogBootstrap.js';
 
+export const maxDuration = 300;
 const IMAGE_BASE = 'https://en.onepiece-cardgame.com/images/cardlist/card/';
 const SAFE_FILE = /^[A-Za-z0-9_-]+\.png$/;
 const SAFE_VERSION = /^\d{1,16}$/;
-const SAFE_ID = /^\d+$/;
+const SAFE_TCGGO_ID = /^\d+$/;
+const SAFE_CATALOG_ID = /^[A-Za-z0-9:_-]{1,100}$/;
 const SORT_FIELDS = {
   code: 'sort.cardNumber',
   name: 'sort.name',
@@ -69,16 +79,27 @@ async function image(req: VercelRequest, res: VercelResponse): Promise<void> {
   }
   try {
     const upstream = await fetch(`${IMAGE_BASE}${file}${version ? `?${version}` : ''}`, {
-      headers: { Accept: 'image/png,image/*;q=0.8,*/*;q=0.5', 'User-Agent': 'Grand-Line-Vault/1.0' },
+      headers: {
+        Accept: 'image/png,image/*;q=0.8,*/*;q=0.5',
+        'User-Agent': 'Grand-Line-Vault/1.0',
+      },
     });
     const contentType = upstream.headers.get('content-type') ?? '';
     if (!upstream.ok || !contentType.toLowerCase().startsWith('image/')) {
-      return apiError(res, upstream.status === 404 ? 404 : 502, 'IMAGE_UNAVAILABLE', 'Imagen no disponible.');
+      return apiError(
+        res,
+        upstream.status === 404 ? 404 : 502,
+        'IMAGE_UNAVAILABLE',
+        'Imagen no disponible.',
+      );
     }
     const body = Buffer.from(await upstream.arrayBuffer());
     res.setHeader('Content-Type', contentType);
     res.setHeader('Content-Length', String(body.byteLength));
-    res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=604800, stale-while-revalidate=2592000');
+    res.setHeader(
+      'Cache-Control',
+      'public, max-age=86400, s-maxage=604800, stale-while-revalidate=2592000',
+    );
     res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
     res.status(200).send(body);
   } catch {
@@ -99,36 +120,24 @@ async function indexCards(req: VercelRequest, res: VercelResponse): Promise<void
   const type = normalized(single(req.query.type));
   const rarity = normalized(single(req.query.rarity));
   const variant = normalized(single(req.query.variant));
-  const filters: { field: string; operator: '==' | 'array-contains'; value: unknown }[] = [];
+  const filters: { field: string; operator: WhereFilterOp; value: unknown }[] = [];
   if (search) filters.push({ field: 'searchPrefixes', operator: 'array-contains', value: search });
-  if (set) filters.push({ field: 'episode.normalized_code', operator: '==', value: set });
+  if (set) filters.push({ field: 'setCodes', operator: 'array-contains', value: set });
   if (type) filters.push({ field: 'game.card_type', operator: '==', value: type });
   if (rarity) filters.push({ field: 'rarity_normalized', operator: '==', value: rarity });
-  if (variant) filters.push({ field: `filterVariants.${variant}`, operator: '==', value: true });
-  if (color) filters.push({ field: `filterColors.${color}`, operator: '==', value: true });
+  if (variant) filters.push({ field: 'variantTypes', operator: 'array-contains', value: variant });
+  if (color) filters.push({ field: 'game.colors', operator: 'array-contains', value: color });
 
   const minCost = numberParam(single(req.query.minCost));
   const maxCost = numberParam(single(req.query.maxCost));
   const minPower = numberParam(single(req.query.minPower));
   const maxPower = numberParam(single(req.query.maxPower));
-  if (minCost !== undefined || maxCost !== undefined) {
-    const lower = Math.max(0, Math.floor(minCost ?? 0));
-    const upper = Math.min(20, Math.ceil(maxCost ?? 20));
-    filters.push({
-      field: `filterCostRanges.${lower}_${upper}`,
-      operator: '==',
-      value: true,
-    });
-  }
-  if (minPower !== undefined || maxPower !== undefined) {
-    const lower = Math.max(0, Math.floor((minPower ?? 0) / 1000) * 1000);
-    const upper = Math.min(20_000, Math.ceil((maxPower ?? 20_000) / 1000) * 1000);
-    filters.push({
-      field: `filterPowerRanges.${lower}_${upper}`,
-      operator: '==',
-      value: true,
-    });
-  }
+  if (minCost !== undefined) filters.push({ field: 'game.cost', operator: '>=', value: minCost });
+  if (maxCost !== undefined) filters.push({ field: 'game.cost', operator: '<=', value: maxCost });
+  if (minPower !== undefined)
+    filters.push({ field: 'game.power', operator: '>=', value: minPower });
+  if (maxPower !== undefined)
+    filters.push({ field: 'game.power', operator: '<=', value: maxPower });
 
   const cursor = decodeCursor(single(req.query.cursor));
   if (filters.length > 0) {
@@ -139,9 +148,13 @@ async function indexCards(req: VercelRequest, res: VercelResponse): Promise<void
       .filter((document) =>
         remaining.every((filter) => {
           const value = fieldValue(document.data(), filter.field);
-          return filter.operator === 'array-contains'
-            ? Array.isArray(value) && value.includes(filter.value)
-            : value === filter.value;
+          if (filter.operator === 'array-contains')
+            return Array.isArray(value) && value.includes(filter.value);
+          if (filter.operator === '>=')
+            return typeof value === 'number' && value >= Number(filter.value);
+          if (filter.operator === '<=')
+            return typeof value === 'number' && value <= Number(filter.value);
+          return value === filter.value;
         }),
       )
       .sort((left, right) => {
@@ -164,8 +177,7 @@ async function indexCards(req: VercelRequest, res: VercelResponse): Promise<void
       page: Math.floor(offset / pageSize) + 1,
       pageSize,
       total: matches.length,
-      nextCursor:
-        nextOffset < matches.length ? encodeCursor([nextOffset, 'OFFSET']) : undefined,
+      nextCursor: nextOffset < matches.length ? encodeCursor([nextOffset, 'OFFSET']) : undefined,
       meta: {
         provider: 'FIRESTORE_INDEX',
         fallbackUsed: false,
@@ -175,7 +187,9 @@ async function indexCards(req: VercelRequest, res: VercelResponse): Promise<void
     });
   }
 
-  let query: Query = collection.orderBy(sortField, direction).orderBy(FieldPath.documentId(), direction);
+  let query: Query = collection
+    .orderBy(sortField, direction)
+    .orderBy(FieldPath.documentId(), direction);
   const total = cursor ? 0 : (await collection.count().get()).data().count;
   if (cursor) query = query.startAfter(...cursor);
   const snapshot = await query.limit(pageSize + 1).get();
@@ -188,8 +202,7 @@ async function indexCards(req: VercelRequest, res: VercelResponse): Promise<void
     page: 1,
     pageSize,
     total,
-    nextCursor:
-      hasMore && last ? encodeCursor([last.get(sortField) ?? null, last.id]) : undefined,
+    nextCursor: hasMore && last ? encodeCursor([last.get(sortField) ?? null, last.id]) : undefined,
     meta: {
       provider: 'FIRESTORE_INDEX',
       fallbackUsed: false,
@@ -201,16 +214,26 @@ async function indexCards(req: VercelRequest, res: VercelResponse): Promise<void
 
 async function indexSets(res: VercelResponse): Promise<void> {
   const snapshot = await db().collection('catalogSets').orderBy('released_at', 'desc').get();
-  json(res, 200, snapshot.docs.map((document) => document.data()));
+  json(
+    res,
+    200,
+    snapshot.docs.map((document) => document.data()),
+  );
 }
 
 async function indexCard(req: VercelRequest, res: VercelResponse): Promise<void> {
   const id = single(req.query.id);
-  if (!SAFE_ID.test(id)) {
-    return apiError(res, 400, 'INVALID_TCGGO_ID', 'El identificador TCGGO no es válido.');
+  if (!SAFE_CATALOG_ID.test(id)) {
+    return apiError(res, 400, 'INVALID_CATALOG_ID', 'El identificador de catálogo no es válido.');
   }
-  const snapshot = await db().collection('catalogIndex').doc(`TCGGO::${id}`).get();
-  json(res, 200, snapshot.exists ? snapshot.data() : null);
+  const collection = db().collection('catalogIndex');
+  const snapshot = await collection.doc(id).get();
+  if (snapshot.exists) return json(res, 200, snapshot.data());
+  if (SAFE_TCGGO_ID.test(id)) {
+    const legacySnapshot = await collection.where('tcggoId', '==', id).limit(1).get();
+    return json(res, 200, legacySnapshot.docs[0]?.data() ?? null);
+  }
+  json(res, 200, null);
 }
 
 function dataArray(payload: unknown): unknown[] {
@@ -235,28 +258,169 @@ function cardData(payload: unknown): Record<string, unknown> | null {
 
 async function detail(req: VercelRequest, res: VercelResponse): Promise<void> {
   const id = single(req.query.id);
-  if (!SAFE_ID.test(id)) {
+  const cardNumber = single(req.query.cardNumber).trim();
+  const catalogId = single(req.query.catalogId);
+  const includeRelated = single(req.query.related) !== 'false';
+  if (id && !SAFE_TCGGO_ID.test(id)) {
     return apiError(res, 400, 'INVALID_TCGGO_ID', 'El identificador TCGGO no es válido.');
   }
-  const rawCard = cardData(await tcggoClient.card(id));
+  if (catalogId && !SAFE_CATALOG_ID.test(catalogId)) {
+    return apiError(res, 400, 'INVALID_CATALOG_ID', 'El identificador de catálogo no es válido.');
+  }
+  if (!id && !cardNumber) {
+    return apiError(res, 400, 'MISSING_CARD_LOCATOR', 'Falta el identificador o número de carta.');
+  }
+
+  let resolvedId = id;
+  let variants: unknown[] = [];
+  if (!resolvedId) {
+    variants = dataArray(await tcggoClient.cardsByNumber(cardNumber));
+    const candidate =
+      variants.find(
+        (entry) =>
+          entry && typeof entry === 'object' && !(entry as Record<string, unknown>).version,
+      ) ?? variants[0];
+    const rawCandidateId =
+      candidate && typeof candidate === 'object'
+        ? (candidate as Record<string, unknown>).id
+        : undefined;
+    const candidateId =
+      typeof rawCandidateId === 'number' || typeof rawCandidateId === 'string'
+        ? String(rawCandidateId)
+        : '';
+    if (!SAFE_TCGGO_ID.test(candidateId)) {
+      return apiError(res, 404, 'TCGGO_CARD_NOT_FOUND', 'TCGGO no encontró la carta.');
+    }
+    resolvedId = candidateId;
+  }
+
+  const rawCard = cardData(await tcggoClient.card(resolvedId));
   if (!rawCard || typeof rawCard.card_number !== 'string') {
     return apiError(res, 502, 'INVALID_TCGGO_RESPONSE', 'TCGGO devolvió un detalle no válido.');
   }
-  const variantsPayload = await tcggoClient.cardsByNumber(rawCard.card_number);
-  const variants = dataArray(variantsPayload);
+  if (includeRelated && variants.length === 0) {
+    variants = dataArray(await tcggoClient.cardsByNumber(rawCard.card_number));
+  }
+  if (
+    includeRelated &&
+    catalogId &&
+    typeof rawCard.id === 'number' &&
+    typeof rawCard.image === 'string' &&
+    rawCard.image
+  ) {
+    const reference = db().collection('catalogIndex').doc(catalogId);
+    const snapshot = await reference.get();
+    if (snapshot.exists) {
+      await reference.set(
+        {
+          tcggoId: String(rawCard.id),
+          image: rawCard.image,
+          artist: rawCard.artist && typeof rawCard.artist === 'object' ? rawCard.artist : null,
+          source: {
+            providerId: 'TCGGO',
+            providerCardId: String(rawCard.id),
+            fetchedAt: new Date().toISOString(),
+          },
+          enrichedAt: new Date().toISOString(),
+        },
+        { merge: true },
+      );
+    }
+  }
   res.setHeader('Cache-Control', 'private, max-age=60');
-  json(res, 200, { card: rawCard, variants });
+  json(res, 200, { card: rawCard, variants: includeRelated ? variants : [] });
+}
+
+function secretMatches(actual: string, expected: string): boolean {
+  const left = Buffer.from(actual);
+  const right = Buffer.from(expected);
+  return left.length === right.length && timingSafeEqual(left, right);
+}
+
+async function staticJson<T>(origin: string, path: string): Promise<T> {
+  const response = await fetch(new URL(path, origin), {
+    headers: { Accept: 'application/json' },
+  });
+  if (!response.ok) throw new Error(`STATIC_CATALOG_${response.status}`);
+  return (await response.json()) as T;
+}
+
+async function bootstrap(req: VercelRequest, res: VercelResponse): Promise<void> {
+  const expected = process.env.CATALOG_BOOTSTRAP_TOKEN ?? '';
+  const actual = single(req.headers['x-catalog-bootstrap-token']);
+  if (!expected)
+    return apiError(res, 503, 'BOOTSTRAP_DISABLED', 'El bootstrap manual no está habilitado.');
+  if (!actual || !secretMatches(actual, expected))
+    return apiError(res, 401, 'INVALID_BOOTSTRAP_TOKEN', 'Token de bootstrap no válido.');
+
+  const hostname = process.env.VERCEL_PROJECT_PRODUCTION_URL ?? process.env.VERCEL_URL;
+  if (!hostname) throw new Error('VERCEL_ORIGIN_NOT_CONFIGURED');
+  const origin = hostname.startsWith('http') ? hostname : `https://${hostname}`;
+  const manifest = await staticJson<StaticCatalogManifest>(origin, '/catalog/manifest.json');
+  const [cardsPayload, setsPayload] = await Promise.all([
+    staticJson<{ cards: StaticCatalogCard[] }>(origin, manifest.cardsUrl),
+    staticJson<{ sets: StaticCatalogSet[] }>(origin, manifest.setsUrl),
+  ]);
+  const catalogDocuments = buildCatalogDocuments(cardsPayload.cards, manifest.generatedAt);
+  const setDocuments = buildSetDocuments(setsPayload.sets, manifest.generatedAt);
+  const firestore = db();
+  const existingSnapshot = await firestore
+    .collection('catalogIndex')
+    .select('tcggoId', 'image', 'artist', 'source', 'enrichedAt')
+    .get();
+  const existingById = new Map(
+    existingSnapshot.docs.map((document) => [document.id, document.data()]),
+  );
+  const writer = firestore.bulkWriter();
+  const writes: Promise<unknown>[] = [];
+  for (const document of catalogDocuments) {
+    const existing = existingById.get(document.id);
+    const enrichedDocument =
+      existing && typeof existing.tcggoId === 'string'
+        ? {
+            ...document,
+            tcggoId: existing.tcggoId,
+            image: existing.image,
+            artist: existing.artist ?? null,
+            source: existing.source,
+            enrichedAt: existing.enrichedAt,
+          }
+        : document;
+    writes.push(
+      writer.set(firestore.collection('catalogIndex').doc(document.id), enrichedDocument, {
+        merge: true,
+      }),
+    );
+  }
+  for (const document of setDocuments)
+    writes.push(
+      writer.set(firestore.collection('catalogSets').doc(document.id), document, { merge: true }),
+    );
+  await Promise.all(writes);
+  await writer.close();
+  json(res, 200, {
+    catalogVersion: manifest.catalogVersion,
+    cards: catalogDocuments.length,
+    sets: setDocuments.length,
+  });
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
-  if (req.method !== 'GET') return methodNotAllowed(req, res, ['GET']);
   const action = single(req.query.action);
+  if (req.method === 'POST' && action === 'bootstrap') {
+    try {
+      return await bootstrap(req, res);
+    } catch (error) {
+      console.error('Catalog bootstrap failed.', error);
+      return apiError(res, 500, 'CATALOG_BOOTSTRAP_ERROR', 'No se pudo crear el índice inicial.');
+    }
+  }
+  if (req.method !== 'GET') return methodNotAllowed(req, res, ['GET', 'POST']);
   try {
     if (action === 'image') return await image(req, res);
     if (action === 'index' && single(req.query.resource) === 'cards')
       return await indexCards(req, res);
-    if (action === 'index' && single(req.query.resource) === 'sets')
-      return await indexSets(res);
+    if (action === 'index' && single(req.query.resource) === 'sets') return await indexSets(res);
     if (action === 'index' && single(req.query.resource) === 'card')
       return await indexCard(req, res);
     if (action === 'detail') return await detail(req, res);
@@ -267,7 +431,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       return apiError(res, error.status, `TCGGO_${error.code}`, error.message);
     }
     if (error instanceof Error && error.message === 'FIREBASE_NOT_CONFIGURED') {
-      return apiError(res, 503, 'CATALOG_INDEX_NOT_CONFIGURED', 'El índice de catálogo no está configurado.');
+      return apiError(
+        res,
+        503,
+        'CATALOG_INDEX_NOT_CONFIGURED',
+        'El índice de catálogo no está configurado.',
+      );
     }
     return apiError(
       res,

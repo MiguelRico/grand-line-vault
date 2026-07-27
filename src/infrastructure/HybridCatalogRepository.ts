@@ -7,11 +7,7 @@ import type {
 } from '../domain/models';
 import type { CatalogRepository } from '../domain/repositories';
 import { config } from '../app/config';
-import {
-  isOnePieceApiCard,
-  mapApiCard,
-  type OnePieceApiCard,
-} from './onePieceApi';
+import { isOnePieceApiCard, mapApiCard, type OnePieceApiCard } from './onePieceApi';
 import { ExpiringLocalCache } from './cache/ExpiringCache';
 
 interface ApiEnvelope<T> {
@@ -28,16 +24,19 @@ function isCatalogCard(value: unknown): value is CatalogCard {
   const card = value as Partial<CatalogCard>;
   return (
     typeof card.id === 'string' &&
-    typeof card.tcggoId === 'string' &&
+    (typeof card.tcggoId === 'string' || card.tcggoId === null) &&
     typeof card.name === 'string' &&
+    typeof card.normalizedName === 'string' &&
     typeof card.card_number === 'string' &&
     typeof card.normalized_card_number === 'string' &&
     typeof card.image === 'string' &&
     Boolean(card.episode) &&
     typeof card.episode?.code === 'string' &&
+    Array.isArray(card.setCodes) &&
     Boolean(card.game) &&
     Array.isArray(card.game?.colors) &&
     Array.isArray(card.variantTypes) &&
+    typeof card.variantCount === 'number' &&
     typeof card.totalVariants === 'number'
   );
 }
@@ -45,9 +44,7 @@ function isCatalogCard(value: unknown): value is CatalogCard {
 async function readJson<T>(url: string, signal?: AbortSignal): Promise<T> {
   const response = await fetch(url, { signal, headers: { Accept: 'application/json' } });
   const body = (await response.json().catch(() => null)) as
-    | ApiEnvelope<T>
-    | { error?: { message?: string } }
-    | null;
+    ApiEnvelope<T> | { error?: { message?: string } } | null;
   if (!response.ok) {
     throw new Error(
       body && 'error' in body && body.error?.message
@@ -97,9 +94,9 @@ export class HybridCatalogRepository implements CatalogRepository {
     return readJson('/api/catalog?action=index&resource=sets', signal);
   }
 
-  async getIndexCard(tcggoId: string, signal?: AbortSignal): Promise<CatalogCard | null> {
+  async getIndexCard(catalogId: string, signal?: AbortSignal): Promise<CatalogCard | null> {
     const card = await readJson<unknown>(
-      `/api/catalog?action=index&resource=card&id=${encodeURIComponent(tcggoId)}`,
+      `/api/catalog?action=index&resource=card&id=${encodeURIComponent(catalogId)}`,
       signal,
     );
     if (card === null) return null;
@@ -107,17 +104,38 @@ export class HybridCatalogRepository implements CatalogRepository {
     return card;
   }
 
-  async getById(tcggoId: string, signal?: AbortSignal): Promise<CardDetail | null> {
-    const cached = this.cache.get(tcggoId);
+  async getById(
+    tcggoId: string | null,
+    signal?: AbortSignal,
+    fallback?: { cardNumber: string; catalogId: string },
+  ): Promise<CardDetail | null> {
+    const cacheKey = tcggoId ?? fallback?.catalogId ?? fallback?.cardNumber ?? '';
+    const cached = this.cache.get(cacheKey);
     if (cached) return cached;
-    const payload = await readJson<DetailPayload>(
-      `/api/catalog?action=detail&id=${encodeURIComponent(tcggoId)}`,
-      signal,
-    );
+    const params = new URLSearchParams({ action: 'detail' });
+    if (tcggoId) params.set('id', tcggoId);
+    if (fallback) {
+      params.set('cardNumber', fallback.cardNumber);
+      params.set('catalogId', fallback.catalogId);
+    }
+    const payload = await readJson<DetailPayload>(`/api/catalog?${params}`, signal);
     if (!isOnePieceApiCard(payload.card)) return null;
     const variants = payload.variants.filter(isOnePieceApiCard);
     const detail = mapApiCard(payload.card, variants);
-    this.cache.set(tcggoId, detail);
+    this.cache.set(cacheKey, detail);
+    this.cache.set(detail.external_id, detail);
+    return detail;
+  }
+
+  async getVariantById(tcggoId: string, signal?: AbortSignal): Promise<CardDetail | null> {
+    const cacheKey = `variant:${tcggoId}`;
+    const cached = this.cache.get(cacheKey);
+    if (cached) return cached;
+    const params = new URLSearchParams({ action: 'detail', id: tcggoId, related: 'false' });
+    const payload = await readJson<DetailPayload>(`/api/catalog?${params}`, signal);
+    if (!isOnePieceApiCard(payload.card)) return null;
+    const detail = mapApiCard(payload.card, []);
+    this.cache.set(cacheKey, detail);
     return detail;
   }
 }

@@ -66,9 +66,9 @@ describe('HybridCatalogRepository', () => {
   });
 
   it('loads a TCGGO detail once and reuses the expiring local cache', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      Response.json({ data: { card: apiCard, variants: [apiCard] } }),
-    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(Response.json({ data: { card: apiCard, variants: [apiCard] } }));
     vi.stubGlobal('fetch', fetchMock);
     const repository = new HybridCatalogRepository();
 
@@ -80,5 +80,31 @@ describe('HybridCatalogRepository', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(String(fetchMock.mock.calls[0]?.[0])).toContain('action=detail&id=10');
   });
-});
 
+  it('resolves an unenriched index card by number and catalog id', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(Response.json({ data: { card: apiCard, variants: [apiCard] } }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await new HybridCatalogRepository().getById(null, undefined, {
+      cardNumber: 'OP01-003',
+      catalogId: 'CARD::OP01-003',
+    });
+
+    const url = String(fetchMock.mock.calls[0]?.[0]);
+    expect(url).toContain('cardNumber=OP01-003');
+    expect(url).toContain('catalogId=CARD%3A%3AOP01-003');
+  });
+
+  it('loads a selected variant without requesting related prints', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(Response.json({ data: { card: apiCard, variants: [] } }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await new HybridCatalogRepository().getVariantById('10');
+
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain('action=detail&id=10&related=false');
+  });
+});
