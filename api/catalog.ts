@@ -48,6 +48,19 @@ function decodeCursor(value: string): unknown[] | null {
   }
 }
 
+function fieldValue(source: Record<string, unknown>, path: string): unknown {
+  return path.split('.').reduce<unknown>((value, segment) => {
+    if (!value || typeof value !== 'object') return undefined;
+    return (value as Record<string, unknown>)[segment];
+  }, source);
+}
+
+function sortableText(value: unknown): string {
+  return typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
+    ? String(value)
+    : '';
+}
+
 async function image(req: VercelRequest, res: VercelResponse): Promise<void> {
   const file = single(req.query.file);
   const version = single(req.query.v);
@@ -78,7 +91,7 @@ async function indexCards(req: VercelRequest, res: VercelResponse): Promise<void
   const sort = single(req.query.sort) as keyof typeof SORT_FIELDS;
   const sortField = SORT_FIELDS[sort] ?? SORT_FIELDS.code;
   const direction = single(req.query.direction) === 'desc' ? 'desc' : 'asc';
-  let query: Query = db().collection('catalogIndex');
+  const collection = db().collection('catalogIndex');
 
   const search = normalized(single(req.query.query));
   const set = normalized(single(req.query.set));
@@ -86,12 +99,13 @@ async function indexCards(req: VercelRequest, res: VercelResponse): Promise<void
   const type = normalized(single(req.query.type));
   const rarity = normalized(single(req.query.rarity));
   const variant = normalized(single(req.query.variant));
-  if (search) query = query.where('searchPrefixes', 'array-contains', search);
-  if (set) query = query.where('episode.normalized_code', '==', set);
-  if (color) query = query.where(`filterColors.${color}`, '==', true);
-  if (type) query = query.where('game.card_type', '==', type);
-  if (rarity) query = query.where('rarity_normalized', '==', rarity);
-  if (variant) query = query.where(`filterVariants.${variant}`, '==', true);
+  const filters: { field: string; operator: '==' | 'array-contains'; value: unknown }[] = [];
+  if (search) filters.push({ field: 'searchPrefixes', operator: 'array-contains', value: search });
+  if (set) filters.push({ field: 'episode.normalized_code', operator: '==', value: set });
+  if (type) filters.push({ field: 'game.card_type', operator: '==', value: type });
+  if (rarity) filters.push({ field: 'rarity_normalized', operator: '==', value: rarity });
+  if (variant) filters.push({ field: `filterVariants.${variant}`, operator: '==', value: true });
+  if (color) filters.push({ field: `filterColors.${color}`, operator: '==', value: true });
 
   const minCost = numberParam(single(req.query.minCost));
   const maxCost = numberParam(single(req.query.maxCost));
@@ -100,22 +114,75 @@ async function indexCards(req: VercelRequest, res: VercelResponse): Promise<void
   if (minCost !== undefined || maxCost !== undefined) {
     const lower = Math.max(0, Math.floor(minCost ?? 0));
     const upper = Math.min(20, Math.ceil(maxCost ?? 20));
-    query = query.where(`filterCostRanges.${lower}_${upper}`, '==', true);
+    filters.push({
+      field: `filterCostRanges.${lower}_${upper}`,
+      operator: '==',
+      value: true,
+    });
   }
   if (minPower !== undefined || maxPower !== undefined) {
     const lower = Math.max(0, Math.floor((minPower ?? 0) / 1000) * 1000);
     const upper = Math.min(20_000, Math.ceil((maxPower ?? 20_000) / 1000) * 1000);
-    query = query.where(`filterPowerRanges.${lower}_${upper}`, '==', true);
+    filters.push({
+      field: `filterPowerRanges.${lower}_${upper}`,
+      operator: '==',
+      value: true,
+    });
   }
 
   const cursor = decodeCursor(single(req.query.cursor));
-  const total = cursor ? 0 : (await query.count().get()).data().count;
-  query = query.orderBy(sortField, direction).orderBy(FieldPath.documentId(), direction);
+  if (filters.length > 0) {
+    const [anchor, ...remaining] = filters;
+    if (!anchor) throw new Error('CATALOG_FILTER_ERROR');
+    const snapshot = await collection.where(anchor.field, anchor.operator, anchor.value).get();
+    const matches = snapshot.docs
+      .filter((document) =>
+        remaining.every((filter) => {
+          const value = fieldValue(document.data(), filter.field);
+          return filter.operator === 'array-contains'
+            ? Array.isArray(value) && value.includes(filter.value)
+            : value === filter.value;
+        }),
+      )
+      .sort((left, right) => {
+        const leftValue = fieldValue(left.data(), sortField);
+        const rightValue = fieldValue(right.data(), sortField);
+        const comparison =
+          typeof leftValue === 'number' && typeof rightValue === 'number'
+            ? leftValue - rightValue
+            : sortableText(leftValue).localeCompare(sortableText(rightValue));
+        const stableComparison = comparison || left.id.localeCompare(right.id);
+        return direction === 'asc' ? stableComparison : -stableComparison;
+      });
+    const offset =
+      cursor?.[1] === 'OFFSET' && typeof cursor[0] === 'number' ? Math.max(0, cursor[0]) : 0;
+    const documents = matches.slice(offset, offset + pageSize);
+    const nextOffset = offset + documents.length;
+    res.setHeader('Cache-Control', 'public, max-age=30, s-maxage=300');
+    return json(res, 200, {
+      items: documents.map((document) => document.data()),
+      page: Math.floor(offset / pageSize) + 1,
+      pageSize,
+      total: matches.length,
+      nextCursor:
+        nextOffset < matches.length ? encodeCursor([nextOffset, 'OFFSET']) : undefined,
+      meta: {
+        provider: 'FIRESTORE_INDEX',
+        fallbackUsed: false,
+        cached: false,
+        partialData: true,
+      },
+    });
+  }
+
+  let query: Query = collection.orderBy(sortField, direction).orderBy(FieldPath.documentId(), direction);
+  const total = cursor ? 0 : (await collection.count().get()).data().count;
   if (cursor) query = query.startAfter(...cursor);
   const snapshot = await query.limit(pageSize + 1).get();
   const documents = snapshot.docs.slice(0, pageSize);
   const last = documents[documents.length - 1];
   const hasMore = snapshot.size > pageSize;
+  res.setHeader('Cache-Control', 'public, max-age=30, s-maxage=300');
   json(res, 200, {
     items: documents.map((document) => document.data()),
     page: 1,
