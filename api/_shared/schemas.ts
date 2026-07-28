@@ -13,45 +13,22 @@ const priceSchema = z.object({
   marketType: z.enum(['MARKET', 'LOW', 'MID', 'LISTED', 'UNKNOWN']),
 });
 
-const normalizeCardNumber = (value: string) =>
-  value
-    .trim()
-    .toUpperCase()
-    .replace(/\s+/g, '')
-    .replace(/^([A-Z]+)-(\d)/, '$1$2');
-
-const snapshotSchema = z
-  .object({
-    schemaVersion: z.literal(2).optional(),
-    normalizedCardNumber: z.string().min(1).max(40).optional(),
-    printKey: z.string().min(1).max(240).optional(),
-    code: z.string().min(1).max(40),
-    name: z.string().min(1).max(200),
-    setCode: z.string().min(1).max(40),
-    rarity: z.string().max(40).optional(),
-    variantLabel: z.string().max(100).optional(),
-    imageUrl: z.string().url(),
-    catalogPrice: priceSchema.optional(),
-    catalogProvider: z
-      .enum(['FIRESTORE_INDEX', 'TCGGO', 'OFFICIAL_STATIC', 'ONE_PIECE_API', 'MOCK', 'LEGACY_EXTERNAL'])
-      .optional(),
-    sourceCardId: z.string().min(1).max(200).optional(),
-    sourceVariantId: z.string().min(1).max(200).optional(),
-    catalogFetchedAt: z.string().datetime().optional(),
-  })
-  .transform((snapshot) => {
-    const provider = snapshot.catalogProvider ?? 'LEGACY_EXTERNAL';
-    const sourcePrint =
-      snapshot.sourceVariantId ??
-      snapshot.sourceCardId ??
-      `${normalizeCardNumber(snapshot.code)}::${snapshot.variantLabel ?? 'BASE'}`;
-    return {
-      ...snapshot,
-      schemaVersion: 2 as const,
-      normalizedCardNumber: snapshot.normalizedCardNumber ?? normalizeCardNumber(snapshot.code),
-      printKey: snapshot.printKey ?? `${provider}::${sourcePrint}`,
-    };
-  });
+const snapshotSchema = z.object({
+  schemaVersion: z.literal(2),
+  normalizedCardNumber: z.string().min(1).max(40),
+  printKey: z.string().min(1).max(240),
+  code: z.string().min(1).max(40),
+  name: z.string().min(1).max(200),
+  setCode: z.string().min(1).max(40),
+  rarity: z.string().max(40).optional(),
+  variantLabel: z.string().max(100).optional(),
+  imageUrl: z.string().url(),
+  catalogPrice: priceSchema.optional(),
+  catalogProvider: z.enum(['FIRESTORE_INDEX', 'TCGGO', 'OFFICIAL_STATIC', 'ONE_PIECE_API', 'MOCK']),
+  sourceCardId: z.string().min(1).max(200).optional(),
+  sourceVariantId: z.string().min(1).max(200).optional(),
+  catalogFetchedAt: z.string().datetime().optional(),
+});
 
 export const collectionItemSchema = z
   .object({

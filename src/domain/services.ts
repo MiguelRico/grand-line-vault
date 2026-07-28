@@ -1,9 +1,9 @@
 import type {
-  Card,
-  CardPrice,
+  CardDetail,
   CollectionItem,
   CollectionStats,
   Money,
+  Price,
   SalesPack,
   StorageBox,
 } from './models';
@@ -88,7 +88,7 @@ export function salesPackAvailabilityWarnings(
     .map((entry) => `${entry.snapshot.name}: el pack supera las copias disponibles.`);
 }
 
-export function preferredPrice(card: Card): Money | undefined {
+export function preferredPrice(card: CardDetail): Money | undefined {
   const cardmarket = card.prices.cardmarket;
   if (cardmarket?.lowest_near_mint !== undefined) {
     return { amount: cardmarket.lowest_near_mint, currency: cardmarket.currency };
@@ -99,8 +99,8 @@ export function preferredPrice(card: Card): Money | undefined {
     : undefined;
 }
 
-export function catalogPriceList(prices: Card['prices']): CardPrice[] {
-  const result: CardPrice[] = [];
+export function catalogPriceList(prices: CardDetail['prices']): Price[] {
+  const result: Price[] = [];
   if (prices.cardmarket?.lowest_near_mint !== undefined) {
     result.push({
       amount: prices.cardmarket.lowest_near_mint,

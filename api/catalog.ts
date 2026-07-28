@@ -4,6 +4,7 @@ import { FieldPath, type Query, type WhereFilterOp } from 'firebase-admin/firest
 import { db } from './_shared/firebase.js';
 import { apiError, json, methodNotAllowed } from './_shared/http.js';
 import { tcggoClient, TcggoError } from './_shared/tcggoClient.js';
+import { withProxiedCatalogImage } from './_shared/catalogImage.js';
 import {
   buildCatalogDocuments,
   buildSetDocuments,
@@ -173,7 +174,7 @@ async function indexCards(req: VercelRequest, res: VercelResponse): Promise<void
     const nextOffset = offset + documents.length;
     res.setHeader('Cache-Control', 'public, max-age=30, s-maxage=300');
     return json(res, 200, {
-      items: documents.map((document) => document.data()),
+      items: documents.map((document) => withProxiedCatalogImage(document.data())),
       page: Math.floor(offset / pageSize) + 1,
       pageSize,
       total: matches.length,
@@ -198,7 +199,7 @@ async function indexCards(req: VercelRequest, res: VercelResponse): Promise<void
   const hasMore = snapshot.size > pageSize;
   res.setHeader('Cache-Control', 'public, max-age=30, s-maxage=300');
   json(res, 200, {
-    items: documents.map((document) => document.data()),
+    items: documents.map((document) => withProxiedCatalogImage(document.data())),
     page: 1,
     pageSize,
     total,
@@ -228,11 +229,7 @@ async function indexCard(req: VercelRequest, res: VercelResponse): Promise<void>
   }
   const collection = db().collection('catalogIndex');
   const snapshot = await collection.doc(id).get();
-  if (snapshot.exists) return json(res, 200, snapshot.data());
-  if (SAFE_TCGGO_ID.test(id)) {
-    const legacySnapshot = await collection.where('tcggoId', '==', id).limit(1).get();
-    return json(res, 200, legacySnapshot.docs[0]?.data() ?? null);
-  }
+  if (snapshot.exists) return json(res, 200, withProxiedCatalogImage(snapshot.data() ?? {}));
   json(res, 200, null);
 }
 
@@ -357,7 +354,7 @@ async function bootstrap(req: VercelRequest, res: VercelResponse): Promise<void>
   if (!hostname) throw new Error('VERCEL_ORIGIN_NOT_CONFIGURED');
   const origin = hostname.startsWith('http') ? hostname : `https://${hostname}`;
   const manifest = await staticJson<StaticCatalogManifest>(origin, '/catalog/manifest.json');
-  const resetToStatic = single(req.query.reset) === 'true';
+  const cleanDatabase = single(req.query.clean) === 'true';
   const [cardsPayload, setsPayload] = await Promise.all([
     staticJson<{ cards: StaticCatalogCard[] }>(origin, manifest.cardsUrl),
     staticJson<{ sets: StaticCatalogSet[] }>(origin, manifest.setsUrl),
@@ -365,44 +362,19 @@ async function bootstrap(req: VercelRequest, res: VercelResponse): Promise<void>
   const catalogDocuments = buildCatalogDocuments(cardsPayload.cards, manifest.generatedAt);
   const setDocuments = buildSetDocuments(setsPayload.sets, manifest.generatedAt);
   const firestore = db();
-  const existingSnapshot = resetToStatic
-    ? null
-    : await firestore
-        .collection('catalogIndex')
-        .select('tcggoId', 'image', 'artist', 'source', 'enrichedAt')
-        .get();
-  const existingById = new Map(
-    existingSnapshot?.docs.map((document) => [document.id, document.data()]) ?? [],
-  );
+  const collections = cleanDatabase
+    ? await firestore.listCollections()
+    : [firestore.collection('catalogIndex'), firestore.collection('catalogSets')];
+  await Promise.all(collections.map((collection) => firestore.recursiveDelete(collection)));
   const writer = firestore.bulkWriter();
   const writes: Promise<unknown>[] = [];
   for (const document of catalogDocuments) {
-    const existing = existingById.get(document.id);
-    const enrichedDocument =
-      existing && typeof existing.tcggoId === 'string'
-        ? {
-            ...document,
-            tcggoId: existing.tcggoId,
-            image: existing.image,
-            artist: existing.artist ?? null,
-            source: existing.source,
-            enrichedAt: existing.enrichedAt,
-          }
-        : document;
     const reference = firestore.collection('catalogIndex').doc(document.id);
-    writes.push(
-      resetToStatic
-        ? writer.set(reference, document)
-        : writer.set(reference, enrichedDocument, { merge: true }),
-    );
+    writes.push(writer.set(reference, document));
   }
   for (const document of setDocuments) {
     const reference = firestore.collection('catalogSets').doc(document.id);
-    writes.push(
-      resetToStatic
-        ? writer.set(reference, document)
-        : writer.set(reference, document, { merge: true }),
-    );
+    writes.push(writer.set(reference, document));
   }
   await writer.close();
   await Promise.all(writes);
@@ -410,7 +382,8 @@ async function bootstrap(req: VercelRequest, res: VercelResponse): Promise<void>
     catalogVersion: manifest.catalogVersion,
     cards: catalogDocuments.length,
     sets: setDocuments.length,
-    resetToStatic,
+    cleanDatabase,
+    deletedCollections: collections.map((collection) => collection.id),
   });
 }
 

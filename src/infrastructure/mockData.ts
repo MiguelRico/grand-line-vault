@@ -1,4 +1,4 @@
-import type { Card, CollectionItem, SalesPack, StorageBox } from '../domain/models';
+import type { CardDetail, CollectionItem, SalesPack, StorageBox } from '../domain/models';
 import { catalogPriceList } from '../domain/services';
 import {
   createCollectionSnapshot,
@@ -33,7 +33,7 @@ const seeds = [
   ['OP01-020', 'Hyogoro', 'CHARACTER', 'RED', 2, 3000, 'UC', 0.12],
 ] as const;
 
-export const mockCards: Card[] = seeds.map(
+export const mockCards: CardDetail[] = seeds.map(
   ([code, name, type, color, cost, power, rarity, amount], index) => {
     const id = `BASE::${code}`;
     const source = {
@@ -118,7 +118,7 @@ export const mockCards: Card[] = seeds.map(
   },
 );
 
-function toCollection(card: Card, quantity: number, index: number): CollectionItem {
+function toCollection(card: CardDetail, quantity: number, index: number): CollectionItem {
   return {
     id: `collection-${index + 1}`,
     cardId: card.id,

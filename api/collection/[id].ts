@@ -21,14 +21,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           'COLLECTION_DATA_CORRUPTED',
           'La carta guardada tiene un formato no válido.',
         );
-      const originalSnapshot = snapshot.data()?.cardSnapshot as Record<string, unknown> | undefined;
-      if (
-        originalSnapshot?.schemaVersion !== 2 ||
-        typeof originalSnapshot.normalizedCardNumber !== 'string' ||
-        typeof originalSnapshot.printKey !== 'string'
-      ) {
-        await ref.set(parsed.data, { merge: true });
-      }
       return json(res, 200, parsed.data);
     }
     if (req.method === 'PATCH') {

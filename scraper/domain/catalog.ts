@@ -61,7 +61,6 @@ export interface CatalogManifest {
   cardsUrl: string;
   setsUrl: string;
   filtersUrl: string;
-  legacyIdMapUrl: string;
 }
 
 export interface CatalogData {

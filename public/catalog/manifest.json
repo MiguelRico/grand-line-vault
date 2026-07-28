@@ -13,6 +13,5 @@
   "totalCategories": 4,
   "cardsUrl": "/catalog/cards.8b7fb161c57d7750.json",
   "setsUrl": "/catalog/sets.8b7fb161c57d7750.json",
-  "filtersUrl": "/catalog/filters.8b7fb161c57d7750.json",
-  "legacyIdMapUrl": "/catalog/legacy-id-map.8b7fb161c57d7750.json"
+  "filtersUrl": "/catalog/filters.8b7fb161c57d7750.json"
 }

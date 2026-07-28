@@ -1,6 +1,6 @@
 import type {
-  Card,
-  CardArtwork,
+  CardDetail,
+  CardVariant,
   CardColor,
   CardType,
   CardVariantType,
@@ -182,7 +182,7 @@ function artworkFromApi(
   card: OnePieceApiCard,
   baseCardId: string,
   staticPrint?: StaticCatalogCard,
-): CardArtwork {
+): CardVariant {
   const normalizedType = normalizedVariantType(staticPrint);
   return {
     id: `ONE_PIECE_API::${card.id}`,
@@ -217,7 +217,7 @@ export function mapApiCard(
   raw: OnePieceApiCard,
   related: OnePieceApiCard[] = [],
   staticMatches: StaticCatalogCard[] = [],
-): Card {
+): CardDetail {
   const id = `ONE_PIECE_API::${raw.id}`;
   const source = {
     providerId: 'TCGGO' as const,

@@ -27,7 +27,6 @@ export async function writeCatalog(
     cards: `cards.${catalogVersion}.json`,
     sets: `sets.${catalogVersion}.json`,
     filters: `filters.${catalogVersion}.json`,
-    legacy: `legacy-id-map.${catalogVersion}.json`,
   };
   const filters = {
     schemaVersion: SCHEMA_VERSION,
@@ -39,14 +38,6 @@ export async function writeCatalog(
     attributes: stableStrings(data.cards.flatMap((card) => card.attributes)),
     traits: stableStrings(data.cards.flatMap((card) => card.traits)),
   };
-  const legacyIdMap = Object.fromEntries(
-    data.cards.flatMap((card) => {
-      const keys: Array<[string, string]> = [[card.sourceId, card.sourceId]];
-      if (card.variant.type === 'base') keys.push([`BASE::${card.cardNumber}`, card.sourceId]);
-      else keys.push([`VARIANT::${card.cardNumber}::${card.sourceId}`, card.sourceId]);
-      return keys;
-    }),
-  );
   const manifest: CatalogManifest = {
     schemaVersion: SCHEMA_VERSION,
     catalogVersion,
@@ -63,13 +54,11 @@ export async function writeCatalog(
     cardsUrl: `${prefix}/${filenames.cards}`,
     setsUrl: `${prefix}/${filenames.sets}`,
     filtersUrl: `${prefix}/${filenames.filters}`,
-    legacyIdMapUrl: `${prefix}/${filenames.legacy}`,
   };
   const files = new Map<string, unknown>([
     [filenames.cards, { schemaVersion: SCHEMA_VERSION, catalogVersion, cards: data.cards }],
     [filenames.sets, { schemaVersion: SCHEMA_VERSION, catalogVersion, sets: data.sets }],
     [filenames.filters, filters],
-    [filenames.legacy, legacyIdMap],
   ]);
   if (!unchanged) {
     files.set('metadata.json', {
@@ -88,7 +77,9 @@ export async function writeCatalog(
     for (const [filename, content] of files) {
       const temporary = path.join(outputDirectory, `.${filename}.${process.pid}.tmp`);
       await writeFile(temporary, json(content), 'utf8');
-      JSON.parse(await import('node:fs/promises').then(({ readFile }) => readFile(temporary, 'utf8')));
+      JSON.parse(
+        await import('node:fs/promises').then(({ readFile }) => readFile(temporary, 'utf8')),
+      );
       temporaryFiles.push(temporary);
     }
     for (let index = 0; index < temporaryFiles.length; index += 1) {
@@ -98,13 +89,15 @@ export async function writeCatalog(
     }
     const temporaryManifest = path.join(outputDirectory, `.manifest.${process.pid}.tmp`);
     await writeFile(temporaryManifest, json(manifest), 'utf8');
-    JSON.parse(await import('node:fs/promises').then(({ readFile }) => readFile(temporaryManifest, 'utf8')));
+    JSON.parse(
+      await import('node:fs/promises').then(({ readFile }) => readFile(temporaryManifest, 'utf8')),
+    );
     await rename(temporaryManifest, path.join(outputDirectory, 'manifest.json'));
   } finally {
     await Promise.all(temporaryFiles.map((file) => rm(file, { force: true })));
   }
   const keep = new Set([...files.keys(), 'manifest.json', 'metadata.json']);
-  const generatedPattern = /^(cards|sets|filters|legacy-id-map)\.[a-f0-9]{16}\.json$/;
+  const generatedPattern = /^(cards|sets|filters)\.[a-f0-9]{16}\.json$/;
   for (const filename of await readdir(outputDirectory)) {
     if (generatedPattern.test(filename) && !keep.has(filename)) {
       await rm(path.join(outputDirectory, filename));

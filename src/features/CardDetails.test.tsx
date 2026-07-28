@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Card, CatalogCard } from '../domain/models';
+import type { CardDetail, CatalogCard } from '../domain/models';
 import { CardDetails } from './CardDetails';
 
 const serviceMocks = vi.hoisted(() => ({
@@ -25,7 +25,7 @@ vi.mock('../app/providers/ServicesProvider', () => ({
   }),
 }));
 
-const card: Card = {
+const card: CardDetail = {
   id: 'BASE::OP01-001',
   external_id: 'OP01-001',
   name: 'Monkey D. Luffy',
@@ -105,11 +105,15 @@ const collectionItems = [
     cardId: card.id,
     cardVariantId: card.id,
     cardSnapshot: {
+      schemaVersion: 2 as const,
+      normalizedCardNumber: card.normalized_card_number,
+      printKey: `MOCK::${card.external_id}`,
       code: card.card_number,
       name: card.name,
       setCode: card.episode.code,
       variantLabel: 'Normal',
       imageUrl: 'https://example.test/base.png',
+      catalogProvider: 'MOCK' as const,
     },
     quantity: 2,
     language: 'EN' as const,
@@ -123,11 +127,15 @@ const collectionItems = [
     cardId: card.id,
     cardVariantId: card.artworks[0]?.id ?? '',
     cardSnapshot: {
+      schemaVersion: 2 as const,
+      normalizedCardNumber: card.normalized_card_number,
+      printKey: `MOCK::${card.artworks[0]?.external_id}`,
       code: card.card_number,
       name: card.name,
       setCode: card.episode.code,
       variantLabel: 'Parallel 1',
       imageUrl: 'https://example.test/parallel.png',
+      catalogProvider: 'MOCK' as const,
     },
     quantity: 3,
     language: 'JP' as const,
@@ -207,7 +215,7 @@ describe('CardDetails', () => {
     });
     render(
       <QueryClientProvider client={queryClient}>
-        <CardDetails cardId={card.id} onClose={vi.fn()} />
+        <CardDetails card={indexCard} onClose={vi.fn()} />
       </QueryClientProvider>,
     );
 
@@ -250,7 +258,7 @@ describe('CardDetails', () => {
     });
     render(
       <QueryClientProvider client={queryClient}>
-        <CardDetails cardId={card.id} onClose={vi.fn()} />
+        <CardDetails card={indexCard} onClose={vi.fn()} />
       </QueryClientProvider>,
     );
 
@@ -265,9 +273,9 @@ describe('CardDetails', () => {
     await waitFor(() => expect(serviceMocks.saveCollection).toHaveBeenCalledOnce());
     expect(serviceMocks.saveCollection).toHaveBeenCalledWith(
       expect.objectContaining({
-        cardId: card.id,
+        cardId: indexCard.id,
         cardVariantId: card.artworks[0]?.id,
-        quantity: 2,
+        quantity: 5,
         language: 'JP',
         cardSnapshot: expect.objectContaining({
           schemaVersion: 2,
@@ -291,9 +299,9 @@ describe('CardDetails', () => {
       </QueryClientProvider>,
     );
 
-    expect(await screen.findByText(/El índice registra 6 impresiones/)).toHaveTextContent(
-      'Pueden faltar 4 variantes',
-    );
+    expect(
+      (await screen.findAllByText(/El índice registra 6 impresiones/)).at(-1),
+    ).toHaveTextContent('Pueden faltar 4 variantes');
     expect(serviceMocks.getById).toHaveBeenCalledWith(
       '10',
       expect.any(AbortSignal),

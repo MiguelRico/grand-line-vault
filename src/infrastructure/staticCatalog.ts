@@ -13,7 +13,6 @@ export interface StaticCatalogManifest {
   cardsUrl: string;
   setsUrl: string;
   filtersUrl: string;
-  legacyIdMapUrl: string;
 }
 
 export interface StaticCatalogCard {
@@ -50,35 +49,11 @@ export interface LoadedStaticCatalog {
   manifest: StaticCatalogManifest;
   cards: StaticCatalogCard[];
   sets: StaticCatalogSet[];
-  legacyIdMap: Record<string, string>;
 }
 
 export function resolveCatalogUrl(url = '/catalog/manifest.json'): string {
   const relative = url.replace(/^\/?(?:catalog\/)?/, '');
   return `${import.meta.env.BASE_URL}catalog/${relative}`.replace(/\/{2,}/g, '/');
-}
-
-const OFFICIAL_IMAGE_ORIGIN = 'https://en.onepiece-cardgame.com';
-const OFFICIAL_IMAGE_PATH = '/images/cardlist/card/';
-const SAFE_IMAGE_FILE = /^[A-Za-z0-9_-]+\.png$/;
-const SAFE_IMAGE_VERSION = /^\d{1,16}$/;
-
-export function resolveCatalogImageUrl(url: string | null): string {
-  if (!url) return '';
-  try {
-    const parsed = new URL(url);
-    if (parsed.origin !== OFFICIAL_IMAGE_ORIGIN) return url;
-    if (!parsed.pathname.startsWith(OFFICIAL_IMAGE_PATH)) return '';
-    const file = parsed.pathname.slice(OFFICIAL_IMAGE_PATH.length);
-    const version = parsed.search.slice(1);
-    if (!SAFE_IMAGE_FILE.test(file) || (version && !SAFE_IMAGE_VERSION.test(version))) return '';
-    const query = new URLSearchParams({ file });
-    if (version) query.set('v', version);
-    query.set('action', 'image');
-    return `${import.meta.env.BASE_URL}api/catalog?${query.toString()}`.replace(/^\/{2,}/, '/');
-  } catch {
-    return '';
-  }
 }
 
 function assertObject(value: unknown, label: string): asserts value is Record<string, unknown> {
@@ -122,14 +97,12 @@ export function loadStaticCatalog(): Promise<LoadedStaticCatalog> {
     if (manifestValue.schemaVersion !== CATALOG_SCHEMA_VERSION)
       throw new Error('Schema incompatible.');
     const manifest = manifestValue as unknown as StaticCatalogManifest;
-    const [cardsValue, setsValue, legacyValue] = await Promise.all([
+    const [cardsValue, setsValue] = await Promise.all([
       fetchJson(manifest.cardsUrl),
       fetchJson(manifest.setsUrl),
-      fetchJson(manifest.legacyIdMapUrl),
     ]);
     assertVersionedPayload(cardsValue, manifest, 'cards');
     assertVersionedPayload(setsValue, manifest, 'sets');
-    assertObject(legacyValue, 'legacy-id-map');
     const cards = cardsValue.cards as StaticCatalogCard[];
     const sets = setsValue.sets as StaticCatalogSet[];
     if (
@@ -145,7 +118,7 @@ export function loadStaticCatalog(): Promise<LoadedStaticCatalog> {
           `Generated at: ${manifest.generatedAt}\nCards: ${manifest.totalCards}\nSets: ${manifest.totalSets}`,
       );
     }
-    return { manifest, cards, sets, legacyIdMap: legacyValue as Record<string, string> };
+    return { manifest, cards, sets };
   })().catch((error: unknown) => {
     catalogPromise = null;
     if (import.meta.env.DEV) console.error('Static catalog load failed.', error);

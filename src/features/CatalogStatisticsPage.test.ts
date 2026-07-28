@@ -46,7 +46,6 @@ describe('calculateCatalogStatistics', () => {
         cardsUrl: '',
         setsUrl: '',
         filtersUrl: '',
-        legacyIdMapUrl: '',
       },
       cards: [
         card('OP01-001', 'base'),
@@ -64,7 +63,6 @@ describe('calculateCatalogStatistics', () => {
         { id: 'OP-01', sourceSeriesId: '1', name: 'Romance Dawn', cardCount: 2 },
         { id: 'OP-02', sourceSeriesId: '2', name: 'Paramount War', cardCount: 1 },
       ],
-      legacyIdMap: {},
     };
 
     const stats = calculateCatalogStatistics(catalog);

@@ -1,5 +1,5 @@
 export type CatalogProviderId =
-  'FIRESTORE_INDEX' | 'TCGGO' | 'OFFICIAL_STATIC' | 'ONE_PIECE_API' | 'MOCK' | 'LEGACY_EXTERNAL';
+  'FIRESTORE_INDEX' | 'TCGGO' | 'OFFICIAL_STATIC' | 'ONE_PIECE_API' | 'MOCK';
 export type AppTheme = 'LIGHT' | 'DARK';
 
 export interface AppSettings {
@@ -45,9 +45,6 @@ export interface Price extends Money {
   updatedAt?: string;
   marketType: 'MARKET' | 'LOW' | 'MID' | 'LISTED' | 'UNKNOWN';
 }
-/** @deprecated Usa Price. Se conserva para snapshots persistidos anteriores. */
-export type CardPrice = Price;
-
 export interface CatalogSourceReference {
   providerId: CatalogProviderId;
   providerCardId?: string;
@@ -144,9 +141,6 @@ export interface CardVariant extends Printing {
   base_card_id: string;
 }
 
-/** @deprecated Nombre histórico del modelo de variante. */
-export type CardArtwork = CardVariant;
-
 /**
  * Proyección mínima persistida en Firestore. No contiene reglas, precios ni
  * datos detallados que pertenezcan a TCGGO.
@@ -228,9 +222,6 @@ export interface CardDetail {
   };
 }
 
-/** @deprecated Compatibilidad de componentes ajenos al catálogo. */
-export type Card = CardDetail;
-
 export interface CollectionItem {
   id: string;
   cardId: string;
@@ -245,8 +236,8 @@ export interface CollectionItem {
     rarity?: string;
     variantLabel?: string;
     imageUrl: string;
-    catalogPrice?: CardPrice;
-    catalogProvider?: CatalogProviderId;
+    catalogPrice?: Price;
+    catalogProvider: CatalogProviderId;
     sourceCardId?: string;
     sourceVariantId?: string;
     catalogFetchedAt?: string;

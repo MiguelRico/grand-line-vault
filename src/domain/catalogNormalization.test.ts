@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import type { CollectionItem } from './models';
 import {
   collectionItemIdentity,
-  migrateCollectionItem,
   normalizeCardNumber,
   normalizeCatalogPrices,
   normalizeExpansionCode,
@@ -48,16 +47,20 @@ describe('catalog normalization', () => {
     });
   });
 
-  it('migrates legacy collection snapshots and derives a stable print identity', () => {
-    const legacy = {
-      id: 'legacy-item',
-      cardId: 'legacy-card',
-      cardVariantId: 'legacy-print',
+  it('builds the collection identity from the normalized snapshot', () => {
+    const item: CollectionItem = {
+      id: 'item',
+      cardId: 'card',
+      cardVariantId: 'print',
       cardSnapshot: {
-        code: 'OP-01-001',
+        schemaVersion: 2 as const,
+        normalizedCardNumber: 'OP01-001',
+        printKey: 'OFFICIAL_STATIC::OP01-001',
+        code: 'OP01-001',
         name: 'Monkey D. Luffy',
-        setCode: 'OP-01',
+        setCode: 'OP01',
         imageUrl: 'https://example.test/card.png',
+        catalogProvider: 'OFFICIAL_STATIC' as const,
       },
       quantity: 1,
       language: 'EN',
@@ -65,17 +68,10 @@ describe('catalog normalization', () => {
       favorite: false,
       createdAt: '2026-07-25T00:00:00.000Z',
       updatedAt: '2026-07-25T00:00:00.000Z',
-    } as unknown as CollectionItem;
+    };
 
-    const migrated = migrateCollectionItem(legacy);
-
-    expect(migrated.cardSnapshot).toMatchObject({
-      schemaVersion: 2,
-      normalizedCardNumber: 'OP01-001',
-      printKey: 'LEGACY_EXTERNAL::OP01-001::BASE',
-    });
-    expect(collectionItemIdentity(migrated)).toBe(
-      'LEGACY_EXTERNAL::OP01-001::BASE::EN::NEAR_MINT::UNASSIGNED::UNASSIGNED',
+    expect(collectionItemIdentity(item)).toBe(
+      'OFFICIAL_STATIC::OP01-001::EN::NEAR_MINT::UNASSIGNED::UNASSIGNED',
     );
   });
 });

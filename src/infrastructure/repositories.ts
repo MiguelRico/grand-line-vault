@@ -1,19 +1,5 @@
-import type {
-  Card,
-  CatalogCriteria,
-  CollectionItem,
-  PaginatedResult,
-  SalesPack,
-  StorageBox,
-} from '../domain/models';
-import { initialBoxes, initialCollection, initialSalesPacks, mockCards } from './mockData';
-import { migrateCollectionItem } from '../domain/catalogNormalization';
-
-export interface CatalogRepository {
-  search(criteria: CatalogCriteria, signal?: AbortSignal): Promise<PaginatedResult<Card>>;
-  getById(id: string, signal?: AbortSignal): Promise<Card | null>;
-  listSets(signal?: AbortSignal): Promise<Card['episode'][]>;
-}
+import type { CollectionItem, SalesPack, StorageBox } from '../domain/models';
+import { initialBoxes, initialCollection, initialSalesPacks } from './mockData';
 
 export interface PrivateRepository {
   listCollection(): Promise<CollectionItem[]>;
@@ -25,93 +11,6 @@ export interface PrivateRepository {
   listSalesPacks(): Promise<SalesPack[]>;
   saveSalesPack(pack: SalesPack): Promise<SalesPack>;
   removeSalesPack(id: string): Promise<void>;
-}
-
-const delay = async (signal?: AbortSignal): Promise<void> =>
-  new Promise((resolve, reject) => {
-    const timeout = window.setTimeout(resolve, 180);
-    signal?.addEventListener('abort', () => {
-      window.clearTimeout(timeout);
-      reject(new DOMException('Aborted', 'AbortError'));
-    });
-  });
-
-function getPrice(card: Card): number {
-  return (
-    card.prices.cardmarket?.lowest_near_mint ??
-    card.prices.tcgplayer?.market_price ??
-    Number.MAX_SAFE_INTEGER
-  );
-}
-
-export class MockCatalogRepository implements CatalogRepository {
-  async search(criteria: CatalogCriteria, signal?: AbortSignal): Promise<PaginatedResult<Card>> {
-    await delay(signal);
-    const query = criteria.query.toLocaleLowerCase();
-    const filtered = mockCards
-      .filter(
-        (card) =>
-          (!query ||
-            card.name.toLocaleLowerCase().includes(query) ||
-            card.card_number.toLocaleLowerCase().includes(query)) &&
-          (!criteria.setCode || card.episode.id === criteria.setCode) &&
-          (!criteria.color || card.game.colors.includes(criteria.color)) &&
-          (!criteria.type || card.game.card_type === criteria.type) &&
-          (!criteria.rarity || card.rarity === criteria.rarity) &&
-          (!criteria.variant ||
-            criteria.variant === 'BASE' ||
-            card.artworks.some((variant) => variant.variant_type === criteria.variant)) &&
-          (criteria.minCost === undefined || (card.game.cost ?? 0) >= criteria.minCost) &&
-          (criteria.maxCost === undefined || (card.game.cost ?? 0) <= criteria.maxCost) &&
-          (criteria.minPower === undefined || (card.game.power ?? 0) >= criteria.minPower) &&
-          (criteria.maxPower === undefined || (card.game.power ?? 0) <= criteria.maxPower),
-      )
-      .sort((left, right) => {
-        const leftValue =
-          criteria.sort === 'price'
-            ? getPrice(left)
-            : criteria.sort === 'power'
-              ? (left.game.power ?? 0)
-              : criteria.sort === 'cost'
-                ? (left.game.cost ?? 0)
-                : criteria.sort === 'code'
-                  ? left.card_number
-                  : left.name;
-        const rightValue =
-          criteria.sort === 'price'
-            ? getPrice(right)
-            : criteria.sort === 'power'
-              ? (right.game.power ?? 0)
-              : criteria.sort === 'cost'
-                ? (right.game.cost ?? 0)
-                : criteria.sort === 'code'
-                  ? right.card_number
-                  : right.name;
-        const comparison =
-          typeof leftValue === 'number'
-            ? leftValue - Number(rightValue)
-            : String(leftValue).localeCompare(String(rightValue));
-        return criteria.direction === 'asc' ? comparison : -comparison;
-      });
-    const offset = (criteria.page - 1) * criteria.pageSize;
-    return {
-      items: filtered.slice(offset, offset + criteria.pageSize),
-      page: criteria.page,
-      pageSize: criteria.pageSize,
-      total: filtered.length,
-      meta: { provider: 'MOCK', fallbackUsed: false, cached: true, partialData: false },
-    };
-  }
-
-  async getById(id: string, signal?: AbortSignal): Promise<Card | null> {
-    await delay(signal);
-    return mockCards.find((card) => card.id === id) ?? null;
-  }
-
-  async listSets(signal?: AbortSignal): Promise<Card['episode'][]> {
-    await delay(signal);
-    return [...new Map(mockCards.map((card) => [card.episode.id, card.episode])).values()];
-  }
 }
 
 const collectionKey = 'grand-line-vault:mock-collection';
@@ -130,10 +29,9 @@ function read<T>(key: string, fallback: T): T {
 
 export class MockPrivateRepository implements PrivateRepository {
   async listCollection(): Promise<CollectionItem[]> {
-    return read<CollectionItem[]>(collectionKey, initialCollection).map(migrateCollectionItem);
+    return read<CollectionItem[]>(collectionKey, initialCollection);
   }
   async saveCollection(item: CollectionItem): Promise<CollectionItem> {
-    item = migrateCollectionItem(item);
     const items = await this.listCollection();
     const existing = items.findIndex((entry) => entry.id === item.id);
     const next = [...items];
@@ -190,12 +88,9 @@ export class ApiPrivateRepository implements PrivateRepository {
     return payload.data;
   }
   listCollection(): Promise<CollectionItem[]> {
-    return this.request<CollectionItem[]>('/api/collection').then((items) =>
-      items.map(migrateCollectionItem),
-    );
+    return this.request<CollectionItem[]>('/api/collection');
   }
   saveCollection(item: CollectionItem): Promise<CollectionItem> {
-    item = migrateCollectionItem(item);
     return this.request(`/api/collection/${encodeURIComponent(item.id)}`, {
       method: 'PATCH',
       body: JSON.stringify(item),

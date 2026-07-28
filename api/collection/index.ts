@@ -22,25 +22,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           'Hay datos de colección guardados con un formato no válido.',
         );
       }
-      const database = db();
-      const migrationBatch = database.batch();
-      let migrations = 0;
-      items.forEach((item, index) => {
-        if (!item.success) return;
-        const original = snapshot.docs[index]?.data().cardSnapshot as
-          Record<string, unknown> | undefined;
-        if (
-          original?.schemaVersion !== 2 ||
-          typeof original.normalizedCardNumber !== 'string' ||
-          typeof original.printKey !== 'string'
-        ) {
-          const document = snapshot.docs[index];
-          if (!document) return;
-          migrationBatch.set(document.ref, item.data, { merge: true });
-          migrations += 1;
-        }
-      });
-      if (migrations > 0) await migrationBatch.commit();
       return json(
         res,
         200,

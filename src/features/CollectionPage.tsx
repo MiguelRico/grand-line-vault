@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { useServices } from '../app/providers/ServicesProvider';
 import type {
-  Card,
+  CardDetail,
   CardCondition,
   CardLanguage,
   CollectionItem,
@@ -29,9 +29,9 @@ import {
   SearchInput,
 } from '../shared/ui';
 
-function snapshotToCard(item: CollectionItem): Card {
+function snapshotToCard(item: CollectionItem): CardDetail {
   const source = {
-    providerId: item.cardSnapshot.catalogProvider ?? ('MOCK' as const),
+    providerId: item.cardSnapshot.catalogProvider,
     fetchedAt: item.cardSnapshot.catalogFetchedAt ?? item.updatedAt,
   };
   return {

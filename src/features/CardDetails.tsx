@@ -22,12 +22,9 @@ import { OnePieceLoader } from '../shared/OnePieceLoader';
 
 export function CardDetails({
   card: catalogCard,
-  cardId,
   onClose,
 }: {
   card?: CatalogCard | null;
-  /** @deprecated Compatibilidad con consumidores anteriores. */
-  cardId?: string | null;
   onClose: () => void;
 }) {
   const services = useServices();
@@ -35,7 +32,7 @@ export function CardDetails({
   const [quantity, setQuantity] = useState(1);
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
 
-  const detailId = catalogCard?.id ?? cardId ?? null;
+  const detailId = catalogCard?.id ?? null;
 
   useEffect(() => {
     setSelectedVariantId(null);
@@ -45,7 +42,7 @@ export function CardDetails({
     queryKey: ['card-detail', detailId],
     queryFn: ({ signal }) =>
       services.catalog.getById(
-        catalogCard?.tcggoId ?? cardId ?? null,
+        catalogCard?.tcggoId ?? null,
         signal,
         catalogCard
           ? {

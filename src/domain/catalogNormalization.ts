@@ -1,7 +1,7 @@
 import type {
   CanonicalRarity,
-  Card,
-  CardArtwork,
+  CardDetail,
+  CardVariant,
   CardMarketPrices,
   CatalogArtist,
   CatalogPrices,
@@ -119,8 +119,8 @@ export function normalizeArtist(value: unknown): CatalogArtist | null {
 }
 
 export function createCollectionSnapshot(
-  card: Card,
-  artwork: CardArtwork | null,
+  card: CardDetail,
+  artwork: CardVariant | null,
   absoluteImageUrl: string,
 ): CollectionItem['cardSnapshot'] {
   const source = artwork?.source ?? card.source;
@@ -147,36 +147,12 @@ export function createCollectionSnapshot(
   };
 }
 
-export function migrateCollectionItem(item: CollectionItem): CollectionItem {
-  const snapshot = item.cardSnapshot as CollectionItem['cardSnapshot'] &
-    Partial<{
-      schemaVersion: number;
-      normalizedCardNumber: string;
-      printKey: string;
-    }>;
-  const provider = snapshot.catalogProvider ?? 'LEGACY_EXTERNAL';
-  const sourcePrintId =
-    snapshot.sourceVariantId ??
-    snapshot.sourceCardId ??
-    `${normalizeCardNumber(snapshot.code)}::${snapshot.variantLabel ?? 'BASE'}`;
-  return {
-    ...item,
-    cardSnapshot: {
-      ...snapshot,
-      schemaVersion: COLLECTION_SNAPSHOT_VERSION,
-      normalizedCardNumber: snapshot.normalizedCardNumber || normalizeCardNumber(snapshot.code),
-      printKey: snapshot.printKey || `${provider}::${sourcePrintId}`,
-    },
-  };
-}
-
 export function collectionItemIdentity(item: CollectionItem): string {
-  const migrated = migrateCollectionItem(item);
   return [
-    migrated.cardSnapshot.printKey,
-    migrated.language,
-    migrated.condition,
-    migrated.boxId ?? 'UNASSIGNED',
-    migrated.sectionId ?? 'UNASSIGNED',
+    item.cardSnapshot.printKey,
+    item.language,
+    item.condition,
+    item.boxId ?? 'UNASSIGNED',
+    item.sectionId ?? 'UNASSIGNED',
   ].join('::');
 }
