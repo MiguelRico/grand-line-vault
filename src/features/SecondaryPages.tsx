@@ -46,12 +46,12 @@ function BoxEditor({ box, onClose }: { box: StorageBox | null; onClose: () => vo
     <ResponsiveDialog
       open={Boolean(box)}
       onOpenChange={(open) => !open && onClose()}
-      title="Editar caja"
+      title="Editar contenedor"
     >
       {draft && (
         <div>
           <p className="text-xs font-bold uppercase tracking-wide text-violet">Almacenamiento</p>
-          <h2 className="mt-1 pr-10 text-2xl font-black">Configurar caja</h2>
+          <h2 className="mt-1 pr-10 text-2xl font-black">Configurar contenedor</h2>
           <div className="mt-6 grid gap-4 sm:grid-cols-2">
             <label className="text-sm font-semibold">
               Nombre
@@ -171,7 +171,7 @@ function BoxEditor({ box, onClose }: { box: StorageBox | null; onClose: () => vo
             disabled={!draft.name.trim() || draft.sections.length === 0 || save.isPending}
             onClick={() => save.mutate({ ...draft, updatedAt: new Date().toISOString() })}
           >
-            Guardar caja y secciones
+            Guardar contenedor y secciones
           </Button>
         </div>
       )}
@@ -196,7 +196,7 @@ export function BoxesPage() {
     const now = new Date().toISOString();
     setSelected({
       id: crypto.randomUUID(),
-      name: 'Nueva caja',
+      name: 'Nuevo contenedor',
       sections: [{ id: crypto.randomUUID(), code: 'A', name: 'Sección principal' }],
       createdAt: now,
       updatedAt: now,
@@ -205,19 +205,19 @@ export function BoxesPage() {
   return (
     <div className="mx-auto max-w-[1400px] p-4 sm:p-6 lg:p-8">
       <PageHeader
-        title="Cajas y secciones"
-        subtitle="El mapa físico de todo tu inventario"
+        title="Organización"
+        subtitle="Gestiona los contenedores y secciones de tu inventario"
         action={
           <Button onClick={createBox}>
-            <Plus className="size-4" /> Nueva caja
+            <Plus className="size-4" /> Nuevo contenedor
           </Button>
         }
       />
       {!boxes.data?.length ? (
         <EmptyState
-          title="Aún no hay cajas"
-          description="Crea tu primera caja y divídela en secciones para empezar a ubicar cartas."
-          action={<Button onClick={createBox}>Crear primera caja</Button>}
+          title="Aún no hay contenedores"
+          description="Crea tu primer contenedor y divídelo en secciones para empezar a ubicar cartas."
+          action={<Button onClick={createBox}>Crear primer contenedor</Button>}
         />
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
@@ -288,7 +288,7 @@ export function BoxesPage() {
                     onClick={() => {
                       const inUse = (collection.data ?? []).some((item) => item.boxId === box.id);
                       if (inUse) {
-                        window.alert('Mueve primero las cartas asignadas a esta caja.');
+                        window.alert('Mueve primero las cartas asignadas a este contenedor.');
                       } else if (window.confirm(`¿Eliminar ${box.name}?`)) {
                         remove.mutate(box.id);
                       }

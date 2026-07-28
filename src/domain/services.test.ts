@@ -25,7 +25,7 @@ describe('collection domain', () => {
   });
 
   it('resolves physical locations', () => {
-    expect(sectionLabel(initialBoxes, 'box-1', 'section-a')).toContain('Caja principal');
+    expect(sectionLabel(initialBoxes, 'box-1', 'section-a')).toContain('Contenedor principal');
     expect(sectionLabel(initialBoxes)).toBe('Sin ubicar');
   });
 

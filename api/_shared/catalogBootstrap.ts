@@ -14,7 +14,9 @@ export type StaticCatalogCard = {
   category: string;
   colors: string[];
   cost: number | null;
+  life: number | null;
   power: number | null;
+  counter: number | null;
   attributes: string[];
   imageUrl: string;
   variant: { type: string; number: number | null };
@@ -147,7 +149,9 @@ export function buildCatalogDocuments(cards: StaticCatalogCard[], generatedAt: s
         card_type: normalizeIndexText(base.category) || 'UNKNOWN',
         colors,
         cost: base.cost,
+        life: base.life,
         power: base.power,
+        counter: base.counter,
         attributes: base.attributes,
       },
       variantTypes,

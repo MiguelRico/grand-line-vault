@@ -19,7 +19,7 @@ import { useAuth } from '../app/providers/AuthProvider';
 const navigation = [
   { to: '/catalog', label: 'Explorar cartas', icon: BookOpen },
   { to: '/collection', label: 'Mi colección', icon: Library },
-  { to: '/boxes', label: 'Cajas y secciones', icon: Archive },
+  { to: '/boxes', label: 'Organización', icon: Archive },
   { to: '/sales-packs', label: 'Packs de venta', icon: ShoppingBag },
   { to: '/statistics', label: 'Estadísticas', icon: BarChart3 },
   { to: '/catalog-statistics', label: 'Catálogo', icon: ChartNoAxesColumnIncreasing },

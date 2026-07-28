@@ -48,7 +48,11 @@ export function CardDetails({
         catalogCard?.tcggoId ?? cardId ?? null,
         signal,
         catalogCard
-          ? { cardNumber: catalogCard.card_number, catalogId: catalogCard.id }
+          ? {
+              cardNumber: catalogCard.card_number,
+              catalogId: catalogCard.id,
+              indexCard: catalogCard,
+            }
           : undefined,
       ),
     enabled: Boolean(detailId),
@@ -212,6 +216,12 @@ export function CardDetails({
     .filter((item) => item.cardVariantId === selectedCollectionId)
     .reduce((sum, item) => sum + item.quantity, 0);
   const copyLabel = quantity === 1 ? 'copia' : 'copias';
+  const returnedPrintCount = baseCard
+    ? (baseCard.printings?.length ?? baseCard.artworks.length + 1)
+    : 0;
+  const missingPrintCount = catalogCard
+    ? Math.max(0, catalogCard.totalVariants - returnedPrintCount)
+    : 0;
 
   return (
     <ResponsiveDialog
@@ -318,6 +328,17 @@ export function CardDetails({
                   ))}
                 </div>
               </div>
+            )}
+            {missingPrintCount > 0 && (
+              <p
+                role="status"
+                className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900"
+              >
+                El índice registra {catalogCard?.totalVariants}{' '}
+                {catalogCard?.totalVariants === 1 ? 'impresión' : 'impresiones'}, pero el detalle
+                disponible devuelve {returnedPrintCount}. Pueden faltar {missingPrintCount}{' '}
+                {missingPrintCount === 1 ? 'variante' : 'variantes'}.
+              </p>
             )}
           </div>
           <div className="min-w-0 pt-2">

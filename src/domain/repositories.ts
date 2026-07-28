@@ -16,7 +16,11 @@ export interface CardDetailRepository {
   getById(
     tcggoId: string | null,
     signal?: AbortSignal,
-    fallback?: { cardNumber: string; catalogId: string },
+    fallback?: {
+      cardNumber: string;
+      catalogId: string;
+      indexCard?: CatalogCard;
+    },
   ): Promise<CardDetail | null>;
   getVariantById(tcggoId: string, signal?: AbortSignal): Promise<CardDetail | null>;
 }

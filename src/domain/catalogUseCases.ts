@@ -1,30 +1,37 @@
 import type { CatalogCriteria } from './models';
-import type { CatalogRepository } from './repositories';
+import type { CardDetailRepository, CatalogIndexRepository } from './repositories';
 
 export class CatalogUseCases {
-  constructor(private readonly repository: CatalogRepository) {}
+  constructor(
+    private readonly indexRepository: CatalogIndexRepository,
+    private readonly detailRepository: CardDetailRepository,
+  ) {}
 
   search(criteria: CatalogCriteria, signal?: AbortSignal) {
-    return this.repository.search(criteria, signal);
+    return this.indexRepository.search(criteria, signal);
   }
 
   listSets(signal?: AbortSignal) {
-    return this.repository.listSets(signal);
+    return this.indexRepository.listSets(signal);
   }
 
   getIndexCard(catalogId: string, signal?: AbortSignal) {
-    return this.repository.getIndexCard(catalogId, signal);
+    return this.indexRepository.getIndexCard(catalogId, signal);
   }
 
   getById(
     tcggoId: string | null,
     signal?: AbortSignal,
-    fallback?: { cardNumber: string; catalogId: string },
+    fallback?: {
+      cardNumber: string;
+      catalogId: string;
+      indexCard?: import('./models').CatalogCard;
+    },
   ) {
-    return this.repository.getById(tcggoId, signal, fallback);
+    return this.detailRepository.getById(tcggoId, signal, fallback);
   }
 
   getVariantById(tcggoId: string, signal?: AbortSignal) {
-    return this.repository.getVariantById(tcggoId, signal);
+    return this.detailRepository.getVariantById(tcggoId, signal);
   }
 }

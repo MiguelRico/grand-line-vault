@@ -6,6 +6,10 @@ const schema = z.object({
     .enum(['true', 'false'])
     .default('true')
     .transform((value) => value === 'true'),
+  VITE_USE_MOCK_CARD_DETAIL: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
   VITE_DEFAULT_CURRENCY: z.string().length(3).default('EUR'),
   VITE_DEFAULT_PAGE_SIZE: z.coerce.number().int().min(8).max(100).default(24),
   VITE_SHOW_CATALOG_NORMALIZATION: z

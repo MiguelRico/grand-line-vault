@@ -12,6 +12,7 @@ npm run dev
 Variables principales:
 
 - `VITE_USE_MOCK_DATA=true|false`
+- `VITE_USE_MOCK_CARD_DETAIL=true|false`
 - `VITE_DEFAULT_CURRENCY=EUR`
 - `VITE_DEFAULT_PAGE_SIZE=24`
 - `VITE_CARD_DETAIL_CACHE_TTL_MS=300000`
@@ -19,6 +20,11 @@ Variables principales:
 - variables de Firebase Admin y autenticación documentadas en `.env.example`
 
 Las credenciales TCGGO nunca se exponen mediante variables `VITE_`.
+
+`VITE_USE_MOCK_CARD_DETAIL=true` sustituye únicamente el proveedor de detalle por uno
+completamente local. El listado continúa usando el índice, no se realizan peticiones de detalle a
+TCGGO y la pantalla conserva la imagen y las estadísticas de juego del índice. Su valor
+predeterminado es `false`.
 
 ## Catálogo
 

@@ -107,7 +107,11 @@ export class HybridCatalogRepository implements CatalogRepository {
   async getById(
     tcggoId: string | null,
     signal?: AbortSignal,
-    fallback?: { cardNumber: string; catalogId: string },
+    fallback?: {
+      cardNumber: string;
+      catalogId: string;
+      indexCard?: CatalogCard;
+    },
   ): Promise<CardDetail | null> {
     const cacheKey = tcggoId ?? fallback?.catalogId ?? fallback?.cardNumber ?? '';
     const cached = this.cache.get(cacheKey);

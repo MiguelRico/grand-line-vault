@@ -167,7 +167,10 @@ export interface CatalogCard {
   rarity_normalized: CanonicalRarity;
   color: string | null;
   artist?: CatalogArtist | null;
-  game: Pick<CardGameDetails, 'card_type' | 'colors' | 'cost' | 'power' | 'attributes'>;
+  game: Pick<
+    CardGameDetails,
+    'card_type' | 'colors' | 'cost' | 'life' | 'power' | 'counter' | 'attributes'
+  >;
   variantTypes: CardVariantType[];
   /** Variantes adicionales a la impresión base. */
   variantCount: number;

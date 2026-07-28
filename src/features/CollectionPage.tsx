@@ -157,7 +157,7 @@ function CollectionEditor({ item, onClose }: { item: CollectionItem | null; onCl
             </div>
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
               <label className="text-sm font-semibold">
-                Caja
+                Contenedor
                 <select
                   value={draft.boxId ?? ''}
                   onChange={(event) =>
@@ -352,7 +352,7 @@ function CollectionFilterDrawer({
         </div>
         <div className="mt-7 space-y-5">
           <label className="block text-sm font-semibold">
-            Caja
+            Contenedor
             <select
               value={filters.boxId}
               onChange={(event) =>
@@ -365,7 +365,7 @@ function CollectionFilterDrawer({
               }
               className="mt-2 h-11 w-full rounded-lg border-slate-300"
             >
-              <option value="">Todas las cajas</option>
+              <option value="">Todos los contenedores</option>
               {boxes.map((box) => (
                 <option key={box.id} value={box.id}>
                   {box.name}
@@ -520,7 +520,7 @@ export function CollectionPage() {
     const selectedSection = selectedBox?.sections.find(
       (section) => section.id === filters.sectionId,
     );
-    if (filters.boxId) chips.push({ key: 'boxId', label: selectedBox?.name ?? 'Caja' });
+    if (filters.boxId) chips.push({ key: 'boxId', label: selectedBox?.name ?? 'Contenedor' });
     if (filters.sectionId)
       chips.push({
         key: 'sectionId',

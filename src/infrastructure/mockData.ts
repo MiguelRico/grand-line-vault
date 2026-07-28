@@ -149,7 +149,7 @@ export const initialCollection = mockCards
 export const initialBoxes: StorageBox[] = [
   {
     id: 'box-1',
-    name: 'Caja principal',
+    name: 'Contenedor principal',
     description: 'Cartas de Romance Dawn',
     location: 'Estantería A',
     sections: [
@@ -161,7 +161,7 @@ export const initialBoxes: StorageBox[] = [
   },
   {
     id: 'box-2',
-    name: 'Caja de duplicadas',
+    name: 'Contenedor de duplicadas',
     location: 'Estantería B',
     sections: [
       { id: 'section-a', code: 'A', name: 'Preparadas para venta', capacity: 100 },

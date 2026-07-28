@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Card } from '../domain/models';
+import type { Card, CatalogCard } from '../domain/models';
 import { CardDetails } from './CardDetails';
 
 const serviceMocks = vi.hoisted(() => ({
@@ -138,6 +138,40 @@ const collectionItems = [
   },
 ];
 
+const indexCard: CatalogCard = {
+  id: 'CARD::OP01-001',
+  tcggoId: '10',
+  name: card.name,
+  normalizedName: 'MONKEY D. LUFFY',
+  card_number: card.card_number,
+  normalized_card_number: card.normalized_card_number,
+  image: card.image,
+  episode: {
+    id: card.episode.id,
+    name: card.episode.name,
+    code: card.episode.code,
+    normalized_code: card.episode.normalized_code,
+  },
+  setCodes: ['OP-01'],
+  rarity: card.rarity,
+  rarity_normalized: card.rarity_normalized,
+  color: card.color,
+  artist: card.artist,
+  game: {
+    card_type: card.game.card_type,
+    colors: card.game.colors,
+    cost: card.game.cost,
+    life: card.game.life,
+    power: card.game.power,
+    counter: card.game.counter,
+    attributes: card.game.attributes,
+  },
+  variantTypes: ['BASE', 'PARALLEL'],
+  variantCount: 5,
+  totalVariants: 6,
+  source: card.source,
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
   serviceMocks.getById.mockResolvedValue(card);
@@ -245,5 +279,25 @@ describe('CardDetails', () => {
       }),
     );
     expect(await screen.findByText('Se han añadido 2 copias de Parallel 1.')).toBeInTheDocument();
+  });
+
+  it('warns when the index reports more prints than the detail provides', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <CardDetails card={indexCard} onClose={vi.fn()} />
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByText(/El índice registra 6 impresiones/)).toHaveTextContent(
+      'Pueden faltar 4 variantes',
+    );
+    expect(serviceMocks.getById).toHaveBeenCalledWith(
+      '10',
+      expect.any(AbortSignal),
+      expect.objectContaining({ indexCard }),
+    );
   });
 });

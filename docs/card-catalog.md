@@ -5,14 +5,35 @@
 El catálogo activo separa la proyección de búsqueda del detalle:
 
 ```text
-React → CatalogUseCases → CatalogRepository
-                         ├─ índice: API propia → Firestore
-                         └─ detalle: API propia → cliente TCGGO → mapper → CardDetail
+React → CatalogUseCases
+        ├─ índice: CatalogIndexRepository → API propia → Firestore
+        └─ detalle: CardDetailRepository
+                    ├─ real → API propia → cliente TCGGO → mapper → CardDetail
+                    └─ mock → datos del índice → CardDetail completo simulado
 ```
 
 Los componentes no conocen el formato de TCGGO y nunca lo consultan directamente. La
 implementación activa es `HybridCatalogRepository`; sustituir el proveedor requiere otra
 implementación de los puertos definidos en `src/domain/repositories.ts`.
+
+## Detalle mock
+
+`VITE_USE_MOCK_CARD_DETAIL=true` selecciona `MockCardDetailRepository` en la composición de
+dependencias. El componente React utiliza el mismo caso de uso y el mismo modelo `CardDetail` con
+ambos proveedores.
+
+En este modo:
+
+- no se ejecuta ninguna petición HTTP de detalle ni se registra un identificador TCGGO;
+- se conservan la imagen, coste, vidas, poder y counter de `CatalogCard`;
+- se rellenan artista, mercados, precios, enlaces, expansión, efectos, trigger, DON!!,
+  procedencia, impresiones y artes con valores simulados;
+- las variantes simuladas se resuelven desde memoria;
+- la interfaz avisa si `totalVariants` del índice supera las impresiones devueltas.
+
+El valor predeterminado es `false`, por lo que retirar la variable reactiva el repositorio real sin
+modificar la UI. Esta variable no contiene secretos; las credenciales TCGGO continúan siendo
+exclusivamente variables de servidor.
 
 ## Modelos
 
