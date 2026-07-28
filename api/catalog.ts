@@ -396,8 +396,8 @@ async function bootstrap(req: VercelRequest, res: VercelResponse): Promise<void>
     writes.push(
       writer.set(firestore.collection('catalogSets').doc(document.id), document, { merge: true }),
     );
-  await Promise.all(writes);
   await writer.close();
+  await Promise.all(writes);
   json(res, 200, {
     catalogVersion: manifest.catalogVersion,
     cards: catalogDocuments.length,
