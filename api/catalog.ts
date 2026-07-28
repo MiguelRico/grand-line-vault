@@ -357,6 +357,7 @@ async function bootstrap(req: VercelRequest, res: VercelResponse): Promise<void>
   if (!hostname) throw new Error('VERCEL_ORIGIN_NOT_CONFIGURED');
   const origin = hostname.startsWith('http') ? hostname : `https://${hostname}`;
   const manifest = await staticJson<StaticCatalogManifest>(origin, '/catalog/manifest.json');
+  const resetToStatic = single(req.query.reset) === 'true';
   const [cardsPayload, setsPayload] = await Promise.all([
     staticJson<{ cards: StaticCatalogCard[] }>(origin, manifest.cardsUrl),
     staticJson<{ sets: StaticCatalogSet[] }>(origin, manifest.setsUrl),
@@ -364,12 +365,14 @@ async function bootstrap(req: VercelRequest, res: VercelResponse): Promise<void>
   const catalogDocuments = buildCatalogDocuments(cardsPayload.cards, manifest.generatedAt);
   const setDocuments = buildSetDocuments(setsPayload.sets, manifest.generatedAt);
   const firestore = db();
-  const existingSnapshot = await firestore
-    .collection('catalogIndex')
-    .select('tcggoId', 'image', 'artist', 'source', 'enrichedAt')
-    .get();
+  const existingSnapshot = resetToStatic
+    ? null
+    : await firestore
+        .collection('catalogIndex')
+        .select('tcggoId', 'image', 'artist', 'source', 'enrichedAt')
+        .get();
   const existingById = new Map(
-    existingSnapshot.docs.map((document) => [document.id, document.data()]),
+    existingSnapshot?.docs.map((document) => [document.id, document.data()]) ?? [],
   );
   const writer = firestore.bulkWriter();
   const writes: Promise<unknown>[] = [];
@@ -386,22 +389,28 @@ async function bootstrap(req: VercelRequest, res: VercelResponse): Promise<void>
             enrichedAt: existing.enrichedAt,
           }
         : document;
+    const reference = firestore.collection('catalogIndex').doc(document.id);
     writes.push(
-      writer.set(firestore.collection('catalogIndex').doc(document.id), enrichedDocument, {
-        merge: true,
-      }),
+      resetToStatic
+        ? writer.set(reference, document)
+        : writer.set(reference, enrichedDocument, { merge: true }),
     );
   }
-  for (const document of setDocuments)
+  for (const document of setDocuments) {
+    const reference = firestore.collection('catalogSets').doc(document.id);
     writes.push(
-      writer.set(firestore.collection('catalogSets').doc(document.id), document, { merge: true }),
+      resetToStatic
+        ? writer.set(reference, document)
+        : writer.set(reference, document, { merge: true }),
     );
+  }
   await writer.close();
   await Promise.all(writes);
   json(res, 200, {
     catalogVersion: manifest.catalogVersion,
     cards: catalogDocuments.length,
     sets: setDocuments.length,
+    resetToStatic,
   });
 }
 
