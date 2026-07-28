@@ -39,10 +39,10 @@ El listado, la búsqueda, los filtros, la ordenación y el scroll infinito no co
 detalle se solicita bajo demanda y se conserva en una caché local con TTL. Si TCGGO no responde,
 la interfaz mantiene visible la ficha mínima procedente de Firestore.
 
-El sincronizador independiente se encuentra en
-`google-apps-script/catalog-sync`. El catálogo JSON histórico sigue en el repositorio por
-compatibilidad y validación, pero no es una fuente seleccionable ni participa en el flujo del
-catálogo.
+Los JSON generados desde la web oficial son la fuente canónica para construir `catalogIndex` y
+`catalogSets`. El bootstrap protegido valida esos ficheros y reconstruye la proyección de
+Firestore. Las imágenes oficiales permanecen referenciadas en el índice y se entregan al navegador
+mediante el proxy del mismo origen.
 
 La guía de arquitectura y operación está en
 [docs/card-catalog.md](docs/card-catalog.md).

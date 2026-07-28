@@ -44,8 +44,8 @@ exclusivamente variables de servidor.
 - `Price`: precio normalizado.
 
 `CatalogCard` no contiene habilidades, trigger, DON!!, variantes completas, imágenes de variantes
-ni precios. Los snapshots de la colección mantienen su esquema versionado y sus identificadores de
-origen, por lo que los registros ya persistidos continúan siendo válidos.
+ni precios. Los snapshots de la colección se validan contra el esquema actual y conservan sus
+identificadores normalizados de carta, impresión y proveedor.
 
 ## Índice de Firestore
 
@@ -55,8 +55,7 @@ El endpoint `/api/catalog?action=index` consulta exclusivamente:
 - `catalogSets`: expansiones disponibles.
 
 La paginación utiliza cursores estables formados por el campo de ordenación y el ID del documento.
-Los rangos de coste y poder se materializan como facetas booleanas durante la sincronización para
-evitar consultas de desigualdad incompatibles con otras ordenaciones. Los índices compuestos de
+Los filtros se aplican sobre los campos normalizados de la proyección y los índices compuestos de
 búsqueda están declarados en `firestore.indexes.json`.
 
 ## Detalle y caché
@@ -70,21 +69,16 @@ el DTO a `CardDetail`.
 `VITE_CARD_DETAIL_CACHE_TTL_MS`. Un fallo conserva la información básica de `CatalogCard` y permite
 reintentar sin bloquear la aplicación.
 
-## Sincronización
+## Construcción del índice
 
-`google-apps-script/catalog-sync` contiene un proceso independiente del frontend. Recorre TCGGO,
-agrupa impresiones por número de carta y actualiza:
+El scraper de `scraper/` genera los JSON versionados de `public/catalog` desde la web oficial. El
+bootstrap protegido de `/api/catalog` agrupa las impresiones por carta y reconstruye:
 
-- cartas y expansiones nuevas;
-- miniaturas;
-- campos filtrables;
-- artista;
-- número y clases de variantes;
-- prefijos y campos auxiliares de ordenación.
+- `catalogIndex`, con los datos mínimos del listado, filtros y conteo de variantes;
+- `catalogSets`, con las expansiones disponibles.
 
-Nunca persiste efectos, triggers, DON!!, precios, históricos, variantes completas ni imágenes de
-variantes. Consulta su README para configurar Script Properties, ejecutar la carga inicial e
-instalar el trigger diario.
+La operación no consulta TCGGO. Los datos completos se obtienen únicamente al abrir el detalle
+cuando el proveedor real está activo.
 
 ## Variables de servidor
 
@@ -93,11 +87,9 @@ Preferidas:
 - `TCGGO_API_KEY`
 - `TCGGO_API_BASE_URL`
 
-Los nombres históricos `ONE_PIECE_API_KEY` y `ONE_PIECE_API_BASE_URL` se aceptan temporalmente para
-no romper despliegues existentes. Ninguna clave debe usar el prefijo `VITE_`.
+Ninguna clave debe usar el prefijo `VITE_`.
 
-## Catálogo histórico
+## Catálogo estático oficial
 
-Los JSON y adaptadores estáticos anteriores permanecen únicamente por compatibilidad y por sus
-pruebas de migración. `ServicesProvider` no los instancia, Ajustes no permite seleccionarlos y el
-flujo activo no los descarga.
+Los JSON versionados son la entrada canónica del índice y alimentan también las estadísticas del
+catálogo. No son una fuente alternativa seleccionable desde Ajustes.

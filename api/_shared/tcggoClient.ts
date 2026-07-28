@@ -21,7 +21,7 @@ async function throttle(): Promise<void> {
 }
 
 function configuration(): { apiKey: string; baseUrl: string } {
-  const apiKey = (process.env.TCGGO_API_KEY ?? process.env.ONE_PIECE_API_KEY)?.trim();
+  const apiKey = process.env.TCGGO_API_KEY?.trim();
   if (!apiKey) {
     throw new TcggoError(
       'NOT_CONFIGURED',
@@ -31,9 +31,7 @@ function configuration(): { apiKey: string; baseUrl: string } {
   }
   return {
     apiKey,
-    baseUrl:
-      (process.env.TCGGO_API_BASE_URL ?? process.env.ONE_PIECE_API_BASE_URL)?.trim() ||
-      DEFAULT_BASE_URL,
+    baseUrl: process.env.TCGGO_API_BASE_URL?.trim() || DEFAULT_BASE_URL,
   };
 }
 
