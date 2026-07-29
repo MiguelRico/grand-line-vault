@@ -27,7 +27,7 @@ import {
   type CollectionCardGroup,
   type CollectionVariantGroup,
 } from '../domain/collectionGrouping';
-import { calculateCollectionStats, sectionLabel } from '../domain/services';
+import { calculateCollectionStats, reservedQuantities, sectionLabel } from '../domain/services';
 import { PageHeader } from '../shared/AppShell';
 import { OnePieceLoader } from '../shared/OnePieceLoader';
 import {
@@ -235,12 +235,16 @@ function CollectionCardDetail({
   const queryClient = useQueryClient();
   const [activeVariantKey, setActiveVariantKey] = useState('BASE');
   const [draftQuantities, setDraftQuantities] = useState<Record<string, number>>({});
+  const [packDrafts, setPackDrafts] = useState<
+    Record<string, { packId: string; quantity: number }>
+  >({});
 
   useEffect(() => {
     setActiveVariantKey(group?.variants[0] ? variantKey(group.variants[0]) : 'BASE');
     setDraftQuantities(
       Object.fromEntries((group?.items ?? []).map((item) => [item.id, item.quantity])),
     );
+    setPackDrafts({});
   }, [group]);
 
   const updateItem = useMutation({
@@ -270,6 +274,45 @@ function CollectionCardDetail({
       ]);
     },
   });
+  const addToPack = useMutation({
+    mutationFn: async ({
+      item,
+      packId,
+      quantity,
+    }: {
+      item: CollectionItem;
+      packId: string;
+      quantity: number;
+    }) => {
+      const pack = packs.find((candidate) => candidate.id === packId);
+      if (!pack || !['DRAFT', 'READY'].includes(pack.status))
+        throw new Error('El pack seleccionado ya no admite cartas.');
+      if (pack.items.some((packItem) => packItem.collectionItemId === item.id))
+        throw new Error('Este lote ya pertenece al pack seleccionado.');
+      const available = item.quantity - (reservedQuantities(packs).get(item.id) ?? 0);
+      if (quantity < 1 || quantity > available)
+        throw new Error('La cantidad supera las copias disponibles.');
+      return services.organization.saveSalesPack({
+        ...pack,
+        items: [
+          ...pack.items,
+          {
+            id: crypto.randomUUID(),
+            collectionItemId: item.id,
+            quantity,
+          },
+        ],
+        updatedAt: new Date().toISOString(),
+      });
+    },
+    onSuccess: async (_, variables) => {
+      setPackDrafts((current) => ({
+        ...current,
+        [variables.item.id]: { packId: '', quantity: 1 },
+      }));
+      await queryClient.invalidateQueries({ queryKey: ['sales-packs'] });
+    },
+  });
 
   if (!group) return null;
   const activeVariant =
@@ -285,6 +328,7 @@ function CollectionCardDetail({
     ['TCGPlayer', card.links?.tcgplayer],
     ['TCGGO', card.tcggo_url],
   ].filter((entry): entry is [string, string] => Boolean(entry[1]));
+  const reserved = reservedQuantities(packs);
 
   return (
     <ResponsiveDialog
@@ -458,55 +502,22 @@ function CollectionCardDetail({
                     .filter((packItem) => packItem.collectionItemId === item.id)
                     .map((packItem) => ({ pack, quantity: packItem.quantity })),
                 );
+                const availablePacks = packs.filter(
+                  (pack) =>
+                    ['DRAFT', 'READY'].includes(pack.status) &&
+                    !pack.items.some((packItem) => packItem.collectionItemId === item.id),
+                );
+                const availableQuantity = Math.max(0, item.quantity - (reserved.get(item.id) ?? 0));
+                const packDraft = packDrafts[item.id] ?? { packId: '', quantity: 1 };
+                const assignmentQuantity = Math.min(
+                  packDraft.quantity,
+                  Math.max(1, availableQuantity),
+                );
                 return (
                   <article key={item.id} className="rounded-xl border border-slate-200 p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="font-bold">
-                          {item.language} · {conditionLabels[item.condition]} · ×{item.quantity}
-                        </p>
-                        <p className="mt-1 flex items-start gap-1.5 text-sm text-violet">
-                          <Archive className="mt-0.5 size-3.5 shrink-0" />
-                          {sectionLabel(boxes, item.boxId, item.sectionId)}
-                        </p>
-                      </div>
-                      <Button
-                        variant="secondary"
-                        onClick={() => onOrganize(item)}
-                        className="shrink-0"
-                        aria-label={`Ubicar lote de ${activeLabel}`}
-                      >
-                        <Archive className="size-4" /> Ubicar
-                      </Button>
-                    </div>
-                    <div className="mt-4 flex flex-wrap items-end justify-between gap-3 border-y border-slate-100 py-4">
-                      <div>
-                        <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">
-                          Cantidad
-                        </p>
-                        <QuantitySelector
-                          value={draftQuantities[item.id] ?? item.quantity}
-                          min={1}
-                          max={999}
-                          onChange={(quantity) =>
-                            setDraftQuantities((current) => ({
-                              ...current,
-                              [item.id]: quantity,
-                            }))
-                          }
-                        />
-                      </div>
-                      <FavoriteButton
-                        active={item.favorite}
-                        onClick={() =>
-                          updateItem.mutate({
-                            ...item,
-                            favorite: !item.favorite,
-                            updatedAt: new Date().toISOString(),
-                          })
-                        }
-                      />
-                    </div>
+                    <p className="font-bold">
+                      {item.language} · {conditionLabels[item.condition]} · ×{item.quantity}
+                    </p>
                     <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-600">
                       {item.favorite && (
                         <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2.5 py-1 font-semibold text-red-700">
@@ -525,49 +536,31 @@ function CollectionCardDetail({
                         {item.notes}
                       </p>
                     )}
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      <Button
-                        className="flex-1"
-                        disabled={
-                          updateItem.isPending ||
-                          (draftQuantities[item.id] ?? item.quantity) === item.quantity
-                        }
-                        onClick={() =>
-                          updateItem.mutate({
-                            ...item,
-                            quantity: draftQuantities[item.id] ?? item.quantity,
-                            updatedAt: new Date().toISOString(),
-                          })
-                        }
-                      >
-                        {updateItem.isPending ? 'Guardando…' : 'Actualizar cantidad'}
-                      </Button>
-                      <Button
-                        variant="danger"
-                        disabled={removeItem.isPending}
-                        onClick={() => {
-                          const packNotice =
-                            memberships.length > 0
-                              ? ` También se retirará de ${memberships.length} ${
-                                  memberships.length === 1 ? 'pack' : 'packs'
-                                } de venta.`
-                              : '';
-                          if (
-                            window.confirm(
-                              `¿Eliminar este lote de ${activeLabel} de tu colección?${packNotice}`,
-                            )
-                          ) {
-                            removeItem.mutate(item);
-                          }
-                        }}
-                      >
-                        <Trash2 className="size-4" /> Eliminar lote
-                      </Button>
-                    </div>
-                    <div className="mt-3 border-t border-slate-100 pt-3">
-                      <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-slate-500">
+                    <section className="mt-4 rounded-xl bg-slate-50 p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <h4 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-slate-500">
+                            <Archive className="size-3.5" /> Ubicación
+                          </h4>
+                          <p className="mt-1 text-sm font-semibold text-violet">
+                            {sectionLabel(boxes, item.boxId, item.sectionId)}
+                          </p>
+                        </div>
+                        <Button
+                          variant="secondary"
+                          onClick={() => onOrganize(item)}
+                          className="shrink-0"
+                          aria-label={`Ubicar lote de ${activeLabel}`}
+                        >
+                          <Archive className="size-4" /> Ubicar
+                        </Button>
+                      </div>
+                    </section>
+
+                    <section className="mt-3 rounded-xl border border-slate-200 p-4">
+                      <h4 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-slate-500">
                         <ShoppingBag className="size-3.5" /> Packs de venta
-                      </p>
+                      </h4>
                       {memberships.length > 0 ? (
                         <div className="mt-2 space-y-2">
                           {memberships.map(({ pack, quantity }) => (
@@ -598,7 +591,155 @@ function CollectionCardDetail({
                           Este lote no pertenece a ningún pack.
                         </p>
                       )}
-                    </div>
+                      {availablePacks.length > 0 && availableQuantity > 0 ? (
+                        <div className="mt-4 grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-[1fr_auto]">
+                          <label className="text-sm font-semibold">
+                            Añadir a un pack
+                            <select
+                              value={packDraft.packId}
+                              onChange={(event) =>
+                                setPackDrafts((current) => ({
+                                  ...current,
+                                  [item.id]: {
+                                    packId: event.target.value,
+                                    quantity: assignmentQuantity,
+                                  },
+                                }))
+                              }
+                              className="mt-2 h-11 w-full rounded-lg border-slate-300"
+                            >
+                              <option value="">Selecciona un pack</option>
+                              {availablePacks.map((pack) => (
+                                <option key={pack.id} value={pack.id}>
+                                  {pack.name} · {packStatusLabels[pack.status]}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <div>
+                            <p className="mb-2 text-sm font-semibold">
+                              Copias ({availableQuantity} disp.)
+                            </p>
+                            <QuantitySelector
+                              value={assignmentQuantity}
+                              min={1}
+                              max={availableQuantity}
+                              onChange={(quantity) =>
+                                setPackDrafts((current) => ({
+                                  ...current,
+                                  [item.id]: { ...packDraft, quantity },
+                                }))
+                              }
+                            />
+                          </div>
+                          <Button
+                            className="sm:col-span-2"
+                            disabled={!packDraft.packId || addToPack.isPending}
+                            onClick={() =>
+                              addToPack.mutate({
+                                item,
+                                packId: packDraft.packId,
+                                quantity: assignmentQuantity,
+                              })
+                            }
+                          >
+                            <ShoppingBag className="size-4" />
+                            {addToPack.isPending ? 'Añadiendo…' : 'Añadir al pack de venta'}
+                          </Button>
+                        </div>
+                      ) : packs.length === 0 ? (
+                        <p className="mt-3 text-sm text-slate-500">
+                          Aún no hay packs.{' '}
+                          <Link to="/sales-packs" className="font-semibold text-violet">
+                            Crear un pack de venta
+                          </Link>
+                        </p>
+                      ) : availableQuantity === 0 ? (
+                        <p className="mt-3 text-sm font-semibold text-amber-700">
+                          Todas las copias de este lote ya están reservadas.
+                        </p>
+                      ) : (
+                        <p className="mt-3 text-sm text-slate-500">
+                          Este lote ya está incluido en todos los packs editables.
+                        </p>
+                      )}
+                      {addToPack.isError && addToPack.variables?.item.id === item.id && (
+                        <p role="alert" className="mt-3 text-sm font-semibold text-red-700">
+                          {addToPack.error.message}
+                        </p>
+                      )}
+                    </section>
+
+                    <section className="mt-3 rounded-xl border border-slate-200 p-4">
+                      <h4 className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                        Modificar o eliminar lote
+                      </h4>
+                      <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
+                        <div>
+                          <p className="mb-2 text-sm font-semibold">Cantidad</p>
+                          <QuantitySelector
+                            value={draftQuantities[item.id] ?? item.quantity}
+                            min={1}
+                            max={999}
+                            onChange={(quantity) =>
+                              setDraftQuantities((current) => ({
+                                ...current,
+                                [item.id]: quantity,
+                              }))
+                            }
+                          />
+                        </div>
+                        <FavoriteButton
+                          active={item.favorite}
+                          onClick={() =>
+                            updateItem.mutate({
+                              ...item,
+                              favorite: !item.favorite,
+                              updatedAt: new Date().toISOString(),
+                            })
+                          }
+                        />
+                      </div>
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <Button
+                          className="flex-1"
+                          disabled={
+                            updateItem.isPending ||
+                            (draftQuantities[item.id] ?? item.quantity) === item.quantity
+                          }
+                          onClick={() =>
+                            updateItem.mutate({
+                              ...item,
+                              quantity: draftQuantities[item.id] ?? item.quantity,
+                              updatedAt: new Date().toISOString(),
+                            })
+                          }
+                        >
+                          {updateItem.isPending ? 'Guardando…' : 'Actualizar cantidad'}
+                        </Button>
+                        <Button
+                          variant="danger"
+                          disabled={removeItem.isPending}
+                          onClick={() => {
+                            const packNotice =
+                              memberships.length > 0
+                                ? ` También se retirará de ${memberships.length} ${
+                                    memberships.length === 1 ? 'pack' : 'packs'
+                                  } de venta.`
+                                : '';
+                            if (
+                              window.confirm(
+                                `¿Eliminar este lote de ${activeLabel} de tu colección?${packNotice}`,
+                              )
+                            ) {
+                              removeItem.mutate(item);
+                            }
+                          }}
+                        >
+                          <Trash2 className="size-4" /> Eliminar lote
+                        </Button>
+                      </div>
+                    </section>
                   </article>
                 );
               })}
