@@ -10,7 +10,7 @@
   ShoppingBag,
   Trash2,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { useServices } from '../app/providers/ServicesProvider';
@@ -43,19 +43,36 @@ function CollectionThumbnails({
   const visible = entries.slice(0, 6);
   const remaining = entries.length - visible.length;
   return (
-    <div className="mt-4 flex items-center">
-      <div className="flex -space-x-3" aria-label={`${entries.length} cartas diferentes`}>
+    <div className="mt-4">
+      <div
+        className="flex gap-3 overflow-x-auto pb-2"
+        aria-label={`${entries.length} cartas diferentes`}
+      >
         {visible.map(({ id, item }) => (
-          <CardImage
-            key={id}
-            src={collectionItemImage(item)}
-            alt={item?.card.name ?? 'Carta no disponible'}
-            className="w-12 shrink-0 border-2 border-white shadow-sm"
-            showFailureText={false}
-          />
+          <div key={id} className="w-20 shrink-0">
+            <CardImage
+              src={collectionItemImage(item)}
+              alt={item?.card.name ?? 'Carta no disponible'}
+              className="w-full border-2 border-white shadow-sm"
+              showFailureText={false}
+            />
+            <p className="mt-1 truncate text-xs font-bold text-slate-900">
+              {item?.card.name ?? 'No disponible'}
+            </p>
+            <p className="truncate text-[10px] text-slate-500">
+              {item?.card.episode.name || item?.card.episode.code || 'Sin expansión'}
+            </p>
+            <p className="truncate text-[10px] font-semibold text-violet">
+              {item?.variant?.label ?? 'Arte base'}
+            </p>
+          </div>
         ))}
+        {remaining > 0 && (
+          <span className="grid min-h-28 w-12 shrink-0 place-items-center rounded-lg bg-slate-100 text-xs font-bold text-slate-500">
+            +{remaining}
+          </span>
+        )}
       </div>
-      {remaining > 0 && <span className="ml-3 text-xs font-bold text-slate-500">+{remaining}</span>}
     </div>
   );
 }
@@ -64,14 +81,79 @@ function BoxEditor({ box, onClose }: { box: StorageBox | null; onClose: () => vo
   const services = useServices();
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState(box);
-  if (box && draft?.id !== box.id) setDraft(box);
+  const [draftItems, setDraftItems] = useState<CollectionItem[]>([]);
+  const [query, setQuery] = useState('');
+  const [targetSectionId, setTargetSectionId] = useState('');
+  const collection = useQuery({
+    queryKey: ['collection'],
+    queryFn: () => services.collection.listCollection(),
+    enabled: Boolean(box),
+  });
+  const packs = useQuery({
+    queryKey: ['sales-packs'],
+    queryFn: () => services.organization.listSalesPacks(),
+    enabled: Boolean(box),
+  });
+
+  useEffect(() => {
+    setDraft(box);
+    setQuery('');
+    setTargetSectionId(box?.sections[0]?.id ?? '');
+    if (box && collection.data) {
+      setDraftItems(collection.data.filter((item) => item.boxId === box.id));
+    } else {
+      setDraftItems([]);
+    }
+  }, [box, collection.data]);
+
   const save = useMutation({
-    mutationFn: (value: StorageBox) => services.organization.saveBox(value),
+    mutationFn: async ({ value, items }: { value: StorageBox; items: CollectionItem[] }) => {
+      const savedBox = await services.organization.saveBox(value);
+      const now = new Date().toISOString();
+      const itemIds = new Set(items.map((item) => item.id));
+      const removedItems = (collection.data ?? []).filter(
+        (item) => item.boxId === value.id && !itemIds.has(item.id),
+      );
+      await Promise.all([
+        ...items.map((item) =>
+          services.collection.saveCollection({
+            ...item,
+            boxId: value.id,
+            sectionId: item.sectionId ?? value.sections[0]?.id,
+            updatedAt: now,
+          }),
+        ),
+        ...removedItems.map((item) =>
+          services.collection.saveCollection({
+            ...item,
+            boxId: undefined,
+            sectionId: undefined,
+            updatedAt: now,
+          }),
+        ),
+      ]);
+      return savedBox;
+    },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['boxes'] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['boxes'] }),
+        queryClient.invalidateQueries({ queryKey: ['collection'] }),
+      ]);
       onClose();
     },
   });
+  const reserved = reservedQuantities(packs.data ?? []);
+  const draftIds = new Set(draftItems.map((item) => item.id));
+  const available = (collection.data ?? []).filter((item) => {
+    const normalized = query.toLocaleLowerCase();
+    return (
+      !draftIds.has(item.id) &&
+      (!normalized ||
+        item.card.name.toLocaleLowerCase().includes(normalized) ||
+        item.card.card_number.toLocaleLowerCase().includes(normalized))
+    );
+  });
+
   return (
     <ResponsiveDialog
       open={Boolean(box)}
@@ -161,12 +243,21 @@ function BoxEditor({ box, onClose }: { box: StorageBox | null; onClose: () => vo
                   className="h-11 min-w-0 rounded-lg border-slate-300"
                 />
                 <button
-                  onClick={() =>
-                    setDraft({
-                      ...draft,
-                      sections: draft.sections.filter((entry) => entry.id !== section.id),
-                    })
-                  }
+                  onClick={() => {
+                    const sections = draft.sections.filter((entry) => entry.id !== section.id);
+                    const fallbackSectionId = sections[0]?.id;
+                    setDraft({ ...draft, sections });
+                    setDraftItems((items) =>
+                      items.map((item) =>
+                        item.sectionId === section.id
+                          ? { ...item, sectionId: fallbackSectionId }
+                          : item,
+                      ),
+                    );
+                    if (targetSectionId === section.id) {
+                      setTargetSectionId(fallbackSectionId ?? '');
+                    }
+                  }}
                   className="grid size-11 place-items-center rounded-lg text-red-600 hover:bg-red-50"
                   aria-label={`Eliminar sección ${section.name}`}
                 >
@@ -175,12 +266,133 @@ function BoxEditor({ box, onClose }: { box: StorageBox | null; onClose: () => vo
               </div>
             ))}
           </div>
+          <div className="mt-6 grid gap-5 border-t border-slate-200 pt-6 md:grid-cols-2">
+            <section>
+              <h3 className="mb-3 font-black">Cartas del contenedor ({draftItems.length})</h3>
+              <div className="max-h-80 space-y-2 overflow-y-auto">
+                {draftItems.map((item) => (
+                  <div key={item.id} className="rounded-lg border border-slate-200 p-2">
+                    <div className="flex items-center gap-2">
+                      <CardImage
+                        src={collectionItemImage(item)}
+                        alt={item.card.name}
+                        className="w-[42px] shrink-0"
+                        showFailureText={false}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-bold">{item.card.name}</p>
+                        <p className="truncate text-[11px] text-slate-500">
+                          {item.card.episode.name} · {item.variant?.label ?? 'Arte base'}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() =>
+                          setDraftItems((items) => items.filter((entry) => entry.id !== item.id))
+                        }
+                        className="grid size-10 shrink-0 place-items-center text-red-600"
+                        aria-label={`Quitar ${item.card.name} del contenedor`}
+                      >
+                        <Trash2 className="size-4" />
+                      </button>
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                      <label className="min-w-36 flex-1 text-xs font-semibold">
+                        Sección
+                        <select
+                          value={item.sectionId ?? ''}
+                          onChange={(event) =>
+                            setDraftItems((items) =>
+                              items.map((entry) =>
+                                entry.id === item.id
+                                  ? { ...entry, sectionId: event.target.value }
+                                  : entry,
+                              ),
+                            )
+                          }
+                          className="mt-1 h-10 w-full rounded-lg border-slate-300 text-sm"
+                        >
+                          {draft.sections.map((section) => (
+                            <option key={section.id} value={section.id}>
+                              {section.code} · {section.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <QuantitySelector
+                        value={item.quantity}
+                        min={Math.max(1, reserved.get(item.id) ?? 0)}
+                        max={999}
+                        onChange={(quantity) =>
+                          setDraftItems((items) =>
+                            items.map((entry) =>
+                              entry.id === item.id ? { ...entry, quantity } : entry,
+                            ),
+                          )
+                        }
+                      />
+                    </div>
+                  </div>
+                ))}
+                {draftItems.length === 0 && (
+                  <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">
+                    El contenedor está vacío. Puedes guardarlo y rellenarlo más tarde.
+                  </p>
+                )}
+              </div>
+            </section>
+            <section>
+              <h3 className="mb-3 font-black">Inventario disponible</h3>
+              <label className="mb-3 block text-sm font-semibold">
+                Sección de destino
+                <select
+                  value={targetSectionId}
+                  onChange={(event) => setTargetSectionId(event.target.value)}
+                  className="mt-2 h-11 w-full rounded-lg border-slate-300"
+                >
+                  {draft.sections.map((section) => (
+                    <option key={section.id} value={section.id}>
+                      {section.code} · {section.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <SearchInput value={query} onChange={setQuery} placeholder="Buscar carta..." />
+              <div className="mt-2 max-h-60 space-y-1 overflow-y-auto">
+                {available.slice(0, 30).map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() =>
+                      setDraftItems((items) => [
+                        ...items,
+                        { ...item, boxId: draft.id, sectionId: targetSectionId },
+                      ])
+                    }
+                    disabled={!targetSectionId}
+                    className="flex w-full items-center justify-between rounded-lg p-2 text-left text-sm hover:bg-slate-50 disabled:opacity-40"
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate font-semibold">{item.card.name}</span>
+                      <span className="block truncate text-xs text-slate-500">
+                        {item.card.episode.name} · {item.variant?.label ?? 'Arte base'}
+                      </span>
+                    </span>
+                    <Plus className="ml-2 size-4 shrink-0 text-violet" />
+                  </button>
+                ))}
+              </div>
+            </section>
+          </div>
           <Button
             className="mt-7 w-full"
             disabled={!draft.name.trim() || draft.sections.length === 0 || save.isPending}
-            onClick={() => save.mutate({ ...draft, updatedAt: new Date().toISOString() })}
+            onClick={() =>
+              save.mutate({
+                value: { ...draft, updatedAt: new Date().toISOString() },
+                items: draftItems,
+              })
+            }
           >
-            Guardar contenedor y secciones
+            {save.isPending ? 'Guardando…' : 'Guardar contenedor y secciones'}
           </Button>
         </div>
       )}
@@ -431,15 +643,17 @@ function PackEditor({ pack, onClose }: { pack: SalesPack | null; onClose: () => 
                     className="grid grid-cols-[42px_1fr_auto_40px] items-center gap-2 rounded-lg border border-slate-200 p-2"
                   >
                     <CardImage
-                      src={collectionItem?.variant?.image ?? collectionItem?.card.image ?? ''}
+                      src={collectionItemImage(collectionItem)}
                       alt={collectionItem?.card.name ?? 'Carta'}
+                      showFailureText={false}
                     />
                     <div className="min-w-0">
                       <p className="truncate text-sm font-bold">
                         {collectionItem?.card.name ?? 'Carta no disponible'}
                       </p>
                       <p className="text-[11px] text-slate-500">
-                        {collectionItem?.card.card_number}
+                        {collectionItem?.card.episode.name ?? 'Sin expansión'} ·{' '}
+                        {collectionItem?.variant?.label ?? 'Arte base'}
                       </p>
                     </div>
                     <QuantitySelector
@@ -472,7 +686,7 @@ function PackEditor({ pack, onClose }: { pack: SalesPack | null; onClose: () => 
               })}
               {draft.items.length === 0 && (
                 <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">
-                  Selecciona cartas del inventario.
+                  El pack está vacío. Puedes guardarlo y rellenarlo más tarde.
                 </p>
               )}
             </div>
@@ -507,10 +721,10 @@ function PackEditor({ pack, onClose }: { pack: SalesPack | null; onClose: () => 
         )}
         <Button
           className="mt-6 w-full"
-          disabled={!draft.name.trim() || draft.items.length === 0 || warnings.length > 0}
+          disabled={!draft.name.trim() || warnings.length > 0 || save.isPending}
           onClick={() => save.mutate({ ...draft, updatedAt: new Date().toISOString() })}
         >
-          Guardar pack de venta
+          {save.isPending ? 'Guardando…' : 'Guardar pack de venta'}
         </Button>
       </div>
     </ResponsiveDialog>

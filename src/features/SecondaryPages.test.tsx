@@ -8,6 +8,7 @@ import { BoxesPage, SalesPacksPage } from './SecondaryPages';
 
 const serviceMocks = vi.hoisted(() => ({
   listCollection: vi.fn(),
+  saveCollection: vi.fn(),
   listBoxes: vi.fn(),
   saveBox: vi.fn(),
   removeBox: vi.fn(),
@@ -20,6 +21,7 @@ vi.mock('../app/providers/ServicesProvider', () => ({
   useServices: () => ({
     collection: {
       listCollection: serviceMocks.listCollection,
+      saveCollection: serviceMocks.saveCollection,
     },
     organization: {
       listBoxes: serviceMocks.listBoxes,
@@ -48,6 +50,9 @@ beforeEach(() => {
   serviceMocks.listCollection.mockResolvedValue(initialCollection);
   serviceMocks.listBoxes.mockResolvedValue(initialBoxes);
   serviceMocks.listSalesPacks.mockResolvedValue(initialSalesPacks);
+  serviceMocks.saveCollection.mockImplementation(async (value) => value);
+  serviceMocks.saveBox.mockImplementation(async (value) => value);
+  serviceMocks.saveSalesPack.mockImplementation(async (value) => value);
 });
 
 afterEach(cleanup);
@@ -73,6 +78,8 @@ describe('organization and sales cards', () => {
     const article = title.closest('article');
     if (!article) throw new Error('Tarjeta de contenedor no encontrada.');
     expect(within(article).queryByText(/imagen no disponible/i)).toBeNull();
+    expect(within(article).getAllByText(item.card.episode.name).length).toBeGreaterThan(0);
+    expect(within(article).getAllByText('Arte base').length).toBeGreaterThan(0);
   });
 
   it('uses the Ventas title and the same compact card header and thumbnails', async () => {
@@ -92,5 +99,91 @@ describe('organization and sales cards', () => {
     const article = title.closest('article');
     if (!article) throw new Error('Tarjeta de venta no encontrada.');
     expect(within(article).queryByText(/imagen no disponible/i)).toBeNull();
+    expect(within(article).getAllByText(item.card.episode.name).length).toBeGreaterThan(0);
+    expect(within(article).getAllByText('Arte base').length).toBeGreaterThan(0);
+  });
+
+  it('manages container contents from the same editor', async () => {
+    renderPage(<BoxesPage />);
+    const box = initialBoxes[0];
+    const firstItem = initialCollection[0];
+    const removedItem = initialCollection[1];
+    const addedItem = initialCollection[8];
+    if (!box || !firstItem || !removedItem || !addedItem) {
+      throw new Error('Fixtures incompletos.');
+    }
+
+    const title = await screen.findByRole('heading', { name: box.name });
+    const article = title.closest('article');
+    if (!article) throw new Error('Tarjeta de contenedor no encontrada.');
+    fireEvent.click(within(article).getByRole('button', { name: 'Gestionar secciones' }));
+
+    const dialog = await screen.findByRole('dialog');
+    expect(
+      within(dialog).getByRole('heading', { name: 'Cartas del contenedor (4)' }),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      within(dialog).getByRole('button', {
+        name: `Quitar ${removedItem.card.name} del contenedor`,
+      }),
+    );
+    fireEvent.change(within(dialog).getByRole('searchbox', { name: 'Buscar' }), {
+      target: { value: addedItem.card.name },
+    });
+    fireEvent.click(within(dialog).getByRole('button', { name: new RegExp(addedItem.card.name) }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Guardar contenedor y secciones' }));
+
+    await vi.waitFor(() =>
+      expect(serviceMocks.saveCollection).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: addedItem.id,
+          boxId: box.id,
+          sectionId: box.sections[0]?.id,
+        }),
+      ),
+    );
+    expect(serviceMocks.saveCollection).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: removedItem.id,
+        boxId: undefined,
+        sectionId: undefined,
+      }),
+    );
+  });
+
+  it('allows saving a container without cards', async () => {
+    renderPage(<BoxesPage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Nuevo contenedor' }));
+    const dialog = await screen.findByRole('dialog');
+    const saveButton = within(dialog).getByRole('button', {
+      name: 'Guardar contenedor y secciones',
+    });
+    expect(within(dialog).getByText(/el contenedor está vacío/i)).toBeInTheDocument();
+    expect(saveButton).toBeEnabled();
+    fireEvent.click(saveButton);
+
+    await vi.waitFor(() =>
+      expect(serviceMocks.saveBox).toHaveBeenCalledWith(
+        expect.objectContaining({ name: 'Nuevo contenedor' }),
+      ),
+    );
+  });
+
+  it('allows saving a sales pack without cards', async () => {
+    renderPage(<SalesPacksPage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Crear pack' }));
+    const dialog = await screen.findByRole('dialog');
+    const saveButton = within(dialog).getByRole('button', { name: 'Guardar pack de venta' });
+    expect(saveButton).toBeEnabled();
+    fireEvent.click(saveButton);
+
+    await vi.waitFor(() =>
+      expect(serviceMocks.saveSalesPack).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'Nuevo pack',
+          items: [],
+        }),
+      ),
+    );
   });
 });
