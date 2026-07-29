@@ -5,7 +5,6 @@
   Heart,
   Layers3,
   List,
-  Pencil,
   Plus,
   ShoppingBag,
   SlidersHorizontal,
@@ -61,7 +60,13 @@ function Stat({
     </div>
   );
 }
-function CollectionEditor({ item, onClose }: { item: CollectionItem | null; onClose: () => void }) {
+function OrganizationEditor({
+  item,
+  onClose,
+}: {
+  item: CollectionItem | null;
+  onClose: () => void;
+}) {
   const services = useServices();
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState(item);
@@ -74,12 +79,6 @@ function CollectionEditor({ item, onClose }: { item: CollectionItem | null; onCl
     mutationFn: (value: CollectionItem) => services.collection.saveCollection(value),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['collection'] });
-    },
-  });
-  const remove = useMutation({
-    mutationFn: (id: string) => services.collection.removeCollection(id),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['collection'] });
       onClose();
     },
   });
@@ -87,7 +86,7 @@ function CollectionEditor({ item, onClose }: { item: CollectionItem | null; onCl
     <ResponsiveDialog
       open={Boolean(item)}
       onOpenChange={(open) => !open && onClose()}
-      title="Gestionar carta"
+      title="Ubicar carta"
     >
       {draft && (
         <div className="grid gap-6 pt-8 md:grid-cols-[180px_1fr] md:pt-0">
@@ -96,26 +95,16 @@ function CollectionEditor({ item, onClose }: { item: CollectionItem | null; onCl
             alt={`Carta ${draft.card.name}`}
           />
           <div>
-            <p className="text-xs font-semibold text-slate-500">{draft.card.card_number}</p>
-            <h2 className="mt-1 pr-10 text-2xl font-black">{draft.card.name}</h2>
+            <p className="text-xs font-bold uppercase tracking-wide text-violet">Organización</p>
+            <h2 className="mt-1 pr-10 text-2xl font-black">Ubicar {draft.card.name}</h2>
             <p className="mt-1 text-sm text-slate-600">
               {draft.variant?.label ?? 'Arte base'} · {draft.language} ·{' '}
               {draft.condition.replace('_', ' ')}
             </p>
-            <div className="mt-6 flex flex-wrap items-end justify-between gap-4 border-y border-slate-200 py-5">
-              <div>
-                <p className="mb-2 text-sm font-semibold">Cantidad total</p>
-                <QuantitySelector
-                  value={draft.quantity}
-                  min={1}
-                  onChange={(quantity) => setDraft({ ...draft, quantity })}
-                />
-              </div>
-              <FavoriteButton
-                active={draft.favorite}
-                onClick={() => setDraft({ ...draft, favorite: !draft.favorite })}
-              />
-            </div>
+            <p className="mt-5 rounded-xl bg-indigo-50 p-3 text-sm text-indigo-900">
+              Desde Organización sólo se modifica la ubicación física. La cantidad, el favorito y la
+              eliminación se gestionan desde el detalle de Mi colección.
+            </p>
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
               <label className="text-sm font-semibold">
                 Contenedor
@@ -159,33 +148,13 @@ function CollectionEditor({ item, onClose }: { item: CollectionItem | null; onCl
                 </select>
               </label>
             </div>
-            <label className="mt-5 block text-sm font-semibold">
-              Notas privadas
-              <textarea
-                value={draft.notes ?? ''}
-                onChange={(event) => setDraft({ ...draft, notes: event.target.value })}
-                maxLength={500}
-                rows={3}
-                className="mt-2 w-full rounded-lg border-slate-300 text-sm focus:border-violet focus:ring-violet"
-              />
-            </label>
-            <div className="mt-6 flex flex-wrap gap-2">
-              <Button
-                className="flex-1"
-                onClick={() => save.mutate({ ...draft, updatedAt: new Date().toISOString() })}
-              >
-                Guardar cambios
-              </Button>
-              <Button
-                variant="danger"
-                onClick={() => {
-                  if (window.confirm('¿Eliminar esta carta de la colección?'))
-                    remove.mutate(draft.id);
-                }}
-              >
-                <Trash2 className="size-4" /> Eliminar
-              </Button>
-            </div>
+            <Button
+              className="mt-6 w-full"
+              disabled={save.isPending}
+              onClick={() => save.mutate({ ...draft, updatedAt: new Date().toISOString() })}
+            >
+              {save.isPending ? 'Guardando ubicación…' : 'Guardar contenedor y sección'}
+            </Button>
           </div>
         </div>
       )}
@@ -228,17 +197,6 @@ function CollectionArtworkStack({
   );
 }
 
-function DataField({ label, value }: { label: string; value?: string | number | null }) {
-  return (
-    <div className="min-w-0 rounded-xl bg-slate-50 p-3">
-      <dt className="text-[11px] font-bold uppercase tracking-wide text-slate-500">{label}</dt>
-      <dd className="mt-1 break-words text-sm font-semibold text-slate-900">
-        {value === undefined || value === null || value === '' ? '—' : value}
-      </dd>
-    </div>
-  );
-}
-
 const conditionLabels: Record<CardCondition, string> = {
   MINT: 'Mint',
   NEAR_MINT: 'Near Mint',
@@ -265,19 +223,53 @@ function CollectionCardDetail({
   boxes,
   packs,
   onClose,
-  onEdit,
+  onOrganize,
 }: {
   group: CollectionCardGroup | null;
   boxes: StorageBox[];
   packs: SalesPack[];
   onClose: () => void;
-  onEdit: (item: CollectionItem) => void;
+  onOrganize: (item: CollectionItem) => void;
 }) {
+  const services = useServices();
+  const queryClient = useQueryClient();
   const [activeVariantKey, setActiveVariantKey] = useState('BASE');
+  const [draftQuantities, setDraftQuantities] = useState<Record<string, number>>({});
 
   useEffect(() => {
     setActiveVariantKey(group?.variants[0] ? variantKey(group.variants[0]) : 'BASE');
+    setDraftQuantities(
+      Object.fromEntries((group?.items ?? []).map((item) => [item.id, item.quantity])),
+    );
   }, [group]);
+
+  const updateItem = useMutation({
+    mutationFn: (item: CollectionItem) => services.collection.saveCollection(item),
+    onSuccess: async () => queryClient.invalidateQueries({ queryKey: ['collection'] }),
+  });
+  const removeItem = useMutation({
+    mutationFn: async (item: CollectionItem) => {
+      const affectedPacks = packs.filter((pack) =>
+        pack.items.some((packItem) => packItem.collectionItemId === item.id),
+      );
+      await Promise.all(
+        affectedPacks.map((pack) =>
+          services.organization.saveSalesPack({
+            ...pack,
+            items: pack.items.filter((packItem) => packItem.collectionItemId !== item.id),
+            updatedAt: new Date().toISOString(),
+          }),
+        ),
+      );
+      await services.collection.removeCollection(item.id);
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['collection'] }),
+        queryClient.invalidateQueries({ queryKey: ['sales-packs'] }),
+      ]);
+    },
+  });
 
   if (!group) return null;
   const activeVariant =
@@ -287,6 +279,7 @@ function CollectionCardDetail({
   const card = group.card;
   const activeImage = activeVariant.variant?.image ?? card.image;
   const activeLabel = activeVariant.variant?.label ?? 'Arte principal';
+  const activeType = activeVariant.variant?.variant_type ?? 'BASE';
   const links = [
     ['Cardmarket', card.links?.cardmarket],
     ['TCGPlayer', card.links?.tcgplayer],
@@ -299,34 +292,44 @@ function CollectionCardDetail({
       onOpenChange={(open) => !open && onClose()}
       title={`${card.name} en tu colección`}
     >
-      <div className="grid gap-7 md:grid-cols-[260px_1fr]">
-        <section className="pt-8 md:pt-0">
-          <CardImage src={activeImage} alt={`${card.name}, ${activeLabel}`} />
-          <div className="mt-4 grid grid-cols-4 gap-2" aria-label="Variantes en tu colección">
-            {group.variants.map((variant) => {
-              const key = variantKey(variant);
-              const selected = key === variantKey(activeVariant);
-              return (
-                <button
-                  key={key}
-                  onClick={() => setActiveVariantKey(key)}
-                  className={`relative rounded-lg p-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet ${
-                    selected ? 'bg-violet ring-2 ring-violet' : 'bg-slate-200 hover:bg-slate-300'
-                  }`}
-                  aria-label={`Ver ${variant.variant?.label ?? 'arte principal'}, ${variant.quantity} copias`}
-                  aria-pressed={selected}
-                >
-                  <CardImage
-                    src={variant.variant?.image ?? card.image}
-                    alt=""
-                    showFailureText={false}
-                  />
-                  <span className="absolute bottom-1 right-1 rounded-full bg-slate-950/85 px-1.5 py-0.5 text-[10px] font-bold text-white">
-                    ×{variant.quantity}
-                  </span>
-                </button>
-              );
-            })}
+      <div className="grid gap-7 pt-6 md:grid-cols-[260px_1fr] md:pt-0">
+        <section>
+          <CardImage
+            src={activeImage}
+            alt={`Carta ${card.name} — ${activeLabel}`}
+            className="shadow-soft"
+          />
+          <div className="mt-4" aria-label="Variantes en tu colección">
+            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">
+              Artes en tu colección
+            </p>
+            <div className="flex gap-2 overflow-x-auto p-1">
+              {group.variants.map((variant) => {
+                const key = variantKey(variant);
+                const selected = key === variantKey(activeVariant);
+                return (
+                  <button
+                    key={key}
+                    onClick={() => setActiveVariantKey(key)}
+                    className={`relative w-14 shrink-0 rounded-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet ${
+                      selected ? 'ring-2 ring-violet ring-offset-2' : 'opacity-70 hover:opacity-100'
+                    }`}
+                    aria-label={`Ver ${variant.variant?.label ?? 'arte principal'}, ${variant.quantity} copias`}
+                    aria-pressed={selected}
+                  >
+                    <CardImage
+                      src={variant.variant?.image ?? card.image}
+                      alt=""
+                      className="w-full"
+                      showFailureText={false}
+                    />
+                    <span className="absolute bottom-1 right-1 rounded-full bg-slate-950/85 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                      ×{variant.quantity}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
           <p className="mt-3 text-center text-xs text-slate-500">
             {group.variants.length} {group.variants.length === 1 ? 'impresión' : 'impresiones'} ·{' '}
@@ -334,76 +337,116 @@ function CollectionCardDetail({
           </p>
         </section>
 
-        <div className="min-w-0">
-          <p className="text-xs font-bold uppercase tracking-wide text-violet">
-            Mi colección · {activeLabel}
-          </p>
-          <h2 className="mt-1 pr-10 text-2xl font-black">{card.name}</h2>
+        <div className="min-w-0 pt-2">
+          <p className="text-xs font-semibold text-slate-500">{card.card_number}</p>
+          <h2 className="mt-1 pr-10 text-2xl font-black text-slate-950">{card.name}</h2>
+          <p className="mt-1 text-sm font-semibold text-violet">{activeLabel}</p>
           <p className="mt-1 text-sm text-slate-600">
-            {card.card_number} · {card.episode.name}
+            {card.game.card_type} ·{' '}
+            {card.game.colors.length > 0 ? card.game.colors.join(' / ') : card.color || 'Sin color'}{' '}
+            · {activeVariant.variant?.language ?? activeVariant.items[0]?.language}
           </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {card.game.colors.map((color) => (
+              <span
+                key={color}
+                className="rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-700"
+              >
+                {color}
+              </span>
+            ))}
+            {(card.rarity ?? card.rarity_normalized) && (
+              <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800">
+                {card.rarity ?? card.rarity_normalized}
+              </span>
+            )}
+          </div>
+          <dl className="mt-5 grid grid-cols-4 gap-3 border-y border-slate-200 py-4">
+            {[
+              ['Coste', card.game.cost],
+              ['Poder', card.game.power],
+              ['Counter', card.game.counter],
+              ['Vidas', card.game.life],
+            ].map(([label, value]) => (
+              <div key={String(label)}>
+                <dt className="text-[10px] font-bold uppercase text-slate-500">{label}</dt>
+                <dd className="mt-1 font-black">{value ?? '–'}</dd>
+              </div>
+            ))}
+          </dl>
 
-          <section className="mt-6">
-            <h3 className="font-black">Datos del índice</h3>
-            <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
-              <DataField label="Código" value={card.card_number} />
-              <DataField label="Expansión" value={card.episode.code} />
-              <DataField label="Rareza" value={card.rarity ?? card.rarity_normalized} />
-              <DataField label="Tipo" value={card.game.card_type} />
-              <DataField
-                label="Color"
-                value={card.game.colors.length > 0 ? card.game.colors.join(' / ') : card.color}
-              />
-              <DataField label="Variante" value={activeLabel} />
-              <DataField
-                label="Tipo de impresión"
-                value={activeVariant.variant?.variant_type ?? 'BASE'}
-              />
-              <DataField label="N.º de impresión" value={activeVariant.variant?.number} />
-              <DataField label="Coste" value={card.game.cost} />
-              <DataField label="Vida" value={card.game.life} />
-              <DataField label="Poder" value={card.game.power} />
-              <DataField label="Counter" value={card.game.counter} />
-              <DataField
-                label="Atributos"
-                value={card.game.attributes.length > 0 ? card.game.attributes.join(' / ') : null}
-              />
-              <DataField label="Idioma del arte" value={activeVariant.variant?.language ?? '—'} />
-              <DataField
-                label="Expansiones"
-                value={card.setCodes.length > 0 ? card.setCodes.join(', ') : card.episode.code}
-              />
-              <DataField label="Artista" value={card.artist?.name} />
-              <DataField label="Proveedor del índice" value={card.source.providerId} />
-              <DataField
-                label="ID del proveedor"
-                value={card.tcggoId ?? card.source.providerCardId}
-              />
-              <DataField label="ID de variante" value={activeVariant.id} />
-              <DataField label="Cardmarket ID" value={card.cardmarket_id} />
-              <DataField label="TCGPlayer ID" value={card.tcgplayer_id} />
-              <DataField label="TCG ID" value={card.tcgid} />
+          {card.game.attributes.length > 0 && (
+            <dl className="mt-5">
+              <div>
+                <dt className="text-xs font-bold uppercase text-slate-500">Atributos</dt>
+                <dd className="mt-1 text-sm text-slate-800">{card.game.attributes.join(' / ')}</dd>
+              </div>
+            </dl>
+          )}
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-xl bg-slate-50 p-4">
+              <p className="text-xs font-bold uppercase text-slate-500">Expansión</p>
+              <p className="mt-1 text-sm font-semibold">{card.episode.name}</p>
+              <p className="mt-1 text-xs text-slate-600">
+                {card.episode.code}
+                {card.setCodes.length > 1 ? ` · ${card.setCodes.join(', ')}` : ''}
+              </p>
+            </div>
+            <div className="rounded-xl bg-slate-50 p-4">
+              <p className="text-xs font-bold uppercase text-slate-500">En tu colección</p>
+              <p className="mt-1 text-lg font-black">
+                {activeVariant.quantity} {activeVariant.quantity === 1 ? 'copia' : 'copias'} de{' '}
+                {activeLabel}
+              </p>
+              <p className="mt-1 text-xs text-slate-600">
+                Total entre todos los artes: {group.quantity}
+              </p>
+            </div>
+          </div>
+          <div className="mt-3 rounded-xl border border-slate-200 p-4">
+            <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">
+              Datos de la impresión
+            </h3>
+            <dl className="mt-3 grid grid-cols-3 gap-x-3 gap-y-3 text-sm">
+              {[
+                ['Versión', activeLabel],
+                ['Tipo de impresión', activeType],
+                ['N.º de impresión', activeVariant.variant?.number],
+                ['ID de variante', activeVariant.id],
+                ['Idioma', activeVariant.variant?.language ?? activeVariant.items[0]?.language],
+                ['Proveedor del índice', card.source.providerId],
+                ['ID del proveedor', card.tcggoId ?? card.source.providerCardId],
+                ['Artista', card.artist?.name],
+                ['Cardmarket ID', card.cardmarket_id],
+                ['TCGPlayer ID', card.tcgplayer_id],
+                ['TCG ID', card.tcgid],
+              ].map(([label, value]) => (
+                <div key={String(label)} className="min-w-0">
+                  <dt className="text-xs text-slate-500">{label}</dt>
+                  <dd className="break-words font-semibold">{value ?? '–'}</dd>
+                </div>
+              ))}
             </dl>
             {links.length > 0 && (
-              <div className="mt-3 flex flex-wrap gap-2">
+              <div className="mt-4 flex flex-wrap gap-2">
                 {links.map(([label, href]) => (
                   <a
                     key={label}
                     href={href}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex min-h-9 items-center gap-1.5 rounded-full bg-slate-100 px-3 text-xs font-bold text-slate-700 hover:bg-slate-200"
+                    className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-200"
                   >
                     {label} <ExternalLink className="size-3" />
                   </a>
                 ))}
               </div>
             )}
-          </section>
+          </div>
 
           <section className="mt-7">
             <div className="flex items-center justify-between gap-3">
-              <h3 className="font-black">Ejemplares y organización</h3>
+              <h3 className="font-black">Gestión de ejemplares</h3>
               <span className="text-xs font-semibold text-slate-500">
                 {activeVariant.quantity} copias
               </span>
@@ -427,13 +470,42 @@ function CollectionCardDetail({
                           {sectionLabel(boxes, item.boxId, item.sectionId)}
                         </p>
                       </div>
-                      <button
-                        onClick={() => onEdit(item)}
-                        className="grid size-10 shrink-0 place-items-center rounded-lg border border-slate-200 hover:bg-slate-50"
-                        aria-label={`Editar lote de ${activeLabel}`}
+                      <Button
+                        variant="secondary"
+                        onClick={() => onOrganize(item)}
+                        className="shrink-0"
+                        aria-label={`Ubicar lote de ${activeLabel}`}
                       >
-                        <Pencil className="size-4" />
-                      </button>
+                        <Archive className="size-4" /> Ubicar
+                      </Button>
+                    </div>
+                    <div className="mt-4 flex flex-wrap items-end justify-between gap-3 border-y border-slate-100 py-4">
+                      <div>
+                        <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">
+                          Cantidad
+                        </p>
+                        <QuantitySelector
+                          value={draftQuantities[item.id] ?? item.quantity}
+                          min={1}
+                          max={999}
+                          onChange={(quantity) =>
+                            setDraftQuantities((current) => ({
+                              ...current,
+                              [item.id]: quantity,
+                            }))
+                          }
+                        />
+                      </div>
+                      <FavoriteButton
+                        active={item.favorite}
+                        onClick={() =>
+                          updateItem.mutate({
+                            ...item,
+                            favorite: !item.favorite,
+                            updatedAt: new Date().toISOString(),
+                          })
+                        }
+                      />
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-600">
                       {item.favorite && (
@@ -453,6 +525,45 @@ function CollectionCardDetail({
                         {item.notes}
                       </p>
                     )}
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <Button
+                        className="flex-1"
+                        disabled={
+                          updateItem.isPending ||
+                          (draftQuantities[item.id] ?? item.quantity) === item.quantity
+                        }
+                        onClick={() =>
+                          updateItem.mutate({
+                            ...item,
+                            quantity: draftQuantities[item.id] ?? item.quantity,
+                            updatedAt: new Date().toISOString(),
+                          })
+                        }
+                      >
+                        {updateItem.isPending ? 'Guardando…' : 'Actualizar cantidad'}
+                      </Button>
+                      <Button
+                        variant="danger"
+                        disabled={removeItem.isPending}
+                        onClick={() => {
+                          const packNotice =
+                            memberships.length > 0
+                              ? ` También se retirará de ${memberships.length} ${
+                                  memberships.length === 1 ? 'pack' : 'packs'
+                                } de venta.`
+                              : '';
+                          if (
+                            window.confirm(
+                              `¿Eliminar este lote de ${activeLabel} de tu colección?${packNotice}`,
+                            )
+                          ) {
+                            removeItem.mutate(item);
+                          }
+                        }}
+                      >
+                        <Trash2 className="size-4" /> Eliminar lote
+                      </Button>
+                    </div>
                     <div className="mt-3 border-t border-slate-100 pt-3">
                       <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-slate-500">
                         <ShoppingBag className="size-3.5" /> Packs de venta
@@ -750,7 +861,7 @@ export function CollectionPage() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [viewMenuOpen, setViewMenuOpen] = useState(false);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
-  const [editingItem, setEditingItem] = useState<CollectionItem | null>(null);
+  const [organizingItem, setOrganizingItem] = useState<CollectionItem | null>(null);
   const result = useQuery({
     queryKey: ['collection'],
     queryFn: () => services.collection.listCollection(),
@@ -1094,12 +1205,12 @@ export function CollectionPage() {
         boxes={boxes.data ?? []}
         packs={packs.data ?? []}
         onClose={() => setSelectedGroupId(null)}
-        onEdit={(item) => {
+        onOrganize={(item) => {
           setSelectedGroupId(null);
-          setEditingItem(item);
+          setOrganizingItem(item);
         }}
       />
-      <CollectionEditor item={editingItem} onClose={() => setEditingItem(null)} />
+      <OrganizationEditor item={organizingItem} onClose={() => setOrganizingItem(null)} />
     </div>
   );
 }
