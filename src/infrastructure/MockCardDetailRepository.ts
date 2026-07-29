@@ -3,13 +3,12 @@ import type {
   CardVariant,
   CatalogCard,
   CatalogPrices,
+  CatalogVariantRef,
   Printing,
 } from '../domain/models';
 import type { CardDetailRepository } from '../domain/repositories';
 
 const MOCK_FETCHED_AT = '2026-01-01T00:00:00.000Z';
-const MOCK_VARIANT_COUNT = 2;
-
 function slug(value: string): string {
   return value
     .normalize('NFD')
@@ -42,58 +41,68 @@ function mockPrices(offset = 0): CatalogPrices {
   };
 }
 
-function mockSource(providerVariantId?: string) {
+function mockSource(indexCard: CatalogCard, providerVariantId?: string) {
   return {
     providerId: 'MOCK' as const,
-    providerCardId: 'mock-card-detail',
+    providerCardId: `MOCK::${indexCard.id}`,
     providerVariantId,
     fetchedAt: MOCK_FETCHED_AT,
   };
 }
 
+function mockVariantExternalId(indexCard: CatalogCard, variant: CatalogVariantRef): string {
+  return `MOCK::${indexCard.id}::${variant.id}`;
+}
+
 function mockVariants(indexCard: CatalogCard, baseId: string): CardVariant[] {
-  return Array.from({ length: MOCK_VARIANT_COUNT }, (_, position) => {
-    const number = position + 1;
-    const externalId = `mock-variant-${number}`;
-    return {
-      id: `${baseId}::VARIANT::${number}`,
-      external_id: externalId,
-      base_card_id: baseId,
-      variant_type: number === 1 ? 'PARALLEL' : 'ALTERNATE_ART',
-      label: number === 1 ? 'Parallel mock' : 'Arte alternativo mock',
-      version: `Mock V.${number + 1}`,
-      image: indexCard.image,
-      language: number === 1 ? 'JP' : 'EN',
-      prices: mockPrices(number * 4),
-      artist: {
-        id: `mock-artist-${number}`,
-        name: number === 1 ? 'Eiichiro Mock' : 'Grand Line Studio',
-        slug: number === 1 ? 'eiichiro-mock' : 'grand-line-studio',
-      },
-      cardmarket_id: 910_000 + number,
-      tcgplayer_id: 920_000 + number,
-      tcgid: `MOCK-TCG-${number}`,
-      links: {
-        cardmarket: `https://example.com/mock/cardmarket/${number}`,
-        tcgplayer: `https://example.com/mock/tcgplayer/${number}`,
-      },
-      tcggo_url: `https://example.com/mock/tcggo/${number}`,
-      source: mockSource(externalId),
-    };
-  });
+  return indexCard.variants
+    .filter((variant) => variant.variant_type !== 'BASE')
+    .map((variant, position) => {
+      const offset = position + 1;
+      const externalId = mockVariantExternalId(indexCard, variant);
+      return {
+        id: `${baseId}::VARIANT::${variant.id}`,
+        external_id: externalId,
+        base_card_id: baseId,
+        variant_type: variant.variant_type,
+        label: variant.label,
+        version: variant.number == null ? variant.label : `V.${variant.number}`,
+        image: variant.image,
+        language: variant.language,
+        prices: mockPrices(offset * 4),
+        artist: {
+          id: `mock-artist-${offset}`,
+          name: offset === 1 ? 'Eiichiro Mock' : 'Grand Line Studio',
+          slug: offset === 1 ? 'eiichiro-mock' : 'grand-line-studio',
+        },
+        cardmarket_id: 910_000 + offset,
+        tcgplayer_id: 920_000 + offset,
+        tcgid: `MOCK-TCG-${indexCard.id}-${offset}`,
+        links: {
+          cardmarket: `https://example.com/mock/cardmarket/${offset}`,
+          tcgplayer: `https://example.com/mock/tcgplayer/${offset}`,
+        },
+        tcggo_url: `https://example.com/mock/tcggo/${offset}`,
+        source: mockSource(indexCard, variant.id),
+      };
+    });
 }
 
 function mockDetail(indexCard: CatalogCard): CardDetail {
   const baseId = `MOCK::${indexCard.id}`;
+  const baseVariant =
+    indexCard.variants.find((variant) => variant.variant_type === 'BASE') ??
+    indexCard.variants.find((variant) => variant.image === indexCard.image);
+  const baseExternalId = `${baseId}::BASE`;
   const variants = mockVariants(indexCard, baseId);
   const basePrinting: Printing = {
     id: baseId,
-    external_id: 'mock-base',
+    external_id: baseExternalId,
     variant_type: 'BASE',
-    label: 'Arte base',
-    version: 'Mock V.1',
+    label: baseVariant?.label ?? 'Arte base',
+    version: baseVariant?.number == null ? 'V.1' : `V.${baseVariant.number}`,
     image: indexCard.image,
-    language: 'EN',
+    language: baseVariant?.language ?? 'EN',
     prices: mockPrices(),
     artist: {
       id: 'mock-artist-base',
@@ -108,7 +117,7 @@ function mockDetail(indexCard: CatalogCard): CardDetail {
       tcgplayer: 'https://example.com/mock/tcgplayer/base',
     },
     tcggo_url: 'https://example.com/mock/tcggo/base',
-    source: mockSource(),
+    source: mockSource(indexCard, baseVariant?.id),
   };
   const provenance = Object.fromEntries(
     [
@@ -133,7 +142,7 @@ function mockDetail(indexCard: CatalogCard): CardDetail {
 
   return {
     id: baseId,
-    external_id: 'mock-base',
+    external_id: baseExternalId,
     name: indexCard.name,
     name_numbered: `${indexCard.name} ${indexCard.card_number}`,
     slug: slug(indexCard.name),
@@ -147,9 +156,9 @@ function mockDetail(indexCard: CatalogCard): CardDetail {
     version: 'Mock V.1',
     print: {
       variant_type: 'BASE',
-      label: 'Arte base',
-      number: 1,
-      static_id: indexCard.id,
+      label: baseVariant?.label ?? 'Arte base',
+      number: baseVariant?.number ?? 1,
+      static_id: baseVariant?.id,
       confidence: 'EXACT',
     },
     hp: 5,
@@ -194,11 +203,11 @@ function mockDetail(indexCard: CatalogCard): CardDetail {
     },
     artworks: variants,
     printings: [basePrinting, ...variants],
-    source: mockSource(),
+    source: mockSource(indexCard, baseVariant?.id),
     enrichment: {
       status: 'MATCHED',
       providers: ['MOCK', 'FIRESTORE_INDEX'],
-      matchedExternalIds: [indexCard.id],
+      matchedExternalIds: indexCard.variants.map((variant) => variant.id),
       fields: Object.keys(provenance),
       provenance,
       conflicts: ['Datos de detalle simulados; estadísticas de juego conservadas desde el índice.'],

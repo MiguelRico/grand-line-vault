@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CardDetail, CatalogCard } from '../domain/models';
 import { CardDetails } from './CardDetails';
@@ -186,6 +186,7 @@ const indexCard: CatalogCard = {
 };
 
 beforeEach(() => {
+  cleanup();
   vi.clearAllMocks();
   serviceMocks.getById.mockResolvedValue(card);
   serviceMocks.getVariantById.mockResolvedValue({
@@ -213,8 +214,7 @@ beforeEach(() => {
   serviceMocks.saveCollection.mockImplementation(async (item: Record<string, unknown>) => ({
     ...item,
     card: indexCard,
-    variant:
-      indexCard.variants.find((variant) => variant.id === item.catalogVariantId) ?? null,
+    variant: indexCard.variants.find((variant) => variant.id === item.catalogVariantId) ?? null,
   }));
 });
 
@@ -291,6 +291,31 @@ describe('CardDetails', () => {
     );
     expect(serviceMocks.saveCollection.mock.calls[0]?.[0]).not.toHaveProperty('cardSnapshot');
     expect(await screen.findByText('Se han añadido 2 copias de Parallel 1.')).toBeInTheDocument();
+  });
+
+  it('adds the base printing using the catalog card reference', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <CardDetails card={indexCard} onClose={vi.fn()} />
+      </QueryClientProvider>,
+    );
+
+    await screen.findByRole('heading', { name: card.name });
+    fireEvent.click(screen.getByRole('button', { name: 'Añadir 1 copia de Arte base' }));
+
+    await waitFor(() => expect(serviceMocks.saveCollection).toHaveBeenCalledOnce());
+    expect(serviceMocks.saveCollection).toHaveBeenCalledWith(
+      expect.objectContaining({
+        catalogCardId: indexCard.id,
+        catalogVariantId: null,
+        quantity: 3,
+        language: 'EN',
+      }),
+    );
+    expect(await screen.findByText('Se han añadido 1 copia de Arte base.')).toBeInTheDocument();
   });
 
   it('warns when the index reports more prints than the detail provides', async () => {

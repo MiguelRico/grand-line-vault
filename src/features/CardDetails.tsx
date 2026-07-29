@@ -86,7 +86,7 @@ export function CardDetails({
   const selectedVariant =
     baseCard?.artworks.find((variant) => variant.id === selectedVariantId) ?? null;
   const variantQuery = useQuery({
-    queryKey: ['card-variant-detail', selectedVariant?.external_id],
+    queryKey: ['card-variant-detail', detailId, selectedVariant?.external_id],
     queryFn: ({ signal }) =>
       services.catalog.getVariantById(selectedVariant?.external_id ?? '', signal),
     enabled: Boolean(selectedVariant?.external_id),
@@ -279,8 +279,8 @@ export function CardDetails({
             <p className="text-xs font-semibold text-slate-500">{catalogCard?.card_number}</p>
             <h2 className="mt-1 text-2xl font-black text-slate-950">{catalogCard?.name}</h2>
             <p role="alert" className="mt-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">
-              No se pudo cargar el detalle enriquecido desde TCGGO. Se muestra la información
-              básica disponible en el índice.
+              No se pudo cargar el detalle enriquecido desde TCGGO. Se muestra la información básica
+              disponible en el índice.
             </p>
             <CatalogLinks links={catalogCard?.links} tcggoUrl={catalogCard?.tcggo_url} />
             <Button className="mt-4" variant="secondary" onClick={() => void cardQuery.refetch()}>
@@ -722,7 +722,9 @@ export function CardDetails({
             <div className="mt-6">
               <Button
                 onClick={() => addMutation.mutate({ card, variant: selectedPrinting })}
-                disabled={addMutation.isPending || variantQuery.isPending}
+                disabled={
+                  addMutation.isPending || (Boolean(selectedVariant) && variantQuery.isPending)
+                }
                 className="w-full"
               >
                 {addMutation.isPending ? (
