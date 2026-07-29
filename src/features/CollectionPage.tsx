@@ -76,7 +76,7 @@ function CollectionEditor({ item, onClose }: { item: CollectionItem | null; onCl
             <p className="text-xs font-semibold text-slate-500">{draft.card.card_number}</p>
             <h2 className="mt-1 pr-10 text-2xl font-black">{draft.card.name}</h2>
             <p className="mt-1 text-sm text-slate-600">
-              {draft.variant?.label ?? 'Arte base'} Â· {draft.language} Â·{' '}
+              {draft.variant?.label ?? 'Arte base'} · {draft.language} ·{' '}
               {draft.condition.replace('_', ' ')}
             </p>
             <div className="mt-6 flex flex-wrap items-end justify-between gap-4 border-y border-slate-200 py-5">
@@ -116,7 +116,7 @@ function CollectionEditor({ item, onClose }: { item: CollectionItem | null; onCl
                 </select>
               </label>
               <label className="text-sm font-semibold">
-                SecciÃ³n
+                Sección
                 <select
                   value={draft.sectionId ?? ''}
                   disabled={!draft.boxId}
@@ -125,12 +125,12 @@ function CollectionEditor({ item, onClose }: { item: CollectionItem | null; onCl
                   }
                   className="mt-2 h-11 w-full rounded-lg border-slate-300 disabled:bg-slate-100"
                 >
-                  <option value="">Selecciona una secciÃ³n</option>
+                  <option value="">Selecciona una sección</option>
                   {(boxes.data ?? [])
                     .find((box) => box.id === draft.boxId)
                     ?.sections.map((section) => (
                       <option key={section.id} value={section.id}>
-                        {section.code} Â· {section.name}
+                        {section.code} · {section.name}
                       </option>
                     ))}
                 </select>
@@ -156,7 +156,7 @@ function CollectionEditor({ item, onClose }: { item: CollectionItem | null; onCl
               <Button
                 variant="danger"
                 onClick={() => {
-                  if (window.confirm('Â¿Eliminar esta carta de la colecciÃ³n?'))
+                  if (window.confirm('¿Eliminar esta carta de la colección?'))
                     remove.mutate(draft.id);
                 }}
               >
@@ -192,7 +192,7 @@ const emptyFilters: CollectionFilters = {
 
 function CollectionLoadingState() {
   return (
-    <div aria-busy="true" aria-label="Cargando colecciÃ³n">
+    <div aria-busy="true" aria-label="Cargando colección">
       <section className="mb-5 grid grid-cols-4 overflow-hidden rounded-xl border border-slate-200 bg-white py-4 shadow-sm lg:grid-cols-6">
         {Array.from({ length: 6 }).map((_, index) => (
           <div
@@ -202,7 +202,7 @@ function CollectionLoadingState() {
             }`}
           >
             <div className="absolute inset-x-3 inset-y-1 animate-pulse rounded-lg bg-slate-100" />
-            <OnePieceLoader size="sm" label="Cargando estadÃ­stica" />
+            <OnePieceLoader size="sm" label="Cargando estadística" />
           </div>
         ))}
       </section>
@@ -275,7 +275,7 @@ function CollectionFilterDrawer({
       >
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs font-bold uppercase tracking-wide text-violet">Mi colecciÃ³n</p>
+            <p className="text-xs font-bold uppercase tracking-wide text-violet">Mi colección</p>
             <h2 id="collection-filters-title" className="mt-1 text-xl font-black">
               Filtros
             </h2>
@@ -312,7 +312,7 @@ function CollectionFilterDrawer({
             </select>
           </label>
           <label className="block text-sm font-semibold">
-            SecciÃ³n
+            Sección
             <select
               value={filters.sectionId}
               disabled={!selectedBox}
@@ -322,7 +322,7 @@ function CollectionFilterDrawer({
               <option value="">Todas las secciones</option>
               {selectedBox?.sections.map((section) => (
                 <option key={section.id} value={section.id}>
-                  {section.code} Â· {section.name}
+                  {section.code} · {section.name}
                 </option>
               ))}
             </select>
@@ -462,7 +462,7 @@ export function CollectionPage() {
     if (filters.sectionId)
       chips.push({
         key: 'sectionId',
-        label: selectedSection ? `${selectedSection.code} Â· ${selectedSection.name}` : 'SecciÃ³n',
+        label: selectedSection ? `${selectedSection.code} · ${selectedSection.name}` : 'Sección',
       });
     if (filters.language) chips.push({ key: 'language', label: filters.language });
     if (filters.condition)
@@ -485,13 +485,13 @@ export function CollectionPage() {
   return (
     <div className="mx-auto max-w-[1500px] p-4 sm:p-6 lg:p-8">
       <PageHeader
-        title="Mi colecciÃ³n"
+        title="Mi colección"
         subtitle="Tu archivo personal, siempre bajo control"
         action={
           <Link to="/catalog" className="hidden sm:block">
             <Button>
               <Plus className="size-4" />
-              AÃ±adir cartas
+              Añadir cartas
             </Button>
           </Link>
         }
@@ -562,7 +562,7 @@ export function CollectionPage() {
                 <SearchInput
                   value={query}
                   onChange={setQuery}
-                  placeholder="Buscar en mi colecciÃ³n..."
+                  placeholder="Buscar en mi colección..."
                 />
                 <Button
                   variant="secondary"
@@ -607,7 +607,7 @@ export function CollectionPage() {
                             : 'hover:bg-slate-50'
                         }`}
                       >
-                        <Grid2X2 className="size-4" /> CuadrÃ­cula
+                        <Grid2X2 className="size-4" /> Cuadrícula
                       </button>
                       <button
                         role="menuitemradio"
@@ -656,11 +656,11 @@ export function CollectionPage() {
               )}
               {filtered.length === 0 ? (
                 <EmptyState
-                  title="No hay cartas aquÃ­"
-                  description="AÃ±ade cartas desde el catÃ¡logo o ajusta la bÃºsqueda."
+                  title="No hay cartas aquí"
+                  description="Añade cartas desde el catálogo o ajusta la búsqueda."
                   action={
                     <Link to="/catalog">
-                      <Button>Explorar catÃ¡logo</Button>
+                      <Button>Explorar catálogo</Button>
                     </Link>
                   }
                 />
@@ -689,7 +689,7 @@ export function CollectionPage() {
                       </span>
                       <span className="flex items-center gap-3">
                         {item.favorite && <Heart className="size-4 fill-red-500 text-red-500" />}
-                        <strong>Ã—{item.quantity}</strong>
+                        <strong>×{item.quantity}</strong>
                       </span>
                     </button>
                   ))}

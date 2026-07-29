@@ -62,17 +62,17 @@ function BoxEditor({ box, onClose }: { box: StorageBox | null; onClose: () => vo
               />
             </label>
             <label className="text-sm font-semibold">
-              UbicaciÃ³n fÃ­sica
+              Ubicación física
               <input
                 value={draft.location ?? ''}
                 onChange={(event) => setDraft({ ...draft, location: event.target.value })}
-                placeholder="Ej. EstanterÃ­a A"
+                placeholder="Ej. Estantería A"
                 className="mt-2 h-11 w-full rounded-lg border-slate-300"
               />
             </label>
           </div>
           <label className="mt-4 block text-sm font-semibold">
-            DescripciÃ³n
+            Descripción
             <textarea
               value={draft.description ?? ''}
               onChange={(event) => setDraft({ ...draft, description: event.target.value })}
@@ -92,13 +92,13 @@ function BoxEditor({ box, onClose }: { box: StorageBox | null; onClose: () => vo
                     {
                       id: crypto.randomUUID(),
                       code: String.fromCharCode(65 + draft.sections.length),
-                      name: 'Nueva secciÃ³n',
+                      name: 'Nueva sección',
                     },
                   ],
                 })
               }
             >
-              <Plus className="size-4" /> AÃ±adir
+              <Plus className="size-4" /> Añadir
             </Button>
           </div>
           <div className="mt-3 space-y-3">
@@ -114,7 +114,7 @@ function BoxEditor({ box, onClose }: { box: StorageBox | null; onClose: () => vo
                       ),
                     })
                   }
-                  aria-label="CÃ³digo de secciÃ³n"
+                  aria-label="Código de sección"
                   className="h-11 rounded-lg border-slate-300 text-center font-bold"
                 />
                 <input
@@ -127,7 +127,7 @@ function BoxEditor({ box, onClose }: { box: StorageBox | null; onClose: () => vo
                       ),
                     })
                   }
-                  aria-label="Nombre de secciÃ³n"
+                  aria-label="Nombre de sección"
                   className="h-11 min-w-0 rounded-lg border-slate-300"
                 />
                 <input
@@ -159,7 +159,7 @@ function BoxEditor({ box, onClose }: { box: StorageBox | null; onClose: () => vo
                     })
                   }
                   className="grid size-11 place-items-center rounded-lg text-red-600 hover:bg-red-50"
-                  aria-label={`Eliminar secciÃ³n ${section.name}`}
+                  aria-label={`Eliminar sección ${section.name}`}
                 >
                   <Trash2 className="size-4" />
                 </button>
@@ -196,7 +196,7 @@ export function BoxesPage() {
     setSelected({
       id: crypto.randomUUID(),
       name: 'Nuevo contenedor',
-      sections: [{ id: crypto.randomUUID(), code: 'A', name: 'SecciÃ³n principal' }],
+      sections: [{ id: crypto.randomUUID(), code: 'A', name: 'Sección principal' }],
       createdAt: now,
       updatedAt: now,
     });
@@ -204,7 +204,7 @@ export function BoxesPage() {
   return (
     <div className="mx-auto max-w-[1400px] p-4 sm:p-6 lg:p-8">
       <PageHeader
-        title="OrganizaciÃ³n"
+        title="Organización"
         subtitle="Gestiona los contenedores y secciones de tu inventario"
         action={
           <Button onClick={createBox}>
@@ -214,8 +214,8 @@ export function BoxesPage() {
       />
       {!boxes.data?.length ? (
         <EmptyState
-          title="AÃºn no hay contenedores"
-          description="Crea tu primer contenedor y divÃ­delo en secciones para empezar a ubicar cartas."
+          title="Aún no hay contenedores"
+          description="Crea tu primer contenedor y divídelo en secciones para empezar a ubicar cartas."
           action={<Button onClick={createBox}>Crear primer contenedor</Button>}
         />
       ) : (
@@ -236,7 +236,7 @@ export function BoxesPage() {
                     <div>
                       <h2 className="text-lg font-black">{box.name}</h2>
                       <p className="mt-1 flex items-center gap-1 text-xs text-slate-500">
-                        <MapPin className="size-3" /> {box.location || 'UbicaciÃ³n sin indicar'}
+                        <MapPin className="size-3" /> {box.location || 'Ubicación sin indicar'}
                       </p>
                     </div>
                   </div>
@@ -245,7 +245,7 @@ export function BoxesPage() {
                   </span>
                 </div>
                 <p className="mt-4 text-sm text-slate-600">
-                  {box.description || 'Sin descripciÃ³n'}
+                  {box.description || 'Sin descripción'}
                 </p>
                 <div className="mt-5 grid gap-2 sm:grid-cols-2">
                   {box.sections.map((section) => {
@@ -259,7 +259,7 @@ export function BoxesPage() {
                       <div key={section.id} className="rounded-xl border border-slate-200 p-3">
                         <div className="flex items-center justify-between gap-2">
                           <p className="truncate text-sm font-bold">
-                            {section.code} Â· {section.name}
+                            {section.code} · {section.name}
                           </p>
                           <span className="text-xs text-slate-500">
                             {sectionCopies}
@@ -288,7 +288,7 @@ export function BoxesPage() {
                       const inUse = (collection.data ?? []).some((item) => item.boxId === box.id);
                       if (inUse) {
                         window.alert('Mueve primero las cartas asignadas a este contenedor.');
-                      } else if (window.confirm(`Â¿Eliminar ${box.name}?`)) {
+                      } else if (window.confirm(`¿Eliminar ${box.name}?`)) {
                         remove.mutate(box.id);
                       }
                     }}
@@ -363,7 +363,7 @@ function PackEditor({ pack, onClose }: { pack: SalesPack | null; onClose: () => 
     >
       <div>
         <p className="text-xs font-bold uppercase tracking-wide text-violet">
-          PreparaciÃ³n de venta
+          Preparación de venta
         </p>
         <h2 className="mt-1 pr-10 text-2xl font-black">Configurar pack</h2>
         <div className="mt-6 grid gap-4 sm:grid-cols-[1fr_160px]">
@@ -393,7 +393,7 @@ function PackEditor({ pack, onClose }: { pack: SalesPack | null; onClose: () => 
         </div>
         <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_160px]">
           <label className="text-sm font-semibold">
-            DescripciÃ³n
+            Descripción
             <input
               value={draft.description ?? ''}
               onChange={(event) => setDraft({ ...draft, description: event.target.value })}
@@ -604,7 +604,7 @@ export function SalesPacksPage() {
                 </div>
                 <h2 className="mt-5 text-lg font-black">{pack.name}</h2>
                 <p className="mt-1 line-clamp-2 text-sm text-slate-600">
-                  {pack.description || 'Sin descripciÃ³n'}
+                  {pack.description || 'Sin descripción'}
                 </p>
                 <div className="mt-4 flex -space-x-3">
                   {pack.items.slice(0, 6).map((item) => {
@@ -643,7 +643,7 @@ export function SalesPacksPage() {
                   <Button
                     variant="ghost"
                     onClick={() => {
-                      if (window.confirm(`Â¿Eliminar ${pack.name}?`)) remove.mutate(pack.id);
+                      if (window.confirm(`¿Eliminar ${pack.name}?`)) remove.mutate(pack.id);
                     }}
                     aria-label={`Eliminar ${pack.name}`}
                   >
@@ -686,8 +686,8 @@ export function StatisticsPage() {
   return (
     <div className="mx-auto max-w-[1200px] p-4 sm:p-6 lg:p-8">
       <PageHeader
-        title="EstadÃ­sticas"
-        subtitle="Inventario, ubicaciÃ³n y preparaciÃ³n de ventas"
+        title="Estadísticas"
+        subtitle="Inventario, ubicación y preparación de ventas"
       />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <div className="rounded-2xl bg-gradient-to-br from-violet to-indigo-700 p-6 text-white shadow-soft sm:col-span-2">
@@ -705,7 +705,7 @@ export function StatisticsPage() {
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-6">
           <Box className="size-7 text-violet" />
-          <p className="mt-5 text-sm text-slate-500">Copias sin ubicaciÃ³n</p>
+          <p className="mt-5 text-sm text-slate-500">Copias sin ubicación</p>
           <p className="mt-1 text-4xl font-black">{stats.unassignedCopies}</p>
           <Link to="/collection" className="mt-3 inline-block text-sm font-bold text-violet">
             Asignar ubicaciones
@@ -747,7 +747,7 @@ export function FavoritesPage() {
       {favorites.length === 0 ? (
         <EmptyState
           title="No hay favoritas"
-          description="Marca el corazÃ³n en cualquier carta del inventario."
+          description="Marca el corazón en cualquier carta del inventario."
         />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">

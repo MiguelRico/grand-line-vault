@@ -177,7 +177,7 @@ export function CardDetails({
     variantQuery.data?.print?.label ??
     selectedVariant?.label ??
     card?.print?.label ??
-    (card?.version ? `VersiÃ³n ${card.version}` : 'Arte base');
+    (card?.version ? `Versión ${card.version}` : 'Arte base');
   const selectedPrices = catalogPriceList(
     variantQuery.data?.prices ?? selectedVariant?.prices ?? card?.prices ?? {},
   );
@@ -204,9 +204,9 @@ export function CardDetails({
   const tcgplayer = selectedPriceDetails.tcgplayer;
   const secondaryCardmarketPriceRows = cardmarket
     ? [
-        ['MÃ­nimo Near Mint (Francia)', cardmarket.lowest_near_mint_FR],
-        ['MÃ­nimo Near Mint (UE)', cardmarket.lowest_near_mint_EU_only],
-        ['MÃ­nimo Near Mint (Francia/UE)', cardmarket.lowest_near_mint_FR_EU_only],
+        ['Mínimo Near Mint (Francia)', cardmarket.lowest_near_mint_FR],
+        ['Mínimo Near Mint (UE)', cardmarket.lowest_near_mint_EU_only],
+        ['Mínimo Near Mint (Francia/UE)', cardmarket.lowest_near_mint_FR_EU_only],
       ].filter((entry): entry is [string, number] => typeof entry[1] === 'number')
     : [];
   const detailSummary = card
@@ -216,7 +216,7 @@ export function CardDetails({
         selectedLanguage,
       ]
         .filter(Boolean)
-        .join(' Â· ')
+        .join(' · ')
     : '';
   const selectedPrinting: CardVariant | null =
     selectedVariant && variantQuery.data
@@ -279,8 +279,8 @@ export function CardDetails({
             <p className="text-xs font-semibold text-slate-500">{catalogCard?.card_number}</p>
             <h2 className="mt-1 text-2xl font-black text-slate-950">{catalogCard?.name}</h2>
             <p role="alert" className="mt-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">
-              No se pudo cargar el detalle enriquecido desde TCGGO. Se muestra la informaciÃ³n
-              bÃ¡sica disponible en el Ã­ndice.
+              No se pudo cargar el detalle enriquecido desde TCGGO. Se muestra la información
+              básica disponible en el índice.
             </p>
             <CatalogLinks links={catalogCard?.links} tcggoUrl={catalogCard?.tcggo_url} />
             <Button className="mt-4" variant="secondary" onClick={() => void cardQuery.refetch()}>
@@ -400,7 +400,7 @@ export function CardDetails({
               ].map(([label, value]) => (
                 <div key={String(label)}>
                   <dt className="text-[10px] font-bold uppercase text-slate-500">{label}</dt>
-                  <dd className="mt-1 font-black">{value ?? 'â€“'}</dd>
+                  <dd className="mt-1 font-black">{value ?? '–'}</dd>
                 </div>
               ))}
             </dl>
@@ -447,7 +447,7 @@ export function CardDetails({
             )}
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               <div className="rounded-xl bg-slate-50 p-4">
-                <p className="text-xs font-bold uppercase text-slate-500">ExpansiÃ³n</p>
+                <p className="text-xs font-bold uppercase text-slate-500">Expansión</p>
                 <div className="mt-1 flex items-center gap-3">
                   {card.episode.logo && (
                     <img
@@ -460,7 +460,7 @@ export function CardDetails({
                 </div>
                 <p className="mt-1 text-xs text-slate-600">
                   {card.episode.code}
-                  {card.episode.released_at ? ` Â· ${card.episode.released_at}` : ''}
+                  {card.episode.released_at ? ` · ${card.episode.released_at}` : ''}
                 </p>
                 {card.episode.series && (
                   <p className="mt-1 text-xs text-slate-600">Serie: {card.episode.series.name}</p>
@@ -471,8 +471,8 @@ export function CardDetails({
                 {(card.episode.cards_total !== undefined ||
                   card.episode.cards_printed_total !== undefined) && (
                   <p className="mt-1 text-xs text-slate-600">
-                    {card.episode.cards_total ?? 'â€“'} cartas Â·{' '}
-                    {card.episode.cards_printed_total ?? 'â€“'} impresiones
+                    {card.episode.cards_total ?? '–'} cartas ·{' '}
+                    {card.episode.cards_printed_total ?? '–'} impresiones
                   </p>
                 )}
                 {card.episode.prices?.cardmarket && (
@@ -489,7 +489,7 @@ export function CardDetails({
                 )}
               </div>
               <div className="rounded-xl bg-slate-50 p-4">
-                <p className="text-xs font-bold uppercase text-slate-500">Precio de catÃ¡logo</p>
+                <p className="text-xs font-bold uppercase text-slate-500">Precio de catálogo</p>
                 <p className="mt-1 font-black">
                   {selectedPrices[0]
                     ? `${selectedPrices[0].amount.toFixed(2)} ${selectedPrices[0].currency}`
@@ -510,7 +510,7 @@ export function CardDetails({
               <dl className="mt-3 grid grid-cols-3 gap-x-3 gap-y-3 text-sm">
                 {selectedVersion && (
                   <div>
-                    <dt className="text-xs text-slate-500">VersiÃ³n</dt>
+                    <dt className="text-xs text-slate-500">Versión</dt>
                     <dd className="font-semibold">{selectedVersion}</dd>
                   </div>
                 )}
@@ -523,7 +523,7 @@ export function CardDetails({
                   <dd className="font-semibold">{card.external_id}</dd>
                 </div>
                 <div>
-                  <dt className="text-xs text-slate-500">ID de expansiÃ³n en la fuente</dt>
+                  <dt className="text-xs text-slate-500">ID de expansión en la fuente</dt>
                   <dd className="font-semibold">{card.episode.id}</dd>
                 </div>
                 {selectedArtist && (
@@ -534,7 +534,7 @@ export function CardDetails({
                 )}
                 {card.card_code_number && (
                   <div>
-                    <dt className="text-xs text-slate-500">CÃ³digo completo</dt>
+                    <dt className="text-xs text-slate-500">Código completo</dt>
                     <dd className="font-semibold">{card.card_code_number}</dd>
                   </div>
                 )}
@@ -579,7 +579,7 @@ export function CardDetails({
                 </h3>
                 <dl className="mt-3 grid grid-cols-4 gap-x-2 gap-y-3 text-sm">
                   {[
-                    ['MÃ­nimo Near Mint', cardmarket?.lowest_near_mint],
+                    ['Mínimo Near Mint', cardmarket?.lowest_near_mint],
                     ['Media 30 días', cardmarket?.average_30d],
                     ['Media 7 días', cardmarket?.average_7d],
                   ].map(([label, value]) => (
@@ -588,13 +588,13 @@ export function CardDetails({
                       <dd className="mt-1 break-words font-semibold">
                         {typeof value === 'number'
                           ? `${value.toFixed(2)} ${cardmarket?.currency ?? ''}`.trim()
-                          : 'â€“'}
+                          : '–'}
                       </dd>
                     </div>
                   ))}
                   <div className="min-w-0">
                     <dt className="text-[11px] leading-tight text-slate-500">Disponibles</dt>
-                    <dd className="mt-1 font-semibold">{cardmarket?.available_items ?? 'â€“'}</dd>
+                    <dd className="mt-1 font-semibold">{cardmarket?.available_items ?? '–'}</dd>
                   </div>
                 </dl>
                 <dl className="mt-4 grid grid-cols-3 gap-x-3 gap-y-3 border-t border-slate-100 pt-4 text-sm">
@@ -609,7 +609,7 @@ export function CardDetails({
                   {tcgplayer?.market_price !== null && tcgplayer?.market_price !== undefined && (
                     <div className="min-w-0">
                       <dt className="text-[11px] leading-tight text-slate-500">
-                        TCGPlayer â€” precio de mercado
+                        TCGPlayer — precio de mercado
                       </dt>
                       <dd className="mt-1 break-words font-semibold">
                         {tcgplayer.market_price.toFixed(2)} {tcgplayer.currency}
@@ -631,11 +631,11 @@ export function CardDetails({
             )}
             {config.VITE_SHOW_CATALOG_NORMALIZATION && (
               <div className="mt-3 rounded-xl bg-violet/5 px-4 py-3 text-xs text-slate-700">
-                <p className="font-bold">NormalizaciÃ³n: {card.enrichment.status}</p>
+                <p className="font-bold">Normalización: {card.enrichment.status}</p>
                 <p className="mt-1">
                   Proveedores: {card.enrichment.providers.join(' + ')}
                   {card.enrichment.fields.length > 0
-                    ? ` Â· ${card.enrichment.fields.length} campos enriquecidos`
+                    ? ` · ${card.enrichment.fields.length} campos enriquecidos`
                     : ''}
                 </p>
                 {card.enrichment.conflicts.map((conflict) => (
@@ -651,7 +651,7 @@ export function CardDetails({
                     <ul className="mt-2 space-y-1">
                       {Object.entries(card.enrichment.provenance).map(([field, provenance]) => (
                         <li key={field}>
-                          {field}: {provenance.providerId} Â· {provenance.sourceField} Â·{' '}
+                          {field}: {provenance.providerId} · {provenance.sourceField} ·{' '}
                           {provenance.confidence}
                         </li>
                       ))}
@@ -663,12 +663,12 @@ export function CardDetails({
             <div className="mt-6 grid gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2">
               <div aria-live="polite">
                 <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
-                  En tu colecciÃ³n
+                  En tu colección
                 </p>
                 {collectionQuery.isPending ? (
                   <div className="mt-2 flex items-center gap-2 text-sm text-slate-600">
-                    <OnePieceLoader size="xs" label="Consultando colecciÃ³n" />
-                    Consultandoâ€¦
+                    <OnePieceLoader size="xs" label="Consultando colección" />
+                    Consultando…
                   </div>
                 ) : (
                   <>
@@ -727,8 +727,8 @@ export function CardDetails({
               >
                 {addMutation.isPending ? (
                   <>
-                    <OnePieceLoader size="xs" label="AÃ±adiendo carta" />
-                    AÃ±adiendo cartaâ€¦
+                    <OnePieceLoader size="xs" label="Añadiendo carta" />
+                    Añadiendo carta…
                   </>
                 ) : (
                   <>
