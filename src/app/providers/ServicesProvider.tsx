@@ -8,13 +8,18 @@ import { HybridCatalogRepository } from '../../infrastructure/HybridCatalogRepos
 import { MockCardDetailRepository } from '../../infrastructure/MockCardDetailRepository';
 import { CatalogUseCases } from '../../domain/catalogUseCases';
 import { CollectionService } from '../../domain/CollectionService';
-import { IndexedDbCollectionRepository } from '../../infrastructure/IndexedDbCollectionRepository';
+import { WishlistService } from '../../domain/WishlistService';
+import {
+  IndexedDbCollectionRepository,
+  IndexedDbWishlistRepository,
+} from '../../infrastructure/IndexedDbCollectionRepository';
 import { useAuth } from './AuthProvider';
 
 interface Services {
   catalog: CatalogUseCases;
   catalogProvider: 'FIRESTORE_INDEX';
   collection: CollectionService;
+  wishlist: WishlistService;
   organization: OrganizationRepository;
 }
 
@@ -25,15 +30,20 @@ export function ServicesProvider({ children }: { children: ReactNode }) {
   const services = useMemo<Services>(() => {
     const catalogRepository = new HybridCatalogRepository();
     const catalog = new CatalogUseCases(
-        catalogRepository,
-        config.VITE_USE_MOCK_CARD_DETAIL ? new MockCardDetailRepository() : catalogRepository,
-      );
+      catalogRepository,
+      config.VITE_USE_MOCK_CARD_DETAIL ? new MockCardDetailRepository() : catalogRepository,
+    );
     return {
       catalog,
       catalogProvider: 'FIRESTORE_INDEX',
       collection: new CollectionService(
         auth.user?.uid ?? 'UNAUTHENTICATED',
         new IndexedDbCollectionRepository(),
+        catalog,
+      ),
+      wishlist: new WishlistService(
+        auth.user?.uid ?? 'UNAUTHENTICATED',
+        new IndexedDbWishlistRepository(),
         catalog,
       ),
       // Organización y packs siguen siendo locales hasta implementar cloudSync.

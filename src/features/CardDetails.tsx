@@ -1,4 +1,5 @@
 ﻿import { Box, CalendarClock, ExternalLink, Plus } from 'lucide-react';
+import { Heart } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { InfiniteData } from '@tanstack/react-query';
@@ -12,6 +13,7 @@ import type {
   PaginatedResult,
 } from '../domain/models';
 import { catalogPriceList } from '../domain/services';
+import { wishlistEntryId } from '../domain/WishlistService';
 import { collectionItemIdentity, resolveCatalogVariant } from '../domain/catalogNormalization';
 import { config } from '../app/config';
 import { useServices } from '../app/providers/ServicesProvider';
@@ -238,6 +240,31 @@ export function CardDetails({
       : selectedVariant;
   const selectedCatalogVariant =
     card && catalogCard ? resolveCatalogVariant(catalogCard, card, selectedPrinting) : null;
+  const wishlistQuery = useQuery({
+    queryKey: ['wishlist'],
+    queryFn: () => services.wishlist.listWishlist(),
+    enabled: Boolean(detailId),
+  });
+  const selectedWishlistId = catalogCard
+    ? wishlistEntryId(catalogCard.id, selectedCatalogVariant?.id ?? null)
+    : null;
+  const isWished = Boolean(
+    selectedWishlistId && wishlistQuery.data?.some((item) => item.id === selectedWishlistId),
+  );
+  const wishlistMutation = useMutation({
+    mutationFn: async () => {
+      if (!catalogCard || !selectedWishlistId)
+        throw new Error('No hay una impresión válida para la lista de deseos.');
+      if (isWished) {
+        await services.wishlist.remove(selectedWishlistId);
+        return null;
+      }
+      return services.wishlist.add(catalogCard.id, selectedCatalogVariant?.id ?? null);
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['wishlist'] });
+    },
+  });
   const cardCollectionItems =
     collectionQuery.data?.filter((item) => item.catalogCardId === catalogCard?.id) ?? [];
   const ownedTotal = cardCollectionItems.reduce((sum, item) => sum + item.quantity, 0);
@@ -719,7 +746,7 @@ export function CardDetails({
                 No se pudo añadir la carta. Inténtalo de nuevo.
               </p>
             )}
-            <div className="mt-6">
+            <div className="mt-6 grid gap-2 sm:grid-cols-2">
               <Button
                 onClick={() => addMutation.mutate({ card, variant: selectedPrinting })}
                 disabled={
@@ -739,7 +766,30 @@ export function CardDetails({
                   </>
                 )}
               </Button>
+              <Button
+                variant={isWished ? 'primary' : 'secondary'}
+                onClick={() => wishlistMutation.mutate()}
+                disabled={
+                  wishlistMutation.isPending ||
+                  wishlistQuery.isPending ||
+                  (Boolean(selectedVariant) && !selectedCatalogVariant)
+                }
+                className="w-full"
+                aria-pressed={isWished}
+              >
+                <Heart className={`size-4 ${isWished ? 'fill-current' : ''}`} />
+                {wishlistMutation.isPending
+                  ? 'Actualizando…'
+                  : isWished
+                    ? `Quitar ${selectedLabel} de deseos`
+                    : `Añadir ${selectedLabel} a deseos`}
+              </Button>
             </div>
+            {wishlistMutation.isError && (
+              <p role="alert" className="mt-2 text-sm font-semibold text-red-700">
+                No se pudo actualizar la lista de deseos.
+              </p>
+            )}
             <div className="mt-3 flex justify-center gap-1 text-xs text-slate-500">
               <Box className="size-3.5" /> Fuente de datos:{' '}
               {selectedSource?.providerId ?? 'desconocida'}

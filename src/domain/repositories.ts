@@ -5,6 +5,7 @@ import type {
   CatalogEpisode,
   CollectionEntry,
   PaginatedResult,
+  WishlistEntry,
 } from './models';
 
 export interface CatalogIndexRepository {
@@ -31,5 +32,11 @@ export interface CatalogRepository extends CatalogIndexRepository, CardDetailRep
 export interface CollectionRepository {
   list(ownerId: string): Promise<CollectionEntry[]>;
   save(entry: CollectionEntry): Promise<CollectionEntry>;
+  remove(ownerId: string, id: string): Promise<void>;
+}
+
+export interface WishlistRepository {
+  list(ownerId: string): Promise<WishlistEntry[]>;
+  save(entry: WishlistEntry): Promise<WishlistEntry>;
   remove(ownerId: string, id: string): Promise<void>;
 }

@@ -1,7 +1,10 @@
 import 'fake-indexeddb/auto';
 import { describe, expect, it } from 'vitest';
-import type { CollectionEntry } from '../domain/models';
-import { IndexedDbCollectionRepository } from './IndexedDbCollectionRepository';
+import type { CollectionEntry, WishlistEntry } from '../domain/models';
+import {
+  IndexedDbCollectionRepository,
+  IndexedDbWishlistRepository,
+} from './IndexedDbCollectionRepository';
 
 function entry(ownerId: string, id: string): CollectionEntry {
   return {
@@ -44,5 +47,36 @@ describe('IndexedDbCollectionRepository', () => {
     expect(stored).not.toHaveProperty('prices');
     expect(stored).not.toHaveProperty('availability');
     expect(stored).not.toHaveProperty('card');
+  });
+});
+
+describe('IndexedDbWishlistRepository', () => {
+  const wish: WishlistEntry = {
+    id: 'CARD::OP01-001::BASE',
+    ownerId: 'wishlist-owner',
+    catalogCardId: 'CARD::OP01-001',
+    catalogVariantId: null,
+    createdAt: '2026-07-29T00:00:00.000Z',
+    updatedAt: '2026-07-29T00:00:00.000Z',
+  };
+
+  it('persists only catalog references and isolates them by owner', async () => {
+    const repository = new IndexedDbWishlistRepository();
+    await repository.save({
+      ...wish,
+      prices: { market: 99 },
+      image: 'https://example.com/dynamic.png',
+    } as WishlistEntry);
+    await repository.save({ ...wish, ownerId: 'another-owner' });
+
+    expect(await repository.list(wish.ownerId)).toEqual([wish]);
+    expect(await repository.list('another-owner')).toEqual([{ ...wish, ownerId: 'another-owner' }]);
+  });
+
+  it('removes only the selected wish', async () => {
+    const repository = new IndexedDbWishlistRepository();
+    await repository.save(wish);
+    await repository.remove(wish.ownerId, wish.id);
+    expect(await repository.list(wish.ownerId)).toEqual([]);
   });
 });

@@ -267,6 +267,22 @@ export interface CollectionItem extends CollectionEntry {
   variant: CatalogVariantRef | null;
 }
 
+/** Referencia persistente de una impresión deseada; nunca contiene datos enriquecidos. */
+export interface WishlistEntry {
+  id: string;
+  ownerId: string;
+  catalogCardId: string;
+  catalogVariantId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Modelo de lectura hidratado exclusivamente desde el índice del catálogo. */
+export interface WishlistItem extends WishlistEntry {
+  card: CatalogCard;
+  variant: CatalogVariantRef | null;
+}
+
 export interface StorageSection {
   id: string;
   name: string;

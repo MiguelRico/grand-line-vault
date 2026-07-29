@@ -90,7 +90,7 @@ function CollectionEditor({ item, onClose }: { item: CollectionItem | null; onCl
       title="Gestionar carta"
     >
       {draft && (
-        <div className="grid gap-6 md:grid-cols-[180px_1fr]">
+        <div className="grid gap-6 pt-8 md:grid-cols-[180px_1fr] md:pt-0">
           <CardImage
             src={draft.variant?.image ?? draft.card.image}
             alt={`Carta ${draft.card.name}`}

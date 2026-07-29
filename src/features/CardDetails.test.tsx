@@ -9,6 +9,9 @@ const serviceMocks = vi.hoisted(() => ({
   getVariantById: vi.fn(),
   listCollection: vi.fn(),
   saveCollection: vi.fn(),
+  listWishlist: vi.fn(),
+  addWish: vi.fn(),
+  removeWish: vi.fn(),
 }));
 
 vi.mock('../app/providers/ServicesProvider', () => ({
@@ -21,6 +24,11 @@ vi.mock('../app/providers/ServicesProvider', () => ({
     collection: {
       listCollection: serviceMocks.listCollection,
       saveCollection: serviceMocks.saveCollection,
+    },
+    wishlist: {
+      listWishlist: serviceMocks.listWishlist,
+      add: serviceMocks.addWish,
+      remove: serviceMocks.removeWish,
     },
   }),
 }));
@@ -211,6 +219,9 @@ beforeEach(() => {
     artworks: [],
   });
   serviceMocks.listCollection.mockResolvedValue(collectionItems);
+  serviceMocks.listWishlist.mockResolvedValue([]);
+  serviceMocks.addWish.mockResolvedValue({});
+  serviceMocks.removeWish.mockResolvedValue(undefined);
   serviceMocks.saveCollection.mockImplementation(async (item: Record<string, unknown>) => ({
     ...item,
     card: indexCard,
@@ -317,6 +328,29 @@ describe('CardDetails', () => {
       }),
     );
     expect(await screen.findByText('Se han añadido 1 copia de Arte base.')).toBeInTheDocument();
+  });
+
+  it('adds the active catalog variant to the wishlist', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <CardDetails card={indexCard} onClose={vi.fn()} />
+      </QueryClientProvider>,
+    );
+
+    await screen.findByRole('heading', { name: card.name });
+    fireEvent.click(screen.getByRole('button', { name: 'Mostrar Parallel 1' }));
+    const wishButton = await screen.findByRole('button', {
+      name: 'Añadir Parallel 1 a deseos',
+    });
+    await waitFor(() => expect(wishButton).not.toBeDisabled());
+    fireEvent.click(wishButton);
+
+    await waitFor(() =>
+      expect(serviceMocks.addWish).toHaveBeenCalledWith(indexCard.id, 'OP01-001_p1'),
+    );
   });
 
   it('warns when the index reports more prints than the detail provides', async () => {

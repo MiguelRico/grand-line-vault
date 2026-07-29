@@ -19,7 +19,7 @@ import {
   reservedQuantities,
   salesPackAvailabilityWarnings,
 } from '../domain/services';
-import type { SalesPack, SalesPackStatus, StorageBox } from '../domain/models';
+import type { CollectionItem, SalesPack, SalesPackStatus, StorageBox } from '../domain/models';
 import { PageHeader, SimplePage } from '../shared/AppShell';
 import {
   Button,
@@ -103,7 +103,7 @@ function BoxEditor({ box, onClose }: { box: StorageBox | null; onClose: () => vo
           </div>
           <div className="mt-3 space-y-3">
             {draft.sections.map((section, index) => (
-              <div key={section.id} className="grid grid-cols-[64px_1fr_90px_44px] gap-2">
+              <div key={section.id} className="grid grid-cols-[64px_1fr_44px] gap-2">
                 <input
                   value={section.code}
                   onChange={(event) =>
@@ -129,27 +129,6 @@ function BoxEditor({ box, onClose }: { box: StorageBox | null; onClose: () => vo
                   }
                   aria-label="Nombre de sección"
                   className="h-11 min-w-0 rounded-lg border-slate-300"
-                />
-                <input
-                  type="number"
-                  min="1"
-                  value={section.capacity ?? ''}
-                  onChange={(event) =>
-                    setDraft({
-                      ...draft,
-                      sections: draft.sections.map((entry, itemIndex) =>
-                        itemIndex === index
-                          ? {
-                              ...entry,
-                              capacity: event.target.value ? Number(event.target.value) : undefined,
-                            }
-                          : entry,
-                      ),
-                    })
-                  }
-                  placeholder="Cap."
-                  aria-label="Capacidad"
-                  className="h-11 rounded-lg border-slate-300"
                 />
                 <button
                   onClick={() =>
@@ -252,28 +231,14 @@ export function BoxesPage() {
                     const sectionCopies = boxItems
                       .filter((item) => item.sectionId === section.id)
                       .reduce((sum, item) => sum + item.quantity, 0);
-                    const percent = section.capacity
-                      ? Math.min(100, (sectionCopies / section.capacity) * 100)
-                      : 0;
                     return (
                       <div key={section.id} className="rounded-xl border border-slate-200 p-3">
                         <div className="flex items-center justify-between gap-2">
                           <p className="truncate text-sm font-bold">
                             {section.code} · {section.name}
                           </p>
-                          <span className="text-xs text-slate-500">
-                            {sectionCopies}
-                            {section.capacity ? `/${section.capacity}` : ''}
-                          </span>
+                          <span className="text-xs text-slate-500">{sectionCopies}</span>
                         </div>
-                        {section.capacity && (
-                          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
-                            <div
-                              className="h-full rounded-full bg-violet"
-                              style={{ width: `${percent}%` }}
-                            />
-                          </div>
-                        )}
                       </div>
                     );
                   })}
@@ -685,10 +650,7 @@ export function StatisticsPage() {
   const max = Math.max(...rows.map((row) => row[1]), 1);
   return (
     <div className="mx-auto max-w-[1200px] p-4 sm:p-6 lg:p-8">
-      <PageHeader
-        title="Estadísticas"
-        subtitle="Inventario, ubicación y preparación de ventas"
-      />
+      <PageHeader title="Estadísticas" subtitle="Inventario, ubicación y preparación de ventas" />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <div className="rounded-2xl bg-gradient-to-br from-violet to-indigo-700 p-6 text-white shadow-soft sm:col-span-2">
           <BarChart3 className="size-7 opacity-80" />
@@ -737,33 +699,128 @@ export function StatisticsPage() {
 
 export function FavoritesPage() {
   const services = useServices();
+  const queryClient = useQueryClient();
+  const [tab, setTab] = useState<'favorites' | 'wishlist'>('favorites');
   const collection = useQuery({
     queryKey: ['collection'],
     queryFn: () => services.collection.listCollection(),
   });
+  const wishlist = useQuery({
+    queryKey: ['wishlist'],
+    queryFn: () => services.wishlist.listWishlist(),
+  });
+  const unfavorite = useMutation({
+    mutationFn: (item: CollectionItem) =>
+      services.collection.saveCollection({
+        ...item,
+        favorite: false,
+        updatedAt: new Date().toISOString(),
+      }),
+    onSuccess: async () => queryClient.invalidateQueries({ queryKey: ['collection'] }),
+  });
+  const removeWish = useMutation({
+    mutationFn: (id: string) => services.wishlist.remove(id),
+    onSuccess: async () => queryClient.invalidateQueries({ queryKey: ['wishlist'] }),
+  });
   const favorites = (collection.data ?? []).filter((item) => item.favorite);
+  const activeItems = tab === 'favorites' ? favorites : (wishlist.data ?? []);
+
   return (
-    <SimplePage title="Favoritos">
-      {favorites.length === 0 ? (
+    <SimplePage title="Favoritos y lista de deseos">
+      <div className="mb-6 flex overflow-x-auto border-b border-slate-200">
+        <button
+          onClick={() => setTab('favorites')}
+          className={`min-h-11 border-b-2 px-4 text-sm font-semibold ${
+            tab === 'favorites' ? 'border-violet text-violet' : 'border-transparent text-slate-600'
+          }`}
+        >
+          Favoritos ({favorites.length})
+        </button>
+        <button
+          onClick={() => setTab('wishlist')}
+          className={`min-h-11 border-b-2 px-4 text-sm font-semibold ${
+            tab === 'wishlist' ? 'border-violet text-violet' : 'border-transparent text-slate-600'
+          }`}
+        >
+          Lista de deseos ({wishlist.data?.length ?? 0})
+        </button>
+      </div>
+      {activeItems.length === 0 ? (
         <EmptyState
-          title="No hay favoritas"
-          description="Marca el corazón en cualquier carta del inventario."
+          title={tab === 'favorites' ? 'No hay favoritas' : 'Tu lista de deseos está vacía'}
+          description={
+            tab === 'favorites'
+              ? 'Marca el corazón al gestionar cualquier lote de tu colección.'
+              : 'Abre una carta o variante desde el catálogo y añádela a tu lista de deseos.'
+          }
+          action={
+            tab === 'wishlist' ? (
+              <Link to="/catalog">
+                <Button>Explorar catálogo</Button>
+              </Link>
+            ) : undefined
+          }
         />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {favorites.map((item) => (
-            <article
-              key={item.id}
-              className="grid grid-cols-[72px_1fr_auto] items-center gap-3 rounded-xl border border-slate-200 bg-white p-3"
-            >
-              <CardImage src={item.variant?.image ?? item.card.image} alt={item.card.name} />
-              <div className="min-w-0">
-                <h2 className="truncate font-bold">{item.card.name}</h2>
-                <p className="text-xs text-slate-500">{item.card.card_number}</p>
-              </div>
-              <Heart className="size-5 fill-red-500 text-red-500" />
-            </article>
-          ))}
+          {tab === 'favorites'
+            ? favorites.map((item) => (
+                <article
+                  key={item.id}
+                  className="grid grid-cols-[72px_1fr_auto] items-center gap-3 rounded-xl border border-slate-200 bg-white p-3"
+                >
+                  <CardImage src={item.variant?.image ?? item.card.image} alt={item.card.name} />
+                  <div className="min-w-0">
+                    <h2 className="truncate font-bold">{item.card.name}</h2>
+                    <p className="text-xs text-slate-500">{item.card.card_number}</p>
+                    <p className="mt-1 truncate text-xs font-semibold text-violet">
+                      {item.variant?.label ?? 'Arte principal'} · ×{item.quantity}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => unfavorite.mutate(item)}
+                    disabled={unfavorite.isPending}
+                    className="grid size-11 place-items-center rounded-lg hover:bg-red-50 disabled:opacity-50"
+                    aria-label={`Quitar ${item.card.name} de favoritos`}
+                  >
+                    <Heart className="size-5 fill-red-500 text-red-500" />
+                  </button>
+                </article>
+              ))
+            : (wishlist.data ?? []).map((item) => (
+                <article
+                  key={item.id}
+                  className="grid grid-cols-[72px_1fr_auto] items-center gap-3 rounded-xl border border-slate-200 bg-white p-3"
+                >
+                  <Link to={`/catalog?card=${encodeURIComponent(item.catalogCardId)}`}>
+                    <CardImage
+                      src={item.variant?.image ?? item.card.image}
+                      alt={item.card.name}
+                      showFailureText={false}
+                    />
+                  </Link>
+                  <div className="min-w-0">
+                    <Link
+                      to={`/catalog?card=${encodeURIComponent(item.catalogCardId)}`}
+                      className="block truncate font-bold hover:text-violet"
+                    >
+                      {item.card.name}
+                    </Link>
+                    <p className="text-xs text-slate-500">{item.card.card_number}</p>
+                    <p className="mt-1 truncate text-xs font-semibold text-violet">
+                      {item.variant?.label ?? 'Arte principal'}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => removeWish.mutate(item.id)}
+                    disabled={removeWish.isPending}
+                    className="grid size-11 place-items-center rounded-lg text-violet hover:bg-indigo-50 disabled:opacity-50"
+                    aria-label={`Quitar ${item.card.name} de la lista de deseos`}
+                  >
+                    <Heart className="size-5 fill-current" />
+                  </button>
+                </article>
+              ))}
         </div>
       )}
     </SimplePage>

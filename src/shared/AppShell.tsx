@@ -23,7 +23,7 @@ const navigation = [
   { to: '/sales-packs', label: 'Packs de venta', icon: ShoppingBag },
   { to: '/statistics', label: 'Estadísticas', icon: BarChart3 },
   { to: '/catalog-statistics', label: 'Catálogo', icon: ChartNoAxesColumnIncreasing },
-  { to: '/favorites', label: 'Favoritos', icon: Heart },
+  { to: '/favorites', label: 'Favoritos y deseos', icon: Heart },
 ] as const;
 
 function SidebarContent({ close }: { close?: () => void }) {
