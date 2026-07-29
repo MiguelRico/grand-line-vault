@@ -43,9 +43,9 @@ function CollectionThumbnails({
   const visible = entries.slice(0, 6);
   const remaining = entries.length - visible.length;
   return (
-    <div className="mt-4">
+    <div className="mt-4 min-w-0 max-w-full">
       <div
-        className="flex gap-3 overflow-x-auto pb-2"
+        className="flex max-w-full gap-3 overflow-x-auto pb-2"
         aria-label={`${entries.length} cartas diferentes`}
       >
         {visible.map(({ id, item }) => (
@@ -161,7 +161,7 @@ function BoxEditor({ box, onClose }: { box: StorageBox | null; onClose: () => vo
       title="Editar contenedor"
     >
       {draft && (
-        <div>
+        <div className="min-w-0">
           <p className="text-xs font-bold uppercase tracking-wide text-violet">Almacenamiento</p>
           <h2 className="mt-1 pr-10 text-2xl font-black">Configurar contenedor</h2>
           <div className="mt-6 grid gap-4 sm:grid-cols-2">
@@ -192,7 +192,7 @@ function BoxEditor({ box, onClose }: { box: StorageBox | null; onClose: () => vo
               className="mt-2 w-full rounded-lg border-slate-300"
             />
           </label>
-          <div className="mt-6 flex items-center justify-between">
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
             <h3 className="font-black">Secciones</h3>
             <Button
               variant="secondary"
@@ -215,7 +215,10 @@ function BoxEditor({ box, onClose }: { box: StorageBox | null; onClose: () => vo
           </div>
           <div className="mt-3 space-y-3">
             {draft.sections.map((section, index) => (
-              <div key={section.id} className="grid grid-cols-[64px_1fr_44px] gap-2">
+              <div
+                key={section.id}
+                className="grid grid-cols-[minmax(0,1fr)_44px] gap-2 sm:grid-cols-[64px_minmax(0,1fr)_44px]"
+              >
                 <input
                   value={section.code}
                   onChange={(event) =>
@@ -227,7 +230,7 @@ function BoxEditor({ box, onClose }: { box: StorageBox | null; onClose: () => vo
                     })
                   }
                   aria-label="Código de sección"
-                  className="h-11 rounded-lg border-slate-300 text-center font-bold"
+                  className="col-start-1 row-start-1 h-11 min-w-0 rounded-lg border-slate-300 text-center font-bold"
                 />
                 <input
                   value={section.name}
@@ -240,7 +243,7 @@ function BoxEditor({ box, onClose }: { box: StorageBox | null; onClose: () => vo
                     })
                   }
                   aria-label="Nombre de sección"
-                  className="h-11 min-w-0 rounded-lg border-slate-300"
+                  className="col-span-2 row-start-2 h-11 min-w-0 rounded-lg border-slate-300 sm:col-span-1 sm:col-start-2 sm:row-start-1"
                 />
                 <button
                   onClick={() => {
@@ -258,7 +261,7 @@ function BoxEditor({ box, onClose }: { box: StorageBox | null; onClose: () => vo
                       setTargetSectionId(fallbackSectionId ?? '');
                     }
                   }}
-                  className="grid size-11 place-items-center rounded-lg text-red-600 hover:bg-red-50"
+                  className="col-start-2 row-start-1 grid size-11 place-items-center rounded-lg text-red-600 hover:bg-red-50 sm:col-start-3"
                   aria-label={`Eliminar sección ${section.name}`}
                 >
                   <Trash2 className="size-4" />
@@ -267,7 +270,7 @@ function BoxEditor({ box, onClose }: { box: StorageBox | null; onClose: () => vo
             ))}
           </div>
           <div className="mt-6 grid gap-5 border-t border-slate-200 pt-6 md:grid-cols-2">
-            <section>
+            <section className="min-w-0">
               <h3 className="mb-3 font-black">Cartas del contenedor ({draftItems.length})</h3>
               <div className="max-h-80 space-y-2 overflow-y-auto">
                 {draftItems.map((item) => (
@@ -295,8 +298,8 @@ function BoxEditor({ box, onClose }: { box: StorageBox | null; onClose: () => vo
                         <Trash2 className="size-4" />
                       </button>
                     </div>
-                    <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-                      <label className="min-w-36 flex-1 text-xs font-semibold">
+                    <div className="mt-2 grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+                      <label className="min-w-0 text-xs font-semibold">
                         Sección
                         <select
                           value={item.sectionId ?? ''}
@@ -318,18 +321,20 @@ function BoxEditor({ box, onClose }: { box: StorageBox | null; onClose: () => vo
                           ))}
                         </select>
                       </label>
-                      <QuantitySelector
-                        value={item.quantity}
-                        min={Math.max(1, reserved.get(item.id) ?? 0)}
-                        max={999}
-                        onChange={(quantity) =>
-                          setDraftItems((items) =>
-                            items.map((entry) =>
-                              entry.id === item.id ? { ...entry, quantity } : entry,
-                            ),
-                          )
-                        }
-                      />
+                      <div className="max-w-full overflow-x-auto">
+                        <QuantitySelector
+                          value={item.quantity}
+                          min={Math.max(1, reserved.get(item.id) ?? 0)}
+                          max={999}
+                          onChange={(quantity) =>
+                            setDraftItems((items) =>
+                              items.map((entry) =>
+                                entry.id === item.id ? { ...entry, quantity } : entry,
+                              ),
+                            )
+                          }
+                        />
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -340,7 +345,7 @@ function BoxEditor({ box, onClose }: { box: StorageBox | null; onClose: () => vo
                 )}
               </div>
             </section>
-            <section>
+            <section className="min-w-0">
               <h3 className="mb-3 font-black">Inventario disponible</h3>
               <label className="mb-3 block text-sm font-semibold">
                 Sección de destino
@@ -368,7 +373,7 @@ function BoxEditor({ box, onClose }: { box: StorageBox | null; onClose: () => vo
                       ])
                     }
                     disabled={!targetSectionId}
-                    className="flex w-full items-center justify-between rounded-lg p-2 text-left text-sm hover:bg-slate-50 disabled:opacity-40"
+                    className="flex w-full min-w-0 items-center justify-between gap-2 rounded-lg p-2 text-left text-sm hover:bg-slate-50 disabled:opacity-40"
                   >
                     <span className="min-w-0">
                       <span className="block truncate font-semibold">{item.card.name}</span>
@@ -447,10 +452,10 @@ export function BoxesPage() {
             return (
               <article
                 key={box.id}
-                className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+                className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
               >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex min-w-0 items-center gap-3">
+                <div className="flex min-w-0 flex-col items-start gap-3 sm:flex-row sm:justify-between sm:gap-4">
+                  <div className="flex min-w-0 max-w-full items-center gap-3">
                     <div className="grid size-12 shrink-0 place-items-center rounded-xl bg-indigo-50 text-violet">
                       <Archive className="size-6" />
                     </div>
@@ -461,7 +466,7 @@ export function BoxesPage() {
                       </p>
                     </div>
                   </div>
-                  <span className="shrink-0 rounded-full bg-slate-100 px-3 py-1 text-xs font-bold">
+                  <span className="shrink-0 self-start rounded-full bg-slate-100 px-3 py-1 text-xs font-bold">
                     {copies} copias
                   </span>
                 </div>
@@ -469,13 +474,16 @@ export function BoxesPage() {
                   <MapPin className="size-3" /> {box.location || 'Ubicación sin indicar'}
                 </p>
                 <CollectionThumbnails entries={boxItems.map((item) => ({ id: item.id, item }))} />
-                <div className="mt-5 grid gap-2 sm:grid-cols-2">
+                <div className="mt-5 grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2">
                   {box.sections.map((section) => {
                     const sectionCopies = boxItems
                       .filter((item) => item.sectionId === section.id)
                       .reduce((sum, item) => sum + item.quantity, 0);
                     return (
-                      <div key={section.id} className="rounded-xl border border-slate-200 p-3">
+                      <div
+                        key={section.id}
+                        className="min-w-0 rounded-xl border border-slate-200 p-3"
+                      >
                         <div className="flex items-center justify-between gap-2">
                           <p className="truncate text-sm font-bold">
                             {section.code} · {section.name}
@@ -794,10 +802,10 @@ export function SalesPacksPage() {
             return (
               <article
                 key={pack.id}
-                className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+                className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
               >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex min-w-0 items-center gap-3">
+                <div className="flex min-w-0 flex-col items-start gap-3 sm:flex-row sm:justify-between sm:gap-4">
+                  <div className="flex min-w-0 max-w-full items-center gap-3">
                     <div className="grid size-12 shrink-0 place-items-center rounded-xl bg-indigo-50 text-violet">
                       <ShoppingBag className="size-6" />
                     </div>
@@ -809,7 +817,7 @@ export function SalesPacksPage() {
                     </div>
                   </div>
                   <span
-                    className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${
+                    className={`shrink-0 self-start rounded-full px-3 py-1 text-xs font-bold ${
                       pack.status === 'READY'
                         ? 'bg-emerald-50 text-emerald-700'
                         : pack.status === 'SOLD'

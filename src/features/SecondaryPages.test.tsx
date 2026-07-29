@@ -68,6 +68,7 @@ describe('organization and sales cards', () => {
     const headingContent = title.parentElement?.parentElement;
     expect(headingContent).toHaveTextContent(box.description ?? '');
     expect(headingContent?.querySelector('svg')).toBeInTheDocument();
+    expect(headingContent?.parentElement).toHaveClass('flex-col', 'sm:flex-row');
 
     const thumbnail = await screen.findByAltText(item.card.name);
     expect(thumbnail).toHaveAttribute(
@@ -93,6 +94,7 @@ describe('organization and sales cards', () => {
     const headingContent = title.parentElement?.parentElement;
     expect(headingContent).toHaveTextContent(pack.description ?? '');
     expect(headingContent?.querySelector('svg')).toBeInTheDocument();
+    expect(headingContent?.parentElement).toHaveClass('flex-col', 'sm:flex-row');
 
     const thumbnail = await screen.findByAltText(item.card.name);
     fireEvent.error(thumbnail);
@@ -122,6 +124,11 @@ describe('organization and sales cards', () => {
     expect(
       within(dialog).getByRole('heading', { name: 'Cartas del contenedor (4)' }),
     ).toBeInTheDocument();
+    const sectionCode = within(dialog).getAllByLabelText('Código de sección')[0];
+    expect(sectionCode?.parentElement).toHaveClass(
+      'grid-cols-[minmax(0,1fr)_44px]',
+      'sm:grid-cols-[64px_minmax(0,1fr)_44px]',
+    );
     fireEvent.click(
       within(dialog).getByRole('button', {
         name: `Quitar ${removedItem.card.name} del contenedor`,
