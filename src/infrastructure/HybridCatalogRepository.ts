@@ -37,7 +37,11 @@ function isCatalogCard(value: unknown): value is CatalogCard {
     Array.isArray(card.game?.colors) &&
     Array.isArray(card.variantTypes) &&
     typeof card.variantCount === 'number' &&
-    typeof card.totalVariants === 'number'
+    typeof card.totalVariants === 'number' &&
+    (!card.links ||
+      ((typeof card.links.cardmarket === 'string' || card.links.cardmarket == null) &&
+        (typeof card.links.tcgplayer === 'string' || card.links.tcgplayer == null))) &&
+    (typeof card.tcggo_url === 'string' || card.tcggo_url == null)
   );
 }
 

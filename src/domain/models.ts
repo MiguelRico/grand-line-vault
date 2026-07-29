@@ -104,6 +104,11 @@ export interface CatalogArtist {
   slug: string;
 }
 
+export interface CatalogExternalLinks {
+  cardmarket?: string | null;
+  tcgplayer?: string | null;
+}
+
 export interface CardGameDetails {
   card_type: CardType;
   colors: CardColor[];
@@ -132,8 +137,8 @@ export interface Printing {
   cardmarket_id?: number | null;
   tcgplayer_id?: number | null;
   tcgid?: number | string | null;
-  links?: { cardmarket?: string; tcgplayer?: string };
-  tcggo_url?: string;
+  links?: CatalogExternalLinks;
+  tcggo_url?: string | null;
   source: CatalogSourceReference;
 }
 
@@ -161,6 +166,11 @@ export interface CatalogCard {
   rarity_normalized: CanonicalRarity;
   color: string | null;
   artist?: CatalogArtist | null;
+  cardmarket_id?: number | null;
+  tcgplayer_id?: number | null;
+  tcgid?: number | string | null;
+  links?: CatalogExternalLinks;
+  tcggo_url?: string | null;
   game: Pick<
     CardGameDetails,
     'card_type' | 'colors' | 'cost' | 'life' | 'power' | 'counter' | 'attributes'
@@ -206,8 +216,8 @@ export interface CardDetail {
   prices: CatalogPrices;
   episode: CatalogEpisode;
   image: string;
-  tcggo_url?: string;
-  links?: { cardmarket?: string; tcgplayer?: string };
+  tcggo_url?: string | null;
+  links?: CatalogExternalLinks;
   game: CardGameDetails;
   artworks: CardVariant[];
   printings?: Printing[];

@@ -5,6 +5,7 @@ import { db } from './_shared/firebase.js';
 import { apiError, json, methodNotAllowed } from './_shared/http.js';
 import { tcggoClient, TcggoError } from './_shared/tcggoClient.js';
 import { withProxiedCatalogImage } from './_shared/catalogImage.js';
+import { buildCatalogIndexEnrichment } from './_shared/catalogEnrichment.js';
 import {
   buildCatalogDocuments,
   buildSetDocuments,
@@ -308,20 +309,8 @@ async function detail(req: VercelRequest, res: VercelResponse): Promise<void> {
     const reference = db().collection('catalogIndex').doc(catalogId);
     const snapshot = await reference.get();
     if (snapshot.exists) {
-      await reference.set(
-        {
-          tcggoId: String(rawCard.id),
-          image: rawCard.image,
-          artist: rawCard.artist && typeof rawCard.artist === 'object' ? rawCard.artist : null,
-          source: {
-            providerId: 'TCGGO',
-            providerCardId: String(rawCard.id),
-            fetchedAt: new Date().toISOString(),
-          },
-          enrichedAt: new Date().toISOString(),
-        },
-        { merge: true },
-      );
+      const fetchedAt = new Date().toISOString();
+      await reference.set(buildCatalogIndexEnrichment(rawCard, fetchedAt), { merge: true });
     }
   }
   res.setHeader('Cache-Control', 'private, max-age=60');

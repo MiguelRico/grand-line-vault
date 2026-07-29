@@ -165,6 +165,11 @@ const indexCard: CatalogCard = {
   rarity_normalized: card.rarity_normalized,
   color: card.color,
   artist: card.artist,
+  links: {
+    cardmarket: 'https://www.cardmarket.com/index-card',
+    tcgplayer: 'https://www.tcgplayer.com/index-card',
+  },
+  tcggo_url: 'https://www.tcggo.com/index-card',
   game: {
     card_type: card.game.card_type,
     colors: card.game.colors,
@@ -307,5 +312,27 @@ describe('CardDetails', () => {
       expect.any(AbortSignal),
       expect.objectContaining({ indexCard }),
     );
+  });
+
+  it('keeps the stored index links available when the real detail fails', async () => {
+    serviceMocks.getById.mockRejectedValueOnce(new Error('TCGGO unavailable'));
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <CardDetails card={indexCard} onClose={vi.fn()} />
+      </QueryClientProvider>,
+    );
+
+    await screen.findByText(/No se pudo cargar el detalle enriquecido/);
+    const links = screen.getAllByRole('link');
+    expect(links.some((link) => link.getAttribute('href') === indexCard.links?.cardmarket)).toBe(
+      true,
+    );
+    expect(links.some((link) => link.getAttribute('href') === indexCard.links?.tcgplayer)).toBe(
+      true,
+    );
+    expect(links.some((link) => link.getAttribute('href') === indexCard.tcggo_url)).toBe(true);
   });
 });

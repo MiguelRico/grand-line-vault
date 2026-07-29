@@ -6,6 +6,7 @@ import type {
   CardDetail,
   CardVariant,
   CatalogCard,
+  CatalogExternalLinks,
   CollectionItem,
   PaginatedResult,
 } from '../domain/models';
@@ -19,6 +20,36 @@ import { config } from '../app/config';
 import { useServices } from '../app/providers/ServicesProvider';
 import { Button, CardImage, QuantitySelector, ResponsiveDialog } from '../shared/ui';
 import { OnePieceLoader } from '../shared/OnePieceLoader';
+
+function CatalogLinks({
+  links,
+  tcggoUrl,
+}: {
+  links?: CatalogExternalLinks;
+  tcggoUrl?: string | null;
+}) {
+  const entries = [
+    ['Cardmarket', links?.cardmarket],
+    ['TCGPlayer', links?.tcgplayer],
+    ['TCGGO', tcggoUrl],
+  ].filter((entry): entry is [string, string] => Boolean(entry[1]));
+  if (entries.length === 0) return null;
+  return (
+    <div className="mt-4 flex flex-wrap gap-2">
+      {entries.map(([label, href]) => (
+        <a
+          key={label}
+          href={href}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-200"
+        >
+          {label} <ExternalLink className="size-3" />
+        </a>
+      ))}
+    </div>
+  );
+}
 
 export function CardDetails({
   card: catalogCard,
@@ -74,6 +105,11 @@ export function CardDetails({
       tcggoId: baseCard.external_id,
       image: baseCard.image,
       artist: baseCard.artist,
+      cardmarket_id: baseCard.cardmarket_id,
+      tcgplayer_id: baseCard.tcgplayer_id,
+      tcgid: baseCard.tcgid,
+      links: baseCard.links,
+      tcggo_url: baseCard.tcggo_url,
       source: baseCard.source,
     };
     queryClient.setQueryData(['catalog-index-card', catalogCard.id], enrichedIndexCard);
@@ -162,9 +198,13 @@ export function CardDetails({
   const selectedTcgplayerId =
     variantQuery.data?.tcgplayer_id ?? selectedVariant?.tcgplayer_id ?? card?.tcgplayer_id;
   const selectedTcgid = variantQuery.data?.tcgid ?? selectedVariant?.tcgid ?? card?.tcgid;
-  const selectedLinks = variantQuery.data?.links ?? selectedVariant?.links ?? card?.links;
+  const selectedLinks =
+    variantQuery.data?.links ?? selectedVariant?.links ?? card?.links ?? catalogCard?.links;
   const selectedTcggoUrl =
-    variantQuery.data?.tcggo_url ?? selectedVariant?.tcggo_url ?? card?.tcggo_url;
+    variantQuery.data?.tcggo_url ??
+    selectedVariant?.tcggo_url ??
+    card?.tcggo_url ??
+    catalogCard?.tcggo_url;
   const cardmarket = selectedPriceDetails.cardmarket;
   const tcgplayer = selectedPriceDetails.tcgplayer;
   const secondaryCardmarketPriceRows = cardmarket
@@ -250,6 +290,7 @@ export function CardDetails({
               No se pudo cargar el detalle enriquecido desde TCGGO. Se muestra la información básica
               disponible en el índice.
             </p>
+            <CatalogLinks links={catalogCard?.links} tcggoUrl={catalogCard?.tcggo_url} />
             <Button className="mt-4" variant="secondary" onClick={() => void cardQuery.refetch()}>
               Reintentar
             </Button>
@@ -536,28 +577,7 @@ export function CardDetails({
                   </div>
                 )}
               </dl>
-              {(selectedLinks?.cardmarket || selectedLinks?.tcgplayer || selectedTcggoUrl) && (
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {[
-                    ['Cardmarket', selectedLinks?.cardmarket],
-                    ['TCGPlayer', selectedLinks?.tcgplayer],
-                    ['TCGGO', selectedTcggoUrl],
-                  ].map(
-                    ([label, href]) =>
-                      href && (
-                        <a
-                          key={label}
-                          href={href}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-200"
-                        >
-                          {label} <ExternalLink className="size-3" />
-                        </a>
-                      ),
-                  )}
-                </div>
-              )}
+              <CatalogLinks links={selectedLinks} tcggoUrl={selectedTcggoUrl} />
             </div>
             {(cardmarket ||
               (tcgplayer?.market_price !== null && tcgplayer?.market_price !== undefined)) && (

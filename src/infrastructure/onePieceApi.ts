@@ -4,6 +4,7 @@ import type {
   CardColor,
   CardType,
   CardVariantType,
+  CatalogExternalLinks,
   CatalogEpisode,
 } from '../domain/models';
 import {
@@ -111,6 +112,23 @@ function strings(value?: string[] | string | null): string[] {
     : [];
 }
 
+function httpUrl(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url.href : null;
+  } catch {
+    return null;
+  }
+}
+
+function externalLinks(value: unknown): CatalogExternalLinks | undefined {
+  const links = value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+  const cardmarket = httpUrl(links.cardmarket);
+  const tcgplayer = httpUrl(links.tcgplayer);
+  return cardmarket || tcgplayer ? { cardmarket, tcgplayer } : undefined;
+}
+
 export function mapApiEpisode(episode: OnePieceApiEpisode): CatalogEpisode {
   const rawPrices = episode.prices ?? {};
   return {
@@ -202,8 +220,8 @@ function artworkFromApi(
     cardmarket_id: card.cardmarket_id,
     tcgplayer_id: card.tcgplayer_id,
     tcgid: card.tcgid,
-    links: card.links,
-    tcggo_url: card.tcggo_url,
+    links: externalLinks(card.links),
+    tcggo_url: httpUrl(card.tcggo_url),
     source: {
       providerId: 'TCGGO',
       providerCardId: String(card.id),
@@ -319,8 +337,8 @@ export function mapApiCard(
     episode: mapApiEpisode(raw.episode),
     artist: normalizeArtist(raw.artist),
     image: raw.image,
-    tcggo_url: raw.tcggo_url,
-    links: raw.links,
+    tcggo_url: httpUrl(raw.tcggo_url),
+    links: externalLinks(raw.links),
     game: {
       card_type: staticBase
         ? toCardType(staticBase.category)
