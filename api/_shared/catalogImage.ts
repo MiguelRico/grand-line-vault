@@ -21,5 +21,16 @@ export function catalogImageProxyUrl(imageUrl: unknown): string {
 }
 
 export function withProxiedCatalogImage(document: Record<string, unknown>) {
-  return { ...document, image: catalogImageProxyUrl(document.image) };
+  const variants = Array.isArray(document.variants)
+    ? document.variants.map((variant) => {
+        if (!variant || typeof variant !== 'object' || Array.isArray(variant)) return variant;
+        const value = variant as Record<string, unknown>;
+        return { ...value, image: catalogImageProxyUrl(value.image) };
+      })
+    : document.variants;
+  return {
+    ...document,
+    image: catalogImageProxyUrl(document.image),
+    ...(variants === undefined ? {} : { variants }),
+  };
 }
