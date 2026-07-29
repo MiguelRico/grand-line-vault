@@ -8,6 +8,7 @@ import { withProxiedCatalogImage } from './_shared/catalogImage.js';
 import { buildCatalogIndexEnrichment } from './_shared/catalogEnrichment.js';
 import {
   buildCatalogDocuments,
+  buildCatalogVariantBackfill,
   buildSetDocuments,
   type StaticCatalogCard,
   type StaticCatalogManifest,
@@ -351,6 +352,23 @@ async function bootstrap(req: VercelRequest, res: VercelResponse): Promise<void>
   const catalogDocuments = buildCatalogDocuments(cardsPayload.cards, manifest.generatedAt);
   const setDocuments = buildSetDocuments(setsPayload.sets, manifest.generatedAt);
   const firestore = db();
+  const variantsOnly = single(req.query.variantsOnly) === 'true';
+  if (variantsOnly) {
+    const writer = firestore.bulkWriter();
+    const writes = buildCatalogVariantBackfill(catalogDocuments, new Date().toISOString()).map(
+      (document) =>
+        writer.set(firestore.collection('catalogIndex').doc(document.id), document.data, {
+          merge: true,
+        }),
+    );
+    await writer.close();
+    await Promise.all(writes);
+    return json(res, 200, {
+      catalogVersion: manifest.catalogVersion,
+      cards: catalogDocuments.length,
+      variantsOnly: true,
+    });
+  }
   const collections = cleanDatabase
     ? await firestore.listCollections()
     : [firestore.collection('catalogIndex'), firestore.collection('catalogSets')];

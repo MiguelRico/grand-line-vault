@@ -230,6 +230,7 @@ describe('CardDetails', () => {
     );
 
     await screen.findByRole('heading', { name: card.name });
+    expect(screen.getByAltText(`Carta ${card.name} — Arte base`).closest('.pt-6')).not.toBeNull();
     expect(screen.getAllByText('1.00 USD').length).toBeGreaterThan(0);
     expect(await screen.findByText('2 copias de Arte base')).toBeInTheDocument();
     expect(screen.getByText('Total entre todos los artes: 5')).toBeInTheDocument();

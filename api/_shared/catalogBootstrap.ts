@@ -90,10 +90,8 @@ function normalizeVariant(value: string): string {
 
 function variantLabel(card: StaticCatalogCard): string {
   if (card.variant.type === 'base') return 'Arte base';
-  if (card.variant.type === 'parallel')
-    return `Parallel ${card.variant.number ?? ''}`.trim();
-  if (card.variant.type === 'reprint')
-    return `Reprint ${card.variant.number ?? ''}`.trim();
+  if (card.variant.type === 'parallel') return `Parallel ${card.variant.number ?? ''}`.trim();
+  if (card.variant.type === 'reprint') return `Reprint ${card.variant.number ?? ''}`.trim();
   return 'Versión desconocida';
 }
 
@@ -189,6 +187,22 @@ export function buildCatalogDocuments(cards: StaticCatalogCard[], generatedAt: s
       bootstrappedAt: new Date().toISOString(),
     };
   });
+}
+
+export function buildCatalogVariantBackfill(
+  documents: ReturnType<typeof buildCatalogDocuments>,
+  backfilledAt: string,
+) {
+  return documents.map((document) => ({
+    id: document.id,
+    data: {
+      variantTypes: document.variantTypes,
+      variantCount: document.variantCount,
+      totalVariants: document.totalVariants,
+      variants: document.variants,
+      variantsBackfilledAt: backfilledAt,
+    },
+  }));
 }
 
 export function buildSetDocuments(sets: StaticCatalogSet[], generatedAt: string) {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildCatalogDocuments,
+  buildCatalogVariantBackfill,
   catalogDocumentId,
   type StaticCatalogCard,
 } from './catalogBootstrap.js';
@@ -56,5 +57,47 @@ describe('catalog bootstrap projection', () => {
 
   it('creates stable identifiers independent of the TCGGO id', () => {
     expect(catalogDocumentId('op01-001')).toBe('CARD::OP01-001');
+  });
+
+  it('backfills only variant metadata and preserves real index images', () => {
+    const documents = buildCatalogDocuments(
+      [
+        base,
+        {
+          ...base,
+          id: 'OP01-001_P1',
+          sourceId: 'OP01-001_P1',
+          imageUrl: 'https://static.example/OP01-001_p1.png',
+          variant: { type: 'parallel', number: 1 },
+        },
+      ],
+      '2026-07-25T00:00:00.000Z',
+    );
+
+    const backfill = buildCatalogVariantBackfill(documents, '2026-07-29T00:00:00.000Z');
+
+    expect(backfill).toEqual([
+      {
+        id: 'CARD::OP01-001',
+        data: {
+          variantTypes: ['BASE', 'PARALLEL'],
+          variantCount: 1,
+          totalVariants: 2,
+          variants: [
+            expect.objectContaining({
+              id: 'OP01-001',
+              image: 'https://static.example/OP01-001.png',
+            }),
+            expect.objectContaining({
+              id: 'OP01-001_P1',
+              image: 'https://static.example/OP01-001_p1.png',
+            }),
+          ],
+          variantsBackfilledAt: '2026-07-29T00:00:00.000Z',
+        },
+      },
+    ]);
+    expect(backfill[0]?.data).not.toHaveProperty('image');
+    expect(backfill[0]?.data).not.toHaveProperty('links');
   });
 });

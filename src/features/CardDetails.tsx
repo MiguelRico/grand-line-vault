@@ -291,7 +291,7 @@ export function CardDetails({
       ) : !card ? (
         <p className="p-8 text-center text-slate-600">No se ha encontrado la carta.</p>
       ) : (
-        <div className="grid gap-7 md:grid-cols-[260px_1fr]">
+        <div className="grid gap-7 pt-6 md:grid-cols-[260px_1fr] md:pt-0">
           <div>
             <div className="relative">
               <CardImage
