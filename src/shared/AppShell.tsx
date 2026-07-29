@@ -20,7 +20,7 @@ const navigation = [
   { to: '/catalog', label: 'Explorar cartas', icon: BookOpen },
   { to: '/collection', label: 'Mi colección', icon: Library },
   { to: '/boxes', label: 'Organización', icon: Archive },
-  { to: '/sales-packs', label: 'Packs de venta', icon: ShoppingBag },
+  { to: '/sales-packs', label: 'Ventas', icon: ShoppingBag },
   { to: '/statistics', label: 'Estadísticas', icon: BarChart3 },
   { to: '/catalog-statistics', label: 'Catálogo', icon: ChartNoAxesColumnIncreasing },
   { to: '/favorites', label: 'Favoritos y deseos', icon: Heart },

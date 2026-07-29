@@ -30,6 +30,36 @@ import {
   SearchInput,
 } from '../shared/ui';
 
+function collectionItemImage(item: CollectionItem | undefined): string {
+  return item?.variant?.image || item?.card.image || '';
+}
+
+function CollectionThumbnails({
+  entries,
+}: {
+  entries: { id: string; item: CollectionItem | undefined }[];
+}) {
+  if (entries.length === 0) return null;
+  const visible = entries.slice(0, 6);
+  const remaining = entries.length - visible.length;
+  return (
+    <div className="mt-4 flex items-center">
+      <div className="flex -space-x-3" aria-label={`${entries.length} cartas diferentes`}>
+        {visible.map(({ id, item }) => (
+          <CardImage
+            key={id}
+            src={collectionItemImage(item)}
+            alt={item?.card.name ?? 'Carta no disponible'}
+            className="w-12 shrink-0 border-2 border-white shadow-sm"
+            showFailureText={false}
+          />
+        ))}
+      </div>
+      {remaining > 0 && <span className="ml-3 text-xs font-bold text-slate-500">+{remaining}</span>}
+    </div>
+  );
+}
+
 function BoxEditor({ box, onClose }: { box: StorageBox | null; onClose: () => void }) {
   const services = useServices();
   const queryClient = useQueryClient();
@@ -208,24 +238,25 @@ export function BoxesPage() {
                 className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
               >
                 <div className="flex items-start justify-between gap-4">
-                  <div className="flex gap-3">
-                    <div className="grid size-12 place-items-center rounded-xl bg-indigo-50 text-violet">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="grid size-12 shrink-0 place-items-center rounded-xl bg-indigo-50 text-violet">
                       <Archive className="size-6" />
                     </div>
-                    <div>
-                      <h2 className="text-lg font-black">{box.name}</h2>
-                      <p className="mt-1 flex items-center gap-1 text-xs text-slate-500">
-                        <MapPin className="size-3" /> {box.location || 'Ubicación sin indicar'}
+                    <div className="min-w-0">
+                      <h2 className="truncate text-lg font-black">{box.name}</h2>
+                      <p className="mt-1 line-clamp-2 text-sm text-slate-600">
+                        {box.description || 'Sin descripción'}
                       </p>
                     </div>
                   </div>
-                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold">
+                  <span className="shrink-0 rounded-full bg-slate-100 px-3 py-1 text-xs font-bold">
                     {copies} copias
                   </span>
                 </div>
-                <p className="mt-4 text-sm text-slate-600">
-                  {box.description || 'Sin descripción'}
+                <p className="mt-4 flex items-center gap-1 text-xs text-slate-500">
+                  <MapPin className="size-3" /> {box.location || 'Ubicación sin indicar'}
                 </p>
+                <CollectionThumbnails entries={boxItems.map((item) => ({ id: item.id, item }))} />
                 <div className="mt-5 grid gap-2 sm:grid-cols-2">
                   {box.sections.map((section) => {
                     const sectionCopies = boxItems
@@ -523,7 +554,7 @@ export function SalesPacksPage() {
   return (
     <div className="mx-auto max-w-[1400px] p-4 sm:p-6 lg:p-8">
       <PageHeader
-        title="Packs de venta"
+        title="Ventas"
         subtitle="Agrupa copias disponibles y prepara lotes sin descuadrar el inventario"
         action={
           <Button onClick={newPack}>
@@ -551,12 +582,20 @@ export function SalesPacksPage() {
                 key={pack.id}
                 className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="grid size-12 place-items-center rounded-xl bg-indigo-50 text-violet">
-                    <ShoppingBag className="size-6" />
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="grid size-12 shrink-0 place-items-center rounded-xl bg-indigo-50 text-violet">
+                      <ShoppingBag className="size-6" />
+                    </div>
+                    <div className="min-w-0">
+                      <h2 className="truncate text-lg font-black">{pack.name}</h2>
+                      <p className="mt-1 line-clamp-2 text-sm text-slate-600">
+                        {pack.description || 'Sin descripción'}
+                      </p>
+                    </div>
                   </div>
                   <span
-                    className={`rounded-full px-3 py-1 text-xs font-bold ${
+                    className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${
                       pack.status === 'READY'
                         ? 'bg-emerald-50 text-emerald-700'
                         : pack.status === 'SOLD'
@@ -567,25 +606,12 @@ export function SalesPacksPage() {
                     {labels[pack.status]}
                   </span>
                 </div>
-                <h2 className="mt-5 text-lg font-black">{pack.name}</h2>
-                <p className="mt-1 line-clamp-2 text-sm text-slate-600">
-                  {pack.description || 'Sin descripción'}
-                </p>
-                <div className="mt-4 flex -space-x-3">
-                  {pack.items.slice(0, 6).map((item) => {
-                    const collectionItem = collection.data?.find(
-                      (entry) => entry.id === item.collectionItemId,
-                    );
-                    return (
-                      <CardImage
-                        key={item.id}
-                        src={collectionItem?.variant?.image ?? collectionItem?.card.image ?? ''}
-                        alt={collectionItem?.card.name ?? 'Carta'}
-                        className="w-12 border-2 border-white"
-                      />
-                    );
-                  })}
-                </div>
+                <CollectionThumbnails
+                  entries={pack.items.map((item) => ({
+                    id: item.id,
+                    item: collection.data?.find((entry) => entry.id === item.collectionItemId),
+                  }))}
+                />
                 <div className="mt-4 flex items-end justify-between">
                   <div>
                     <p className="text-xs text-slate-500">{copies} copias</p>

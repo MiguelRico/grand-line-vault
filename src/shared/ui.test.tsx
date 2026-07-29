@@ -45,16 +45,26 @@ describe('CardImage', () => {
 
   it('can hide the unavailable text in compact artwork thumbnails', () => {
     const { container } = render(
-      <CardImage
-        src="/missing-thumbnail.png"
-        alt="Arte alternativo"
-        showFailureText={false}
-      />,
+      <CardImage src="/missing-thumbnail.png" alt="Arte alternativo" showFailureText={false} />,
     );
 
     fireEvent.error(screen.getByAltText('Arte alternativo'));
 
     expect(container).not.toHaveTextContent(/imagen no disponible/i);
     expect(container.querySelector('img')).toHaveAttribute('src', '/one-piece-user.svg');
+  });
+
+  it('routes official card images through the same-origin catalog proxy', () => {
+    render(
+      <CardImage
+        src="https://en.onepiece-cardgame.com/images/cardlist/card/EB01-036.png?260715"
+        alt="Carta oficial"
+      />,
+    );
+
+    expect(screen.getByAltText('Carta oficial')).toHaveAttribute(
+      'src',
+      '/api/catalog?action=image&file=EB01-036.png&v=260715',
+    );
   });
 });

@@ -16,10 +16,33 @@ import type { CardDetail, CatalogCard } from '../domain/models';
 import { OnePieceLoader } from './OnePieceLoader';
 
 const LOCAL_IMAGE_DELAY_MS = 1_500;
+const OFFICIAL_CARD_IMAGE_ORIGIN = 'https://en.onepiece-cardgame.com';
+const OFFICIAL_CARD_IMAGE_PATH = '/images/cardlist/card/';
+const SAFE_CARD_IMAGE_FILE = /^[A-Za-z0-9_-]+\.png$/;
+const SAFE_CARD_IMAGE_VERSION = /^\d{1,16}$/;
 const unavailableCardImage = `${import.meta.env.BASE_URL}one-piece-user.svg`.replace(
   /^\/{2,}/,
   '/',
 );
+
+function safeCardImageSource(src: string): string {
+  if (!src) return '';
+  try {
+    const parsed = new URL(src);
+    if (parsed.origin !== OFFICIAL_CARD_IMAGE_ORIGIN) return src;
+    if (!parsed.pathname.startsWith(OFFICIAL_CARD_IMAGE_PATH)) return '';
+    const file = parsed.pathname.slice(OFFICIAL_CARD_IMAGE_PATH.length);
+    const version = parsed.search.slice(1);
+    if (!SAFE_CARD_IMAGE_FILE.test(file) || (version && !SAFE_CARD_IMAGE_VERSION.test(version))) {
+      return '';
+    }
+    const query = new URLSearchParams({ action: 'image', file });
+    if (version) query.set('v', version);
+    return `/api/catalog?${query.toString()}`;
+  } catch {
+    return src;
+  }
+}
 
 export function Button({
   className,
@@ -89,23 +112,28 @@ export function CardImage({
   showFailureText?: boolean;
   delayInDevelopment?: boolean;
 }) {
-  const [loading, setLoading] = useState(true);
-  const [failed, setFailed] = useState(false);
+  const safeSrc = safeCardImageSource(src);
+  const [loading, setLoading] = useState(Boolean(safeSrc));
+  const [failed, setFailed] = useState(!safeSrc);
   const delayLocalImage = import.meta.env.DEV && delayInDevelopment;
-  const [imageSrc, setImageSrc] = useState(delayLocalImage ? '' : src);
+  const [imageSrc, setImageSrc] = useState(delayLocalImage ? '' : safeSrc);
 
   useEffect(() => {
-    setLoading(true);
-    setFailed(false);
+    setLoading(Boolean(safeSrc));
+    setFailed(!safeSrc);
+    if (!safeSrc) {
+      setImageSrc('');
+      return;
+    }
     if (!delayLocalImage) {
-      setImageSrc(src);
+      setImageSrc(safeSrc);
       return;
     }
 
     setImageSrc('');
-    const timeout = window.setTimeout(() => setImageSrc(src), LOCAL_IMAGE_DELAY_MS);
+    const timeout = window.setTimeout(() => setImageSrc(safeSrc), LOCAL_IMAGE_DELAY_MS);
     return () => window.clearTimeout(timeout);
-  }, [delayLocalImage, src]);
+  }, [delayLocalImage, safeSrc]);
 
   return (
     <div
