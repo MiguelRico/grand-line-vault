@@ -3,6 +3,7 @@ import type {
   CatalogCard,
   CatalogCriteria,
   CatalogEpisode,
+  CollectionEntry,
   PaginatedResult,
 } from './models';
 
@@ -26,3 +27,9 @@ export interface CardDetailRepository {
 }
 
 export interface CatalogRepository extends CatalogIndexRepository, CardDetailRepository {}
+
+export interface CollectionRepository {
+  list(ownerId: string): Promise<CollectionEntry[]>;
+  save(entry: CollectionEntry): Promise<CollectionEntry>;
+  remove(ownerId: string, id: string): Promise<void>;
+}

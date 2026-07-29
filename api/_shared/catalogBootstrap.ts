@@ -88,6 +88,15 @@ function normalizeVariant(value: string): string {
   return 'UNKNOWN';
 }
 
+function variantLabel(card: StaticCatalogCard): string {
+  if (card.variant.type === 'base') return 'Arte base';
+  if (card.variant.type === 'parallel')
+    return `Parallel ${card.variant.number ?? ''}`.trim();
+  if (card.variant.type === 'reprint')
+    return `Reprint ${card.variant.number ?? ''}`.trim();
+  return 'Versión desconocida';
+}
+
 function searchPrefixes(name: string, cardNumber: string): string[] {
   const value = normalizeIndexText(`${name} ${cardNumber}`);
   const prefixes = new Set<string>();
@@ -157,6 +166,14 @@ export function buildCatalogDocuments(cards: StaticCatalogCard[], generatedAt: s
       variantTypes,
       variantCount: Math.max(0, prints.length - 1),
       totalVariants: prints.length,
+      variants: prints.map((card) => ({
+        id: card.sourceId,
+        variant_type: normalizeVariant(card.variant.type),
+        label: variantLabel(card),
+        number: card.variant.number,
+        image: card.imageUrl,
+        language: 'EN',
+      })),
       searchPrefixes: searchPrefixes(base.name, base.cardNumber),
       sort: {
         cardNumber: normalizeCardNumber(base.cardNumber),

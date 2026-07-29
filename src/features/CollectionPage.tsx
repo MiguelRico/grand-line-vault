@@ -1,21 +1,10 @@
-import { Archive, Grid2X2, Heart, List, Plus, SlidersHorizontal, Trash2, X } from 'lucide-react';
+﻿import { Archive, Grid2X2, Heart, List, Plus, SlidersHorizontal, Trash2, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { useServices } from '../app/providers/ServicesProvider';
-import type {
-  CardDetail,
-  CardCondition,
-  CardLanguage,
-  CollectionItem,
-  StorageBox,
-} from '../domain/models';
+import type { CardCondition, CardLanguage, CollectionItem, StorageBox } from '../domain/models';
 import { calculateCollectionStats, sectionLabel } from '../domain/services';
-import {
-  normalizeCardNumber,
-  normalizeExpansionCode,
-  normalizeRarity,
-} from '../domain/catalogNormalization';
 import { PageHeader } from '../shared/AppShell';
 import { OnePieceLoader } from '../shared/OnePieceLoader';
 import {
@@ -28,59 +17,6 @@ import {
   ResponsiveDialog,
   SearchInput,
 } from '../shared/ui';
-
-function snapshotToCard(item: CollectionItem): CardDetail {
-  const source = {
-    providerId: item.cardSnapshot.catalogProvider,
-    fetchedAt: item.cardSnapshot.catalogFetchedAt ?? item.updatedAt,
-  };
-  return {
-    id: item.cardId,
-    external_id: item.cardId,
-    name: item.cardSnapshot.name,
-    name_numbered: `${item.cardSnapshot.name} ${item.cardSnapshot.code}`,
-    slug: item.cardSnapshot.name.toLocaleLowerCase().replace(/[^a-z0-9]+/g, '-'),
-    type: 'singles',
-    card_number: item.cardSnapshot.code,
-    normalized_card_number: normalizeCardNumber(item.cardSnapshot.code),
-    rarity: item.cardSnapshot.rarity,
-    rarity_normalized: normalizeRarity(item.cardSnapshot.rarity),
-    color: null,
-    episode: {
-      id: item.cardSnapshot.setCode,
-      code: item.cardSnapshot.setCode,
-      normalized_code: normalizeExpansionCode(item.cardSnapshot.setCode),
-      name: item.cardSnapshot.setCode,
-      slug: item.cardSnapshot.setCode.toLocaleLowerCase(),
-    },
-    game: {
-      card_type: 'CHARACTER',
-      colors: [],
-      attributes: [],
-      traits: [],
-      language: item.language,
-    },
-    image: item.cardSnapshot.imageUrl,
-    artworks: [],
-    prices: item.cardSnapshot.catalogPrice
-      ? {
-          tcgplayer: {
-            currency: item.cardSnapshot.catalogPrice.currency,
-            market_price: item.cardSnapshot.catalogPrice.amount,
-          },
-        }
-      : {},
-    source,
-    enrichment: {
-      status: 'SOURCE',
-      providers: [source.providerId],
-      matchedExternalIds: [item.cardSnapshot.sourceCardId ?? item.cardId],
-      fields: [],
-      provenance: {},
-      conflicts: [],
-    },
-  };
-}
 
 function Stat({
   value,
@@ -102,7 +38,6 @@ function Stat({
     </div>
   );
 }
-
 function CollectionEditor({ item, onClose }: { item: CollectionItem | null; onClose: () => void }) {
   const services = useServices();
   const queryClient = useQueryClient();
@@ -110,16 +45,16 @@ function CollectionEditor({ item, onClose }: { item: CollectionItem | null; onCl
   if (item && draft?.id !== item.id) setDraft(item);
   const boxes = useQuery({
     queryKey: ['boxes'],
-    queryFn: () => services.privateData.listBoxes(),
+    queryFn: () => services.organization.listBoxes(),
   });
   const save = useMutation({
-    mutationFn: (value: CollectionItem) => services.privateData.saveCollection(value),
+    mutationFn: (value: CollectionItem) => services.collection.saveCollection(value),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['collection'] });
     },
   });
   const remove = useMutation({
-    mutationFn: (id: string) => services.privateData.removeCollection(id),
+    mutationFn: (id: string) => services.collection.removeCollection(id),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['collection'] });
       onClose();
@@ -133,12 +68,15 @@ function CollectionEditor({ item, onClose }: { item: CollectionItem | null; onCl
     >
       {draft && (
         <div className="grid gap-6 md:grid-cols-[180px_1fr]">
-          <CardImage src={draft.cardSnapshot.imageUrl} alt={`Carta ${draft.cardSnapshot.name}`} />
+          <CardImage
+            src={draft.variant?.image ?? draft.card.image}
+            alt={`Carta ${draft.card.name}`}
+          />
           <div>
-            <p className="text-xs font-semibold text-slate-500">{draft.cardSnapshot.code}</p>
-            <h2 className="mt-1 pr-10 text-2xl font-black">{draft.cardSnapshot.name}</h2>
+            <p className="text-xs font-semibold text-slate-500">{draft.card.card_number}</p>
+            <h2 className="mt-1 pr-10 text-2xl font-black">{draft.card.name}</h2>
             <p className="mt-1 text-sm text-slate-600">
-              {draft.cardSnapshot.variantLabel} · {draft.language} ·{' '}
+              {draft.variant?.label ?? 'Arte base'} Â· {draft.language} Â·{' '}
               {draft.condition.replace('_', ' ')}
             </p>
             <div className="mt-6 flex flex-wrap items-end justify-between gap-4 border-y border-slate-200 py-5">
@@ -178,7 +116,7 @@ function CollectionEditor({ item, onClose }: { item: CollectionItem | null; onCl
                 </select>
               </label>
               <label className="text-sm font-semibold">
-                Sección
+                SecciÃ³n
                 <select
                   value={draft.sectionId ?? ''}
                   disabled={!draft.boxId}
@@ -187,12 +125,12 @@ function CollectionEditor({ item, onClose }: { item: CollectionItem | null; onCl
                   }
                   className="mt-2 h-11 w-full rounded-lg border-slate-300 disabled:bg-slate-100"
                 >
-                  <option value="">Selecciona una sección</option>
+                  <option value="">Selecciona una secciÃ³n</option>
                   {(boxes.data ?? [])
                     .find((box) => box.id === draft.boxId)
                     ?.sections.map((section) => (
                       <option key={section.id} value={section.id}>
-                        {section.code} · {section.name}
+                        {section.code} Â· {section.name}
                       </option>
                     ))}
                 </select>
@@ -218,7 +156,7 @@ function CollectionEditor({ item, onClose }: { item: CollectionItem | null; onCl
               <Button
                 variant="danger"
                 onClick={() => {
-                  if (window.confirm('¿Eliminar esta carta de la colección?'))
+                  if (window.confirm('Â¿Eliminar esta carta de la colecciÃ³n?'))
                     remove.mutate(draft.id);
                 }}
               >
@@ -254,7 +192,7 @@ const emptyFilters: CollectionFilters = {
 
 function CollectionLoadingState() {
   return (
-    <div aria-busy="true" aria-label="Cargando colección">
+    <div aria-busy="true" aria-label="Cargando colecciÃ³n">
       <section className="mb-5 grid grid-cols-4 overflow-hidden rounded-xl border border-slate-200 bg-white py-4 shadow-sm lg:grid-cols-6">
         {Array.from({ length: 6 }).map((_, index) => (
           <div
@@ -264,7 +202,7 @@ function CollectionLoadingState() {
             }`}
           >
             <div className="absolute inset-x-3 inset-y-1 animate-pulse rounded-lg bg-slate-100" />
-            <OnePieceLoader size="sm" label="Cargando estadística" />
+            <OnePieceLoader size="sm" label="Cargando estadÃ­stica" />
           </div>
         ))}
       </section>
@@ -337,7 +275,7 @@ function CollectionFilterDrawer({
       >
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs font-bold uppercase tracking-wide text-violet">Mi colección</p>
+            <p className="text-xs font-bold uppercase tracking-wide text-violet">Mi colecciÃ³n</p>
             <h2 id="collection-filters-title" className="mt-1 text-xl font-black">
               Filtros
             </h2>
@@ -374,7 +312,7 @@ function CollectionFilterDrawer({
             </select>
           </label>
           <label className="block text-sm font-semibold">
-            Sección
+            SecciÃ³n
             <select
               value={filters.sectionId}
               disabled={!selectedBox}
@@ -384,7 +322,7 @@ function CollectionFilterDrawer({
               <option value="">Todas las secciones</option>
               {selectedBox?.sections.map((section) => (
                 <option key={section.id} value={section.id}>
-                  {section.code} · {section.name}
+                  {section.code} Â· {section.name}
                 </option>
               ))}
             </select>
@@ -480,11 +418,11 @@ export function CollectionPage() {
   const [selected, setSelected] = useState<CollectionItem | null>(null);
   const result = useQuery({
     queryKey: ['collection'],
-    queryFn: () => services.privateData.listCollection(),
+    queryFn: () => services.collection.listCollection(),
   });
   const boxes = useQuery({
     queryKey: ['boxes'],
-    queryFn: () => services.privateData.listBoxes(),
+    queryFn: () => services.organization.listBoxes(),
   });
   const items = useMemo(() => result.data ?? [], [result.data]);
   const stats = calculateCollectionStats(items);
@@ -493,8 +431,8 @@ export function CollectionPage() {
     return items.filter(
       (item) =>
         (!normalized ||
-          item.cardSnapshot.name.toLocaleLowerCase().includes(normalized) ||
-          item.cardSnapshot.code.toLocaleLowerCase().includes(normalized)) &&
+          item.card.name.toLocaleLowerCase().includes(normalized) ||
+          item.card.card_number.toLocaleLowerCase().includes(normalized)) &&
         (tab !== 'duplicates' || item.quantity > 1) &&
         (!filters.duplicatesOnly || item.quantity > 1) &&
         (!filters.boxId || item.boxId === filters.boxId) &&
@@ -524,7 +462,7 @@ export function CollectionPage() {
     if (filters.sectionId)
       chips.push({
         key: 'sectionId',
-        label: selectedSection ? `${selectedSection.code} · ${selectedSection.name}` : 'Sección',
+        label: selectedSection ? `${selectedSection.code} Â· ${selectedSection.name}` : 'SecciÃ³n',
       });
     if (filters.language) chips.push({ key: 'language', label: filters.language });
     if (filters.condition)
@@ -547,13 +485,13 @@ export function CollectionPage() {
   return (
     <div className="mx-auto max-w-[1500px] p-4 sm:p-6 lg:p-8">
       <PageHeader
-        title="Mi colección"
+        title="Mi colecciÃ³n"
         subtitle="Tu archivo personal, siempre bajo control"
         action={
           <Link to="/catalog" className="hidden sm:block">
             <Button>
               <Plus className="size-4" />
-              Añadir cartas
+              AÃ±adir cartas
             </Button>
           </Link>
         }
@@ -595,8 +533,8 @@ export function CollectionPage() {
             </div>
             <div className="hidden lg:block">
               <Stat
-                value={`${stats.estimatedValue.amount.toFixed(2)} ${stats.estimatedValue.currency}`}
-                label="Valor estimado"
+                value={`${stats.acquisitionValue.amount.toFixed(2)} ${stats.acquisitionValue.currency}`}
+                label="Coste registrado"
                 accent
               />
             </div>
@@ -624,7 +562,7 @@ export function CollectionPage() {
                 <SearchInput
                   value={query}
                   onChange={setQuery}
-                  placeholder="Buscar en mi colección..."
+                  placeholder="Buscar en mi colecciÃ³n..."
                 />
                 <Button
                   variant="secondary"
@@ -669,7 +607,7 @@ export function CollectionPage() {
                             : 'hover:bg-slate-50'
                         }`}
                       >
-                        <Grid2X2 className="size-4" /> Cuadrícula
+                        <Grid2X2 className="size-4" /> CuadrÃ­cula
                       </button>
                       <button
                         role="menuitemradio"
@@ -718,11 +656,11 @@ export function CollectionPage() {
               )}
               {filtered.length === 0 ? (
                 <EmptyState
-                  title="No hay cartas aquí"
-                  description="Añade cartas desde el catálogo o ajusta la búsqueda."
+                  title="No hay cartas aquÃ­"
+                  description="AÃ±ade cartas desde el catÃ¡logo o ajusta la bÃºsqueda."
                   action={
                     <Link to="/catalog">
-                      <Button>Explorar catálogo</Button>
+                      <Button>Explorar catÃ¡logo</Button>
                     </Link>
                   }
                 />
@@ -735,16 +673,14 @@ export function CollectionPage() {
                       className="grid w-full grid-cols-[52px_1fr_auto] items-center gap-3 border-b border-slate-100 p-3 text-left last:border-0 hover:bg-slate-50"
                     >
                       <CardImage
-                        src={item.cardSnapshot.imageUrl}
-                        alt={item.cardSnapshot.name}
+                        src={item.variant?.image ?? item.card.image}
+                        alt={item.card.name}
                         className="w-11"
                       />
                       <span className="min-w-0">
-                        <span className="block truncate font-semibold">
-                          {item.cardSnapshot.name}
-                        </span>
+                        <span className="block truncate font-semibold">{item.card.name}</span>
                         <span className="block text-xs text-slate-500">
-                          {item.cardSnapshot.code}
+                          {item.card.card_number}
                         </span>
                         <span className="mt-1 flex items-center gap-1 text-xs text-violet">
                           <Archive className="size-3" />
@@ -753,7 +689,7 @@ export function CollectionPage() {
                       </span>
                       <span className="flex items-center gap-3">
                         {item.favorite && <Heart className="size-4 fill-red-500 text-red-500" />}
-                        <strong>×{item.quantity}</strong>
+                        <strong>Ã—{item.quantity}</strong>
                       </span>
                     </button>
                   ))}
@@ -763,7 +699,7 @@ export function CollectionPage() {
                   {filtered.map((item) => (
                     <CardTile
                       key={item.id}
-                      card={snapshotToCard(item)}
+                      card={{ ...item.card, image: item.variant?.image ?? item.card.image }}
                       quantity={item.quantity}
                       onOpen={() => setSelected(item)}
                     />

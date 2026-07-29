@@ -81,20 +81,23 @@ export function CardImage({
   alt,
   className,
   showFailureText = true,
+  delayInDevelopment = import.meta.env.MODE !== 'test',
 }: {
   src: string;
   alt: string;
   className?: string;
   showFailureText?: boolean;
+  delayInDevelopment?: boolean;
 }) {
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
-  const [imageSrc, setImageSrc] = useState(import.meta.env.DEV ? '' : src);
+  const delayLocalImage = import.meta.env.DEV && delayInDevelopment;
+  const [imageSrc, setImageSrc] = useState(delayLocalImage ? '' : src);
 
   useEffect(() => {
     setLoading(true);
     setFailed(false);
-    if (!import.meta.env.DEV) {
+    if (!delayLocalImage) {
       setImageSrc(src);
       return;
     }
@@ -102,7 +105,7 @@ export function CardImage({
     setImageSrc('');
     const timeout = window.setTimeout(() => setImageSrc(src), LOCAL_IMAGE_DELAY_MS);
     return () => window.clearTimeout(timeout);
-  }, [src]);
+  }, [delayLocalImage, src]);
 
   return (
     <div

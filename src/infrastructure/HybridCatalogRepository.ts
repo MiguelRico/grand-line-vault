@@ -38,11 +38,35 @@ function isCatalogCard(value: unknown): value is CatalogCard {
     Array.isArray(card.variantTypes) &&
     typeof card.variantCount === 'number' &&
     typeof card.totalVariants === 'number' &&
+    (card.variants === undefined ||
+      (Array.isArray(card.variants) &&
+        card.variants.every(
+          (variant) =>
+            typeof variant.id === 'string' &&
+            typeof variant.label === 'string' &&
+            typeof variant.image === 'string',
+        ))) &&
     (!card.links ||
       ((typeof card.links.cardmarket === 'string' || card.links.cardmarket == null) &&
         (typeof card.links.tcgplayer === 'string' || card.links.tcgplayer == null))) &&
     (typeof card.tcggo_url === 'string' || card.tcggo_url == null)
   );
+}
+
+function withVariantReferences(card: CatalogCard): CatalogCard {
+  if (card.variants?.length) return card;
+  return {
+    ...card,
+    variants: [
+      {
+        id: card.source.providerCardId ?? `${card.id}::BASE`,
+        variant_type: 'BASE',
+        label: 'Arte base',
+        image: card.image,
+        language: 'EN',
+      },
+    ],
+  };
 }
 
 async function readJson<T>(url: string, signal?: AbortSignal): Promise<T> {
@@ -91,7 +115,7 @@ export class HybridCatalogRepository implements CatalogRepository {
     if (!result.items.every(isCatalogCard)) {
       throw new Error('El índice de catálogo contiene datos no válidos.');
     }
-    return { ...result, items: result.items };
+    return { ...result, items: result.items.map(withVariantReferences) };
   }
 
   listSets(signal?: AbortSignal): Promise<CatalogEpisode[]> {
@@ -105,7 +129,7 @@ export class HybridCatalogRepository implements CatalogRepository {
     );
     if (card === null) return null;
     if (!isCatalogCard(card)) throw new Error('La carta del índice no es válida.');
-    return card;
+    return withVariantReferences(card);
   }
 
   async getById(

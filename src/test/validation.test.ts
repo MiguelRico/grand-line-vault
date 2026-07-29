@@ -1,50 +1,55 @@
 import { describe, expect, it } from 'vitest';
-import { appSettingsSchema, collectionItemSchema } from '../../api/_shared/schemas';
+import { collectionEntrySchema } from '../domain/collectionSchema';
 import { initialCollection } from '../infrastructure/mockData';
 
-describe('private API validation', () => {
-  it('persists appearance without a selectable catalog provider', () => {
-    expect(appSettingsSchema.safeParse({ theme: 'DARK' }).success).toBe(true);
-    expect(appSettingsSchema.safeParse({ theme: 'SYSTEM' }).success).toBe(false);
-  });
+function persistentFixture() {
+  const fixture = initialCollection[0];
+  if (!fixture) throw new Error('Fixture de colección incompleto.');
+  return {
+    id: fixture.id,
+    ownerId: fixture.ownerId,
+    catalogCardId: fixture.catalogCardId,
+    catalogVariantId: fixture.catalogVariantId,
+    quantity: fixture.quantity,
+    language: fixture.language,
+    condition: fixture.condition,
+    favorite: fixture.favorite,
+    boxId: fixture.boxId,
+    sectionId: fixture.sectionId,
+    acquisitionPrice: fixture.acquisitionPrice,
+    notes: fixture.notes,
+    createdAt: fixture.createdAt,
+    updatedAt: fixture.updatedAt,
+  };
+}
 
+describe('collection persistence validation', () => {
   it('accepts a valid collection item', () => {
-    expect(collectionItemSchema.safeParse(initialCollection[0]).success).toBe(true);
+    expect(collectionEntrySchema.safeParse(persistentFixture()).success).toBe(true);
   });
 
   it('rejects a section without a box', () => {
-    const fixture = initialCollection[0];
-    expect(fixture).toBeDefined();
-    if (!fixture) throw new Error('Fixture de colección incompleto.');
+    const fixture = persistentFixture();
     const item = { ...fixture, boxId: undefined, sectionId: 'section-a' };
-    expect(collectionItemSchema.safeParse(item).success).toBe(false);
+    expect(collectionEntrySchema.safeParse(item).success).toBe(false);
   });
 
-  it('rejects incomplete collection snapshots', () => {
-    const fixture = initialCollection[0];
-    expect(fixture).toBeDefined();
-    if (!fixture) throw new Error('Fixture de colección incompleto.');
+  it('rejects incomplete catalog references', () => {
+    const fixture = persistentFixture();
     const incomplete = {
       ...fixture,
-      cardSnapshot: {
-        code: 'OP-01-001',
-        name: 'Monkey D. Luffy',
-        setCode: 'OP-01',
-        imageUrl: 'https://example.test/card.png',
-      },
+      catalogCardId: '',
     };
 
-    expect(collectionItemSchema.safeParse(incomplete).success).toBe(false);
+    expect(collectionEntrySchema.safeParse(incomplete).success).toBe(false);
   });
 
   it('rejects persisted collection records that cannot be normalized safely', () => {
-    const fixture = initialCollection[0];
-    expect(fixture).toBeDefined();
-    if (!fixture) throw new Error('Fixture de colección incompleto.');
+    const fixture = persistentFixture();
     expect(
-      collectionItemSchema.safeParse({
+      collectionEntrySchema.safeParse({
         ...fixture,
-        cardSnapshot: { ...fixture.cardSnapshot, code: '' },
+        catalogVariantId: 42,
       }).success,
     ).toBe(false);
   });

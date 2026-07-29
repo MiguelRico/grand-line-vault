@@ -9,7 +9,9 @@ afterEach(() => {
 describe('CardImage', () => {
   it('shows one loader SVG until the card image loads', () => {
     vi.useFakeTimers();
-    const { container } = render(<CardImage src="/card.png" alt="Carta Luffy" />);
+    const { container } = render(
+      <CardImage src="/card.png" alt="Carta Luffy" delayInDevelopment />,
+    );
     const cardImage = screen.getByAltText('Carta Luffy');
 
     expect(container.querySelectorAll('img')).toHaveLength(2);

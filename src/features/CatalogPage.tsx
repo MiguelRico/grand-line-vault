@@ -1,4 +1,4 @@
-import { Filter, SlidersHorizontal, X } from 'lucide-react';
+﻿import { Filter, SlidersHorizontal, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
@@ -16,7 +16,6 @@ import { PageHeader } from '../shared/AppShell';
 import { Button, CardTile, EmptyState, ErrorState, SearchInput } from '../shared/ui';
 import { useDebouncedValue } from '../shared/hooks';
 import { OnePieceLoader } from '../shared/OnePieceLoader';
-import { normalizeCardNumber } from '../domain/catalogNormalization';
 
 const defaultCriteria: CatalogCriteria = {
   query: '',
@@ -47,7 +46,6 @@ function optionalNumberParam(value: string | null): number | undefined {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : undefined;
 }
-
 function FilterFields({
   criteria,
   setCriteria,
@@ -65,7 +63,7 @@ function FilterFields({
   return (
     <div className="space-y-5">
       <label className="block text-sm font-semibold">
-        Expansión
+        ExpansiÃ³n
         <select
           value={criteria.setCode}
           onChange={(event) => update({ setCode: event.target.value })}
@@ -81,7 +79,7 @@ function FilterFields({
         {setsLoading && (
           <span className="mt-2 flex items-center gap-2 text-xs text-slate-500">
             <OnePieceLoader size="xs" label="Cargando expansiones" />
-            Cargando expansiones…
+            Cargando expansionesâ€¦
           </span>
         )}
       </label>
@@ -92,7 +90,7 @@ function FilterFields({
             ['RED', 'Rojo', 'bg-red-500'],
             ['GREEN', 'Verde', 'bg-emerald-500'],
             ['BLUE', 'Azul', 'bg-blue-500'],
-            ['PURPLE', 'Púrpura', 'bg-purple-500'],
+            ['PURPLE', 'PÃºrpura', 'bg-purple-500'],
             ['BLACK', 'Negro', 'bg-slate-900'],
             ['YELLOW', 'Amarillo', 'bg-amber-400'],
           ].map(([value, label, color]) => (
@@ -128,7 +126,7 @@ function FilterFields({
           className="mt-2 h-11 w-full rounded-lg border-slate-300 text-sm"
         >
           <option value="">Todos los tipos</option>
-          <option value="LEADER">Líder</option>
+          <option value="LEADER">LÃ­der</option>
           <option value="CHARACTER">Personaje</option>
           <option value="EVENT">Evento</option>
           <option value="STAGE">Escenario</option>
@@ -150,7 +148,7 @@ function FilterFields({
         </select>
       </label>
       <label className="block text-sm font-semibold">
-        Versión
+        VersiÃ³n
         <select
           value={criteria.variant}
           onChange={(event) => update({ variant: event.target.value as CardVariantType | '' })}
@@ -168,25 +166,25 @@ function FilterFields({
             type="number"
             min="0"
             max="10"
-            placeholder="Mín."
+            placeholder="MÃ­n."
             value={criteria.minCost ?? ''}
             onChange={(event) =>
               update({ minCost: event.target.value ? Number(event.target.value) : undefined })
             }
             className="h-11 rounded-lg border-slate-300 text-sm"
-            aria-label="Coste mínimo"
+            aria-label="Coste mÃ­nimo"
           />
           <input
             type="number"
             min="0"
             max="10"
-            placeholder="Máx."
+            placeholder="MÃ¡x."
             value={criteria.maxCost ?? ''}
             onChange={(event) =>
               update({ maxCost: event.target.value ? Number(event.target.value) : undefined })
             }
             className="h-11 rounded-lg border-slate-300 text-sm"
-            aria-label="Coste máximo"
+            aria-label="Coste mÃ¡ximo"
           />
         </div>
       </div>
@@ -198,26 +196,26 @@ function FilterFields({
             min="0"
             max="13000"
             step="1000"
-            placeholder="Mín."
+            placeholder="MÃ­n."
             value={criteria.minPower ?? ''}
             onChange={(event) =>
               update({ minPower: event.target.value ? Number(event.target.value) : undefined })
             }
             className="h-11 rounded-lg border-slate-300 text-sm"
-            aria-label="Poder mínimo"
+            aria-label="Poder mÃ­nimo"
           />
           <input
             type="number"
             min="0"
             max="13000"
             step="1000"
-            placeholder="Máx."
+            placeholder="MÃ¡x."
             value={criteria.maxPower ?? ''}
             onChange={(event) =>
               update({ maxPower: event.target.value ? Number(event.target.value) : undefined })
             }
             className="h-11 rounded-lg border-slate-300 text-sm"
-            aria-label="Poder máximo"
+            aria-label="Poder mÃ¡ximo"
           />
         </div>
       </div>
@@ -313,7 +311,7 @@ export function CatalogPage() {
   }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
   const collection = useQuery({
     queryKey: ['collection'],
-    queryFn: () => services.privateData.listCollection(),
+    queryFn: () => services.collection.listCollection(),
   });
   const sets = useQuery({
     queryKey: ['catalog-sets', services.catalogProvider],
@@ -321,13 +319,7 @@ export function CatalogPage() {
     staleTime: 24 * 60 * 60 * 1000,
   });
   const ownedCardNumbers = useMemo(
-    () =>
-      new Set(
-        collection.data?.map(
-          (item) =>
-            item.cardSnapshot.normalizedCardNumber ?? normalizeCardNumber(item.cardSnapshot.code),
-        ) ?? [],
-      ),
+    () => new Set(collection.data?.map((item) => item.card.normalized_card_number) ?? []),
     [collection.data],
   );
   const activeFilters = [
@@ -344,7 +336,7 @@ export function CatalogPage() {
 
   return (
     <div className="mx-auto max-w-[1500px] p-4 sm:p-6 lg:p-8">
-      <PageHeader title="Explorar cartas" subtitle="Catálogo global normalizado" />
+      <PageHeader title="Explorar cartas" subtitle="CatÃ¡logo global normalizado" />
       <div className="mb-5 grid gap-3 lg:grid-cols-[1fr_auto_auto]">
         <SearchInput value={query} onChange={setQuery} />
         <Button variant="secondary" onClick={() => setFiltersOpen(true)} className="lg:hidden">
@@ -363,7 +355,7 @@ export function CatalogPage() {
             }
             className="h-11 min-w-40 rounded-lg border-slate-300 text-sm"
           >
-            <option value="code">Código (A-Z)</option>
+            <option value="code">CÃ³digo (A-Z)</option>
             <option value="name">Nombre (A-Z)</option>
             <option value="power">Poder</option>
             <option value="cost">Coste</option>
@@ -413,7 +405,7 @@ export function CatalogPage() {
           ) : cards.length === 0 ? (
             <EmptyState
               title="No hay cartas con estos filtros"
-              description="Prueba a ampliar la búsqueda o limpiar los filtros."
+              description="Prueba a ampliar la bÃºsqueda o limpiar los filtros."
               action={
                 <Button
                   onClick={() => {
@@ -442,13 +434,13 @@ export function CatalogPage() {
               </div>
               <div ref={loadMoreRef} className="mt-8 flex min-h-14 items-center justify-center">
                 {result.isFetchingNextPage ? (
-                  <OnePieceLoader size="sm" label="Cargando más cartas" />
+                  <OnePieceLoader size="sm" label="Cargando mÃ¡s cartas" />
                 ) : result.hasNextPage ? (
                   <Button variant="secondary" onClick={() => void result.fetchNextPage()}>
-                    Cargar más
+                    Cargar mÃ¡s
                   </Button>
                 ) : (
-                  <p className="text-xs text-slate-500">Has llegado al final del catálogo.</p>
+                  <p className="text-xs text-slate-500">Has llegado al final del catÃ¡logo.</p>
                 )}
               </div>
             </>

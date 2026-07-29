@@ -225,7 +225,7 @@ function artworkFromApi(
     source: {
       providerId: 'TCGGO',
       providerCardId: String(card.id),
-      providerVariantId: card.version ? String(card.id) : undefined,
+      providerVariantId: staticPrint?.sourceId ?? (card.version ? String(card.id) : undefined),
       fetchedAt: new Date().toISOString(),
     },
   };

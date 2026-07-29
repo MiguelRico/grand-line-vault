@@ -33,6 +33,15 @@ const indexCard: CatalogCard = {
   variantTypes: ['BASE', 'PARALLEL'],
   variantCount: 5,
   totalVariants: 6,
+  variants: [
+    {
+      id: 'OP01-001',
+      variant_type: 'BASE',
+      label: 'Arte base',
+      image: 'https://example.test/index-image.png',
+      language: 'EN',
+    },
+  ],
   source: {
     providerId: 'FIRESTORE_INDEX',
     providerCardId: 'OP01-001',

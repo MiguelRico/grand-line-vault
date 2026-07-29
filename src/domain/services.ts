@@ -13,14 +13,10 @@ export function calculateCollectionStats(
   currency = 'EUR',
 ): CollectionStats {
   const totalCopies = items.reduce((sum, item) => sum + item.quantity, 0);
-  const valuedCopies = items.reduce(
-    (sum, item) => sum + (item.cardSnapshot.catalogPrice ? item.quantity : 0),
-    0,
-  );
   return {
     totalCopies,
-    uniqueCards: new Set(items.map((item) => item.cardId)).size,
-    setsRepresented: new Set(items.map((item) => item.cardSnapshot.setCode)).size,
+    uniqueCards: new Set(items.map((item) => item.catalogCardId)).size,
+    setsRepresented: new Set(items.map((item) => item.card.episode.code)).size,
     duplicateCopies: items.reduce((sum, item) => sum + Math.max(0, item.quantity - 1), 0),
     favoriteCards: items.filter((item) => item.favorite).length,
     storedCopies: items.reduce(
@@ -32,11 +28,9 @@ export function calculateCollectionStats(
       0,
     ),
     copiesInSalesPacks: 0,
-    valuedCopies,
-    unvaluedCopies: totalCopies - valuedCopies,
-    estimatedValue: {
+    acquisitionValue: {
       amount: items.reduce(
-        (sum, item) => sum + (item.cardSnapshot.catalogPrice?.amount ?? 0) * item.quantity,
+        (sum, item) => sum + (item.acquisitionPrice?.amount ?? 0) * item.quantity,
         0,
       ),
       currency,
@@ -85,7 +79,10 @@ export function salesPackAvailabilityWarnings(
         entry.quantity >
         (available.get(entry.collectionItemId) ?? 0) - (reserved.get(entry.collectionItemId) ?? 0),
     )
-    .map((entry) => `${entry.snapshot.name}: el pack supera las copias disponibles.`);
+    .map((entry) => {
+      const item = items.find((candidate) => candidate.id === entry.collectionItemId);
+      return `${item?.card.name ?? 'Una carta'}: el pack supera las copias disponibles.`;
+    });
 }
 
 export function preferredPrice(card: CardDetail): Money | undefined {

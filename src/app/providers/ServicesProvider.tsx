@@ -1,36 +1,45 @@
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import { config } from '../config';
 import {
-  ApiPrivateRepository,
-  MockPrivateRepository,
-  type PrivateRepository,
+  LocalOrganizationRepository,
+  type OrganizationRepository,
 } from '../../infrastructure/repositories';
 import { HybridCatalogRepository } from '../../infrastructure/HybridCatalogRepository';
 import { MockCardDetailRepository } from '../../infrastructure/MockCardDetailRepository';
 import { CatalogUseCases } from '../../domain/catalogUseCases';
+import { CollectionService } from '../../domain/CollectionService';
+import { IndexedDbCollectionRepository } from '../../infrastructure/IndexedDbCollectionRepository';
+import { useAuth } from './AuthProvider';
 
 interface Services {
   catalog: CatalogUseCases;
   catalogProvider: 'FIRESTORE_INDEX';
-  privateData: PrivateRepository;
+  collection: CollectionService;
+  organization: OrganizationRepository;
 }
 
 const ServicesContext = createContext<Services | null>(null);
 
 export function ServicesProvider({ children }: { children: ReactNode }) {
+  const auth = useAuth();
   const services = useMemo<Services>(() => {
     const catalogRepository = new HybridCatalogRepository();
-    return {
-      catalog: new CatalogUseCases(
+    const catalog = new CatalogUseCases(
         catalogRepository,
         config.VITE_USE_MOCK_CARD_DETAIL ? new MockCardDetailRepository() : catalogRepository,
-      ),
+      );
+    return {
+      catalog,
       catalogProvider: 'FIRESTORE_INDEX',
-      privateData: config.VITE_USE_MOCK_DATA
-        ? new MockPrivateRepository()
-        : new ApiPrivateRepository(),
+      collection: new CollectionService(
+        auth.user?.uid ?? 'UNAUTHENTICATED',
+        new IndexedDbCollectionRepository(),
+        catalog,
+      ),
+      // Organización y packs siguen siendo locales hasta implementar cloudSync.
+      organization: new LocalOrganizationRepository(auth.user?.uid ?? 'UNAUTHENTICATED'),
     };
-  }, []);
+  }, [auth.user?.uid]);
   return <ServicesContext.Provider value={services}>{children}</ServicesContext.Provider>;
 }
 

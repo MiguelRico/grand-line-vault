@@ -80,7 +80,9 @@ function SidebarContent({ close }: { close?: () => void }) {
             />
           </span>
           <span className="min-w-0">
-            <span className="block truncate text-sm font-semibold text-white">Nakamatsu</span>
+            <span className="block truncate text-sm font-semibold text-white">
+              {auth.user?.email ?? 'Usuario'}
+            </span>
             <span className="block text-xs text-slate-400">Cerrar sesión</span>
           </span>
         </button>

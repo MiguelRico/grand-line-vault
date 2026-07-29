@@ -11,15 +11,22 @@ npm run dev
 
 Variables principales:
 
-- `VITE_USE_MOCK_DATA=true|false`
 - `VITE_USE_MOCK_CARD_DETAIL=true|false`
-- `VITE_DEFAULT_CURRENCY=EUR`
-- `VITE_DEFAULT_PAGE_SIZE=24`
 - `VITE_CARD_DETAIL_CACHE_TTL_MS=300000`
+- `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID` y
+  `VITE_FIREBASE_APP_ID`
 - `TCGGO_API_KEY` y `TCGGO_API_BASE_URL`, solo en el servidor
 - variables de Firebase Admin y autenticación documentadas en `.env.example`
 
 Las credenciales TCGGO nunca se exponen mediante variables `VITE_`.
+
+Firebase Authentication usa correo y contraseña y mantiene la sesión local hasta que el usuario
+la cierre. Cada cuenta dispone de un perfil `users/{uid}` inicialmente gratuito:
+`premium=false`, `cloudSync=false` y `adsEnabled=true`.
+
+La colección se guarda por usuario en IndexedDB mediante Dexie. Solo persiste referencias al
+índice y metadatos introducidos por el usuario; los precios y la disponibilidad de TCGGO viven
+únicamente en memoria mientras se visualiza el detalle.
 
 `VITE_USE_MOCK_CARD_DETAIL=true` sustituye únicamente el proveedor de detalle por uno
 completamente local. El listado continúa usando el índice, no se realizan peticiones de detalle a
@@ -46,6 +53,9 @@ mediante el proxy del mismo origen.
 
 La guía de arquitectura y operación está en
 [docs/card-catalog.md](docs/card-catalog.md).
+
+La separación entre autenticación, perfil y colección local está documentada en
+[docs/local-collection-and-auth.md](docs/local-collection-and-auth.md).
 
 ## Calidad y build
 

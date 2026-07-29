@@ -8,8 +8,6 @@ import {
   type ReactNode,
 } from 'react';
 import type { AppSettings } from '../../domain/models';
-import { config } from '../config';
-import { useAuth } from './AuthProvider';
 
 const storageKey = 'grand-line-vault:settings';
 const defaults: AppSettings = { theme: 'LIGHT' };
@@ -38,9 +36,7 @@ interface SettingsContextValue {
 const SettingsContext = createContext<SettingsContextValue | null>(null);
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
-  const auth = useAuth();
   const [settings, setSettings] = useState<AppSettings>(readLocalSettings);
-  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,27 +46,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(storageKey, JSON.stringify(settings));
   }, [settings]);
 
-  useEffect(() => {
-    if (!auth.authenticated || config.VITE_USE_MOCK_DATA) return;
-    let active = true;
-    setLoading(true);
-    fetch('/api/settings')
-      .then(async (response) => {
-        if (!response.ok) throw new Error('No se pudieron cargar los ajustes.');
-        const payload = (await response.json()) as { data: AppSettings };
-        if (active) setSettings({ ...defaults, ...payload.data });
-      })
-      .catch(() => {
-        if (active) setError('Se están usando los ajustes guardados en este dispositivo.');
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [auth.authenticated]);
-
   const updateSettings = useCallback(
     async (next: AppSettings) => {
       const previous = settings;
@@ -78,14 +53,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setSaving(true);
       setError(null);
       try {
-        if (!config.VITE_USE_MOCK_DATA) {
-          const response = await fetch('/api/settings', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(next),
-          });
-          if (!response.ok) throw new Error('No se pudieron guardar los ajustes.');
-        }
+        localStorage.setItem(storageKey, JSON.stringify(next));
       } catch (saveError) {
         setSettings(previous);
         setError(
@@ -100,8 +68,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo(
-    () => ({ settings, loading, saving, error, updateSettings }),
-    [error, loading, saving, settings, updateSettings],
+    () => ({ settings, loading: false, saving, error, updateSettings }),
+    [error, saving, settings, updateSettings],
   );
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;
 }

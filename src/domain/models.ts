@@ -180,7 +180,18 @@ export interface CatalogCard {
   variantCount: number;
   /** Número total de impresiones, incluida la base. */
   totalVariants: number;
+  /** Referencias mínimas y estables de las impresiones del índice. */
+  variants: CatalogVariantRef[];
   source: CatalogSourceReference;
+}
+
+export interface CatalogVariantRef {
+  id: string;
+  variant_type: CardVariantType;
+  label: string;
+  number?: number | null;
+  image: string;
+  language: CardLanguage;
 }
 
 export interface CardDetail {
@@ -232,26 +243,12 @@ export interface CardDetail {
   };
 }
 
-export interface CollectionItem {
+/** Único modelo que se guarda para una carta de la colección. */
+export interface CollectionEntry {
   id: string;
-  cardId: string;
-  cardVariantId: string;
-  cardSnapshot: {
-    schemaVersion: 2;
-    normalizedCardNumber: string;
-    printKey: string;
-    code: string;
-    name: string;
-    setCode: string;
-    rarity?: string;
-    variantLabel?: string;
-    imageUrl: string;
-    catalogPrice?: Price;
-    catalogProvider: CatalogProviderId;
-    sourceCardId?: string;
-    sourceVariantId?: string;
-    catalogFetchedAt?: string;
-  };
+  ownerId: string;
+  catalogCardId: string;
+  catalogVariantId: string | null;
   quantity: number;
   language: CardLanguage;
   condition: CardCondition;
@@ -262,6 +259,12 @@ export interface CollectionItem {
   notes?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+/** Modelo de lectura hidratado desde el índice; nunca se persiste en IndexedDB. */
+export interface CollectionItem extends CollectionEntry {
+  card: CatalogCard;
+  variant: CatalogVariantRef | null;
 }
 
 export interface StorageSection {
@@ -288,7 +291,6 @@ export interface SalesPackItem {
   id: string;
   collectionItemId: string;
   quantity: number;
-  snapshot: CollectionItem['cardSnapshot'];
 }
 
 export interface SalesPack {
@@ -311,9 +313,19 @@ export interface CollectionStats {
   storedCopies: number;
   unassignedCopies: number;
   copiesInSalesPacks: number;
-  valuedCopies: number;
-  unvaluedCopies: number;
-  estimatedValue: Money;
+  acquisitionValue: Money;
+}
+
+export interface UserProfile {
+  schemaVersion: 1;
+  uid: string;
+  email: string;
+  displayName: string | null;
+  premium: boolean;
+  cloudSync: boolean;
+  adsEnabled: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CatalogCriteria {

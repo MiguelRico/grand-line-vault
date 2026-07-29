@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { CollectionItem } from './models';
+import type { CollectionEntry } from './models';
 import {
   collectionItemIdentity,
   normalizeCardNumber,
@@ -47,21 +47,12 @@ describe('catalog normalization', () => {
     });
   });
 
-  it('builds the collection identity from the normalized snapshot', () => {
-    const item: CollectionItem = {
+  it('builds the collection identity from catalog references', () => {
+    const item: CollectionEntry = {
       id: 'item',
-      cardId: 'card',
-      cardVariantId: 'print',
-      cardSnapshot: {
-        schemaVersion: 2 as const,
-        normalizedCardNumber: 'OP01-001',
-        printKey: 'OFFICIAL_STATIC::OP01-001',
-        code: 'OP01-001',
-        name: 'Monkey D. Luffy',
-        setCode: 'OP01',
-        imageUrl: 'https://example.test/card.png',
-        catalogProvider: 'OFFICIAL_STATIC' as const,
-      },
+      ownerId: 'user',
+      catalogCardId: 'CARD::OP01-001',
+      catalogVariantId: 'OP01-001',
       quantity: 1,
       language: 'EN',
       condition: 'NEAR_MINT',
@@ -71,7 +62,7 @@ describe('catalog normalization', () => {
     };
 
     expect(collectionItemIdentity(item)).toBe(
-      'OFFICIAL_STATIC::OP01-001::EN::NEAR_MINT::UNASSIGNED::UNASSIGNED',
+      'CARD::OP01-001::OP01-001::EN::NEAR_MINT::UNASSIGNED::UNASSIGNED',
     );
   });
 });

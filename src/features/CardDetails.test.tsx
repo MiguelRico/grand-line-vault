@@ -18,7 +18,7 @@ vi.mock('../app/providers/ServicesProvider', () => ({
       getById: serviceMocks.getById,
       getVariantById: serviceMocks.getVariantById,
     },
-    privateData: {
+    collection: {
       listCollection: serviceMocks.listCollection,
       saveCollection: serviceMocks.saveCollection,
     },
@@ -102,47 +102,31 @@ const card: CardDetail = {
 const collectionItems = [
   {
     id: 'base-lot',
-    cardId: card.id,
-    cardVariantId: card.id,
-    cardSnapshot: {
-      schemaVersion: 2 as const,
-      normalizedCardNumber: card.normalized_card_number,
-      printKey: `MOCK::${card.external_id}`,
-      code: card.card_number,
-      name: card.name,
-      setCode: card.episode.code,
-      variantLabel: 'Normal',
-      imageUrl: 'https://example.test/base.png',
-      catalogProvider: 'MOCK' as const,
-    },
+    ownerId: 'test-user',
+    catalogCardId: 'CARD::OP01-001',
+    catalogVariantId: null,
     quantity: 2,
     language: 'EN' as const,
     condition: 'NEAR_MINT' as const,
     favorite: false,
     createdAt: '2026-07-25T00:00:00.000Z',
     updatedAt: '2026-07-25T00:00:00.000Z',
+    card: null,
+    variant: null,
   },
   {
     id: 'variant-lot',
-    cardId: card.id,
-    cardVariantId: card.artworks[0]?.id ?? '',
-    cardSnapshot: {
-      schemaVersion: 2 as const,
-      normalizedCardNumber: card.normalized_card_number,
-      printKey: `MOCK::${card.artworks[0]?.external_id}`,
-      code: card.card_number,
-      name: card.name,
-      setCode: card.episode.code,
-      variantLabel: 'Parallel 1',
-      imageUrl: 'https://example.test/parallel.png',
-      catalogProvider: 'MOCK' as const,
-    },
+    ownerId: 'test-user',
+    catalogCardId: 'CARD::OP01-001',
+    catalogVariantId: 'OP01-001_p1',
     quantity: 3,
     language: 'JP' as const,
     condition: 'NEAR_MINT' as const,
     favorite: false,
     createdAt: '2026-07-25T00:00:00.000Z',
     updatedAt: '2026-07-25T00:00:00.000Z',
+    card: null,
+    variant: null,
   },
 ];
 
@@ -182,6 +166,22 @@ const indexCard: CatalogCard = {
   variantTypes: ['BASE', 'PARALLEL'],
   variantCount: 5,
   totalVariants: 6,
+  variants: [
+    {
+      id: 'OP01-001',
+      variant_type: 'BASE',
+      label: 'Arte base',
+      image: card.image,
+      language: 'EN',
+    },
+    {
+      id: 'OP01-001_p1',
+      variant_type: 'PARALLEL',
+      label: 'Parallel 1',
+      image: '/parallel.png',
+      language: 'JP',
+    },
+  ],
   source: card.source,
 };
 
@@ -210,7 +210,12 @@ beforeEach(() => {
     artworks: [],
   });
   serviceMocks.listCollection.mockResolvedValue(collectionItems);
-  serviceMocks.saveCollection.mockImplementation(async (item: unknown) => item);
+  serviceMocks.saveCollection.mockImplementation(async (item: Record<string, unknown>) => ({
+    ...item,
+    card: indexCard,
+    variant:
+      indexCard.variants.find((variant) => variant.id === item.catalogVariantId) ?? null,
+  }));
 });
 
 describe('CardDetails', () => {
@@ -278,19 +283,13 @@ describe('CardDetails', () => {
     await waitFor(() => expect(serviceMocks.saveCollection).toHaveBeenCalledOnce());
     expect(serviceMocks.saveCollection).toHaveBeenCalledWith(
       expect.objectContaining({
-        cardId: indexCard.id,
-        cardVariantId: card.artworks[0]?.id,
+        catalogCardId: indexCard.id,
+        catalogVariantId: 'OP01-001_p1',
         quantity: 5,
         language: 'JP',
-        cardSnapshot: expect.objectContaining({
-          schemaVersion: 2,
-          normalizedCardNumber: 'OP01-001',
-          printKey: 'MOCK::p1',
-          variantLabel: 'Parallel 1',
-          imageUrl: new URL('/parallel.png', window.location.origin).href,
-        }),
       }),
     );
+    expect(serviceMocks.saveCollection.mock.calls[0]?.[0]).not.toHaveProperty('cardSnapshot');
     expect(await screen.findByText('Se han añadido 2 copias de Parallel 1.')).toBeInTheDocument();
   });
 

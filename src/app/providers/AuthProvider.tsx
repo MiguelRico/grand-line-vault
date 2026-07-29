@@ -1,60 +1,138 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { config } from '../config';
+import {
+  browserLocalPersistence,
+  createUserWithEmailAndPassword,
+  onAuthStateChanged,
+  sendPasswordResetEmail,
+  setPersistence,
+  signInWithEmailAndPassword,
+  signOut,
+  type User,
+} from 'firebase/auth';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
+import type { UserProfile } from '../../domain/models';
+import { firebaseAuth } from '../../infrastructure/firebaseClient';
+import { FirebaseUserProfileRepository } from '../../infrastructure/FirebaseUserProfileRepository';
 
 interface AuthContextValue {
   authenticated: boolean;
   loading: boolean;
-  login(password: string): Promise<void>;
+  user: User | null;
+  profile: UserProfile | null;
+  login(email: string, password: string): Promise<void>;
+  register(email: string, password: string): Promise<void>;
+  resetPassword(email: string): Promise<void>;
   logout(): Promise<void>;
+  getIdToken(): Promise<string>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+const profiles = new FirebaseUserProfileRepository();
+
+function authMessage(error: unknown): string {
+  const code =
+    error && typeof error === 'object' && 'code' in error ? String(error.code) : '';
+  const messages: Record<string, string> = {
+    'auth/email-already-in-use': 'Ya existe una cuenta con ese correo.',
+    'auth/invalid-credential': 'El correo o la contraseña no son correctos.',
+    'auth/invalid-email': 'El correo no es válido.',
+    'auth/too-many-requests': 'Demasiados intentos. Inténtalo de nuevo más tarde.',
+    'auth/weak-password': 'La contraseña debe tener al menos 6 caracteres.',
+    'auth/user-disabled': 'Esta cuenta está deshabilitada.',
+  };
+  return messages[code] ?? (error instanceof Error ? error.message : 'No se pudo completar el acceso.');
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [authenticated, setAuthenticated] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (config.VITE_USE_MOCK_DATA) {
-      setAuthenticated(sessionStorage.getItem('grand-line-vault:mock-session') === 'active');
+    let unsubscribe: () => void = () => undefined;
+    try {
+      const auth = firebaseAuth();
+      void setPersistence(auth, browserLocalPersistence);
+      unsubscribe = onAuthStateChanged(auth, (nextUser) => {
+        setUser(nextUser);
+        setProfile(null);
+        if (!nextUser) {
+          setLoading(false);
+          return;
+        }
+        setLoading(true);
+        profiles
+          .getOrCreate(nextUser)
+          .then(setProfile)
+          .catch(() => {
+            setProfile(null);
+            void signOut(auth);
+          })
+          .finally(() => setLoading(false));
+      });
+    } catch {
       setLoading(false);
-      return;
     }
-    fetch('/api/auth/session')
-      .then((response) => setAuthenticated(response.ok))
-      .catch(() => setAuthenticated(false))
-      .finally(() => setLoading(false));
+    return unsubscribe;
+  }, []);
+
+  const login = useCallback(async (email: string, password: string) => {
+    try {
+      await setPersistence(firebaseAuth(), browserLocalPersistence);
+      await signInWithEmailAndPassword(firebaseAuth(), email, password);
+    } catch (error) {
+      throw new Error(authMessage(error));
+    }
+  }, []);
+
+  const register = useCallback(async (email: string, password: string) => {
+    try {
+      await setPersistence(firebaseAuth(), browserLocalPersistence);
+      await createUserWithEmailAndPassword(firebaseAuth(), email, password);
+    } catch (error) {
+      throw new Error(authMessage(error));
+    }
+  }, []);
+
+  const resetPassword = useCallback(async (email: string) => {
+    try {
+      await sendPasswordResetEmail(firebaseAuth(), email);
+    } catch (error) {
+      throw new Error(authMessage(error));
+    }
+  }, []);
+
+  const logout = useCallback(async () => {
+    await signOut(firebaseAuth());
+    setProfile(null);
+  }, []);
+
+  const getIdToken = useCallback(async () => {
+    const current = firebaseAuth().currentUser;
+    if (!current) throw new Error('La sesión ha caducado.');
+    return current.getIdToken();
   }, []);
 
   const value = useMemo<AuthContextValue>(
     () => ({
-      authenticated,
+      authenticated: Boolean(user && profile),
       loading,
-      async login(password: string) {
-        if (config.VITE_USE_MOCK_DATA) {
-          if (password !== 'nakama') throw new Error('Credenciales incorrectas.');
-          sessionStorage.setItem('grand-line-vault:mock-session', 'active');
-          setAuthenticated(true);
-          return;
-        }
-        const response = await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password }),
-        });
-        if (!response.ok) throw new Error('Credenciales incorrectas.');
-        setAuthenticated(true);
-      },
-      async logout() {
-        if (config.VITE_USE_MOCK_DATA) {
-          sessionStorage.removeItem('grand-line-vault:mock-session');
-        } else {
-          await fetch('/api/auth/logout', { method: 'POST' });
-        }
-        setAuthenticated(false);
-      },
+      user,
+      profile,
+      login,
+      register,
+      resetPassword,
+      logout,
+      getIdToken,
     }),
-    [authenticated, loading],
+    [getIdToken, loading, login, logout, profile, register, resetPassword, user],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -5,11 +5,10 @@ import type {
   CardMarketPrices,
   CatalogArtist,
   CatalogPrices,
-  CollectionItem,
+  CatalogCard,
+  CatalogVariantRef,
+  CollectionEntry,
 } from './models';
-import { catalogPriceList } from './services';
-
-export const COLLECTION_SNAPSHOT_VERSION = 2 as const;
 
 export function normalizeCardNumber(value: string): string {
   return value
@@ -118,38 +117,43 @@ export function normalizeArtist(value: unknown): CatalogArtist | null {
   };
 }
 
-export function createCollectionSnapshot(
-  card: CardDetail,
+export function resolveCatalogVariant(
+  catalogCard: CatalogCard,
+  detail: CardDetail,
   artwork: CardVariant | null,
-  absoluteImageUrl: string,
-): CollectionItem['cardSnapshot'] {
-  const source = artwork?.source ?? card.source;
-  const prices = artwork?.prices ?? card.prices;
-  const externalPrintId = artwork?.external_id ?? card.external_id;
-  return {
-    schemaVersion: COLLECTION_SNAPSHOT_VERSION,
-    normalizedCardNumber: card.normalized_card_number,
-    printKey: `${source.providerId}::${externalPrintId}`,
-    code: card.card_number,
-    name: card.name,
-    setCode: card.episode.code,
-    rarity: card.rarity,
-    variantLabel:
-      artwork?.label ??
-      card.print?.label ??
-      (card.version ? `Versión ${card.version}` : 'Arte base'),
-    imageUrl: absoluteImageUrl,
-    catalogPrice: catalogPriceList(prices)[0],
-    catalogProvider: source.providerId,
-    sourceCardId: card.external_id,
-    sourceVariantId: artwork?.external_id,
-    catalogFetchedAt: source.fetchedAt,
-  };
+): CatalogVariantRef | null {
+  if (!artwork && (!detail.print || detail.print.variant_type === 'BASE')) return null;
+  const staticId = artwork?.source.providerVariantId ?? detail.print?.static_id;
+  const version = artwork?.version ?? detail.version;
+  const versionMatch = version?.match(/\d+/);
+  const variantNumber = detail.print?.number ?? (versionMatch ? Number(versionMatch[0]) : null);
+  return (
+    catalogCard.variants.find((variant) => variant.id === staticId) ??
+    (variantNumber === null
+      ? undefined
+      : catalogCard.variants.find(
+          (variant) => variant.variant_type !== 'BASE' && variant.number === variantNumber,
+        )) ??
+    catalogCard.variants.find(
+      (variant) =>
+        variant.variant_type === (artwork?.variant_type ?? detail.print?.variant_type) &&
+        variant.label === (artwork?.label ?? detail.print?.label),
+    ) ??
+    (artwork
+      ? catalogCard.variants.find((variant) => variant.image === artwork.image) ?? null
+      : catalogCard.variants.find((variant) => variant.variant_type === 'BASE') ?? null)
+  );
 }
 
-export function collectionItemIdentity(item: CollectionItem): string {
+export function collectionItemIdentity(
+  item: Pick<
+    CollectionEntry,
+    'catalogCardId' | 'catalogVariantId' | 'language' | 'condition' | 'boxId' | 'sectionId'
+  >,
+): string {
   return [
-    item.cardSnapshot.printKey,
+    item.catalogCardId,
+    item.catalogVariantId ?? 'BASE',
     item.language,
     item.condition,
     item.boxId ?? 'UNASSIGNED',

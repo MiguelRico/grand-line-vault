@@ -1,7 +1,11 @@
-import type { CardDetail, CollectionItem, SalesPack, StorageBox } from '../domain/models';
-import { catalogPriceList } from '../domain/services';
+import type {
+  CardDetail,
+  CatalogCard,
+  CollectionItem,
+  SalesPack,
+  StorageBox,
+} from '../domain/models';
 import {
-  createCollectionSnapshot,
   normalizeCardNumber,
   normalizeExpansionCode,
   normalizeRarity,
@@ -119,15 +123,52 @@ export const mockCards: CardDetail[] = seeds.map(
 );
 
 function toCollection(card: CardDetail, quantity: number, index: number): CollectionItem {
+  const catalogCard: CatalogCard = {
+    id: `CARD::${card.normalized_card_number}`,
+    tcggoId: null,
+    name: card.name,
+    normalizedName: card.name.toLocaleUpperCase(),
+    card_number: card.card_number,
+    normalized_card_number: card.normalized_card_number,
+    image: card.image,
+    episode: {
+      id: card.episode.id,
+      name: card.episode.name,
+      code: card.episode.code,
+      normalized_code: card.episode.normalized_code,
+    },
+    setCodes: [card.episode.code],
+    rarity: card.rarity,
+    rarity_normalized: card.rarity_normalized,
+    color: card.color,
+    game: {
+      card_type: card.game.card_type,
+      colors: card.game.colors,
+      cost: card.game.cost,
+      life: card.game.life,
+      power: card.game.power,
+      counter: card.game.counter,
+      attributes: card.game.attributes,
+    },
+    variantTypes: ['BASE'],
+    variantCount: card.artworks.length,
+    totalVariants: card.artworks.length + 1,
+    variants: [
+      {
+        id: `${card.external_id}::BASE`,
+        variant_type: 'BASE',
+        label: 'Arte base',
+        image: card.image,
+        language: card.game.language,
+      },
+    ],
+    source: card.source,
+  };
   return {
     id: `collection-${index + 1}`,
-    cardId: card.id,
-    cardVariantId: card.id,
-    cardSnapshot: {
-      ...createCollectionSnapshot(card, null, card.image),
-      variantLabel: 'Normal',
-      catalogPrice: catalogPriceList(card.prices)[0],
-    },
+    ownerId: 'test-user',
+    catalogCardId: catalogCard.id,
+    catalogVariantId: null,
     quantity,
     language: 'EN',
     condition: 'NEAR_MINT',
@@ -137,6 +178,8 @@ function toCollection(card: CardDetail, quantity: number, index: number): Collec
     notes: index === 0 ? 'Carta de mi primer sobre.' : undefined,
     createdAt: now,
     updatedAt: now,
+    card: catalogCard,
+    variant: null,
   };
 }
 
@@ -182,7 +225,6 @@ export const initialSalesPacks: SalesPack[] = [
       id: `pack-item-${index + 1}`,
       collectionItemId: item.id,
       quantity: 1,
-      snapshot: item.cardSnapshot,
     })),
     salePrice: { amount: 12.5, currency: 'EUR' },
     createdAt: now,

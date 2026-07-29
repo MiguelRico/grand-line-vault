@@ -9,13 +9,13 @@ import {
 import { initialBoxes, initialCollection, initialSalesPacks } from '../infrastructure/mockData';
 
 describe('collection domain', () => {
-  it('calculates copies, unique cards, duplicates and value', () => {
+  it('calculates copies, unique cards, duplicates and user acquisition value', () => {
     const stats = calculateCollectionStats(initialCollection, 'USD');
     expect(stats.totalCopies).toBe(24);
     expect(stats.uniqueCards).toBe(12);
     expect(stats.duplicateCopies).toBe(12);
-    expect(stats.estimatedValue.currency).toBe('USD');
-    expect(stats.estimatedValue.amount).toBeGreaterThan(0);
+    expect(stats.acquisitionValue.currency).toBe('USD');
+    expect(stats.acquisitionValue.amount).toBe(0);
   });
 
   it('builds a stable grouping key', () => {
