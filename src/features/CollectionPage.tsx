@@ -1,16 +1,39 @@
-﻿import { Archive, Grid2X2, Heart, List, Plus, SlidersHorizontal, Trash2, X } from 'lucide-react';
-import { useMemo, useState } from 'react';
+﻿import {
+  Archive,
+  ExternalLink,
+  Grid2X2,
+  Heart,
+  Layers3,
+  List,
+  Pencil,
+  Plus,
+  ShoppingBag,
+  SlidersHorizontal,
+  Trash2,
+  X,
+} from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { useServices } from '../app/providers/ServicesProvider';
-import type { CardCondition, CardLanguage, CollectionItem, StorageBox } from '../domain/models';
+import type {
+  CardCondition,
+  CardLanguage,
+  CollectionItem,
+  SalesPack,
+  StorageBox,
+} from '../domain/models';
+import {
+  groupCollectionItems,
+  type CollectionCardGroup,
+  type CollectionVariantGroup,
+} from '../domain/collectionGrouping';
 import { calculateCollectionStats, sectionLabel } from '../domain/services';
 import { PageHeader } from '../shared/AppShell';
 import { OnePieceLoader } from '../shared/OnePieceLoader';
 import {
   Button,
   CardImage,
-  CardTile,
   EmptyState,
   FavoriteButton,
   QuantitySelector,
@@ -166,6 +189,317 @@ function CollectionEditor({ item, onClose }: { item: CollectionItem | null; onCl
           </div>
         </div>
       )}
+    </ResponsiveDialog>
+  );
+}
+
+function CollectionArtworkStack({
+  group,
+  compact = false,
+}: {
+  group: CollectionCardGroup;
+  compact?: boolean;
+}) {
+  const variantImages = group.variants
+    .map((entry) => entry.variant?.image)
+    .filter((image): image is string => Boolean(image))
+    .slice(0, 3);
+  const offsets = compact
+    ? ['translate-x-3', 'translate-x-2', 'translate-x-1']
+    : ['translate-x-6', 'translate-x-4', 'translate-x-2'];
+
+  return (
+    <div className={`relative ${variantImages.length > 0 ? (compact ? 'mr-3' : 'mr-6') : ''}`}>
+      {[...variantImages].reverse().map((image, index) => (
+        <CardImage
+          key={image}
+          src={image}
+          alt=""
+          showFailureText={false}
+          className={`absolute inset-0 border border-slate-300 shadow-sm ${offsets[index]}`}
+        />
+      ))}
+      <CardImage
+        src={group.card.image}
+        alt={`Carta ${group.card.name}`}
+        className="relative border border-slate-200 shadow-sm"
+      />
+    </div>
+  );
+}
+
+function DataField({ label, value }: { label: string; value?: string | number | null }) {
+  return (
+    <div className="min-w-0 rounded-xl bg-slate-50 p-3">
+      <dt className="text-[11px] font-bold uppercase tracking-wide text-slate-500">{label}</dt>
+      <dd className="mt-1 break-words text-sm font-semibold text-slate-900">
+        {value === undefined || value === null || value === '' ? '—' : value}
+      </dd>
+    </div>
+  );
+}
+
+const conditionLabels: Record<CardCondition, string> = {
+  MINT: 'Mint',
+  NEAR_MINT: 'Near Mint',
+  EXCELLENT: 'Excelente',
+  GOOD: 'Bueno',
+  PLAYED: 'Jugado',
+  POOR: 'Deteriorado',
+  UNKNOWN: 'Sin indicar',
+};
+
+const packStatusLabels: Record<SalesPack['status'], string> = {
+  DRAFT: 'Borrador',
+  READY: 'Listo para venta',
+  SOLD: 'Vendido',
+  ARCHIVED: 'Archivado',
+};
+
+function variantKey(variant: CollectionVariantGroup): string {
+  return variant.id ?? 'BASE';
+}
+
+function CollectionCardDetail({
+  group,
+  boxes,
+  packs,
+  onClose,
+  onEdit,
+}: {
+  group: CollectionCardGroup | null;
+  boxes: StorageBox[];
+  packs: SalesPack[];
+  onClose: () => void;
+  onEdit: (item: CollectionItem) => void;
+}) {
+  const [activeVariantKey, setActiveVariantKey] = useState('BASE');
+
+  useEffect(() => {
+    setActiveVariantKey(group?.variants[0] ? variantKey(group.variants[0]) : 'BASE');
+  }, [group]);
+
+  if (!group) return null;
+  const activeVariant =
+    group.variants.find((variant) => variantKey(variant) === activeVariantKey) ?? group.variants[0];
+  if (!activeVariant) return null;
+
+  const card = group.card;
+  const activeImage = activeVariant.variant?.image ?? card.image;
+  const activeLabel = activeVariant.variant?.label ?? 'Arte principal';
+  const links = [
+    ['Cardmarket', card.links?.cardmarket],
+    ['TCGPlayer', card.links?.tcgplayer],
+    ['TCGGO', card.tcggo_url],
+  ].filter((entry): entry is [string, string] => Boolean(entry[1]));
+
+  return (
+    <ResponsiveDialog
+      open
+      onOpenChange={(open) => !open && onClose()}
+      title={`${card.name} en tu colección`}
+    >
+      <div className="grid gap-7 md:grid-cols-[260px_1fr]">
+        <section className="pt-8 md:pt-0">
+          <CardImage src={activeImage} alt={`${card.name}, ${activeLabel}`} />
+          <div className="mt-4 grid grid-cols-4 gap-2" aria-label="Variantes en tu colección">
+            {group.variants.map((variant) => {
+              const key = variantKey(variant);
+              const selected = key === variantKey(activeVariant);
+              return (
+                <button
+                  key={key}
+                  onClick={() => setActiveVariantKey(key)}
+                  className={`relative rounded-lg p-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet ${
+                    selected ? 'bg-violet ring-2 ring-violet' : 'bg-slate-200 hover:bg-slate-300'
+                  }`}
+                  aria-label={`Ver ${variant.variant?.label ?? 'arte principal'}, ${variant.quantity} copias`}
+                  aria-pressed={selected}
+                >
+                  <CardImage
+                    src={variant.variant?.image ?? card.image}
+                    alt=""
+                    showFailureText={false}
+                  />
+                  <span className="absolute bottom-1 right-1 rounded-full bg-slate-950/85 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                    ×{variant.quantity}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <p className="mt-3 text-center text-xs text-slate-500">
+            {group.variants.length} {group.variants.length === 1 ? 'impresión' : 'impresiones'} ·{' '}
+            {group.quantity} {group.quantity === 1 ? 'copia' : 'copias'}
+          </p>
+        </section>
+
+        <div className="min-w-0">
+          <p className="text-xs font-bold uppercase tracking-wide text-violet">
+            Mi colección · {activeLabel}
+          </p>
+          <h2 className="mt-1 pr-10 text-2xl font-black">{card.name}</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            {card.card_number} · {card.episode.name}
+          </p>
+
+          <section className="mt-6">
+            <h3 className="font-black">Datos del índice</h3>
+            <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+              <DataField label="Código" value={card.card_number} />
+              <DataField label="Expansión" value={card.episode.code} />
+              <DataField label="Rareza" value={card.rarity ?? card.rarity_normalized} />
+              <DataField label="Tipo" value={card.game.card_type} />
+              <DataField
+                label="Color"
+                value={card.game.colors.length > 0 ? card.game.colors.join(' / ') : card.color}
+              />
+              <DataField label="Variante" value={activeLabel} />
+              <DataField
+                label="Tipo de impresión"
+                value={activeVariant.variant?.variant_type ?? 'BASE'}
+              />
+              <DataField label="N.º de impresión" value={activeVariant.variant?.number} />
+              <DataField label="Coste" value={card.game.cost} />
+              <DataField label="Vida" value={card.game.life} />
+              <DataField label="Poder" value={card.game.power} />
+              <DataField label="Counter" value={card.game.counter} />
+              <DataField
+                label="Atributos"
+                value={card.game.attributes.length > 0 ? card.game.attributes.join(' / ') : null}
+              />
+              <DataField label="Idioma del arte" value={activeVariant.variant?.language ?? '—'} />
+              <DataField
+                label="Expansiones"
+                value={card.setCodes.length > 0 ? card.setCodes.join(', ') : card.episode.code}
+              />
+              <DataField label="Artista" value={card.artist?.name} />
+              <DataField label="Proveedor del índice" value={card.source.providerId} />
+              <DataField
+                label="ID del proveedor"
+                value={card.tcggoId ?? card.source.providerCardId}
+              />
+              <DataField label="ID de variante" value={activeVariant.id} />
+              <DataField label="Cardmarket ID" value={card.cardmarket_id} />
+              <DataField label="TCGPlayer ID" value={card.tcgplayer_id} />
+              <DataField label="TCG ID" value={card.tcgid} />
+            </dl>
+            {links.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {links.map(([label, href]) => (
+                  <a
+                    key={label}
+                    href={href}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex min-h-9 items-center gap-1.5 rounded-full bg-slate-100 px-3 text-xs font-bold text-slate-700 hover:bg-slate-200"
+                  >
+                    {label} <ExternalLink className="size-3" />
+                  </a>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="mt-7">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="font-black">Ejemplares y organización</h3>
+              <span className="text-xs font-semibold text-slate-500">
+                {activeVariant.quantity} copias
+              </span>
+            </div>
+            <div className="mt-3 space-y-3">
+              {activeVariant.items.map((item) => {
+                const memberships = packs.flatMap((pack) =>
+                  pack.items
+                    .filter((packItem) => packItem.collectionItemId === item.id)
+                    .map((packItem) => ({ pack, quantity: packItem.quantity })),
+                );
+                return (
+                  <article key={item.id} className="rounded-xl border border-slate-200 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-bold">
+                          {item.language} · {conditionLabels[item.condition]} · ×{item.quantity}
+                        </p>
+                        <p className="mt-1 flex items-start gap-1.5 text-sm text-violet">
+                          <Archive className="mt-0.5 size-3.5 shrink-0" />
+                          {sectionLabel(boxes, item.boxId, item.sectionId)}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => onEdit(item)}
+                        className="grid size-10 shrink-0 place-items-center rounded-lg border border-slate-200 hover:bg-slate-50"
+                        aria-label={`Editar lote de ${activeLabel}`}
+                      >
+                        <Pencil className="size-4" />
+                      </button>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-600">
+                      {item.favorite && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2.5 py-1 font-semibold text-red-700">
+                          <Heart className="size-3 fill-current" /> Favorita
+                        </span>
+                      )}
+                      {item.acquisitionPrice && (
+                        <span className="rounded-full bg-slate-100 px-2.5 py-1 font-semibold">
+                          Adquisición: {item.acquisitionPrice.amount.toFixed(2)}{' '}
+                          {item.acquisitionPrice.currency}
+                        </span>
+                      )}
+                    </div>
+                    {item.notes && (
+                      <p className="mt-3 rounded-lg bg-slate-50 p-3 text-sm text-slate-600">
+                        {item.notes}
+                      </p>
+                    )}
+                    <div className="mt-3 border-t border-slate-100 pt-3">
+                      <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-slate-500">
+                        <ShoppingBag className="size-3.5" /> Packs de venta
+                      </p>
+                      {memberships.length > 0 ? (
+                        <div className="mt-2 space-y-2">
+                          {memberships.map(({ pack, quantity }) => (
+                            <div
+                              key={pack.id}
+                              className="rounded-lg bg-indigo-50 px-3 py-2 text-sm text-indigo-950"
+                            >
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <strong>{pack.name}</strong>
+                                <span className="text-xs font-bold">
+                                  {packStatusLabels[pack.status]} · ×{quantity}
+                                </span>
+                              </div>
+                              {pack.description && (
+                                <p className="mt-1 text-xs text-indigo-800">{pack.description}</p>
+                              )}
+                              {pack.salePrice && (
+                                <p className="mt-1 text-xs font-semibold">
+                                  Precio del pack: {pack.salePrice.amount.toFixed(2)}{' '}
+                                  {pack.salePrice.currency}
+                                </p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="mt-1 text-sm text-slate-500">
+                          Este lote no pertenece a ningún pack.
+                        </p>
+                      )}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+
+          <div className="mt-6 rounded-xl border border-indigo-100 bg-indigo-50 p-3 text-xs text-indigo-900">
+            Este detalle usa exclusivamente el índice del catálogo y tus datos locales. No consulta
+            TCGGO ni el proveedor mock.
+          </div>
+        </div>
+      </div>
     </ResponsiveDialog>
   );
 }
@@ -400,7 +734,7 @@ function CollectionFilterDrawer({
           <Button variant="secondary" onClick={onClear}>
             Limpiar
           </Button>
-          <Button onClick={onClose}>Ver {resultCount} lotes</Button>
+          <Button onClick={onClose}>Ver {resultCount} cartas</Button>
         </div>
       </aside>
     </div>
@@ -415,7 +749,8 @@ export function CollectionPage() {
   const [filters, setFilters] = useState<CollectionFilters>(emptyFilters);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [viewMenuOpen, setViewMenuOpen] = useState(false);
-  const [selected, setSelected] = useState<CollectionItem | null>(null);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [editingItem, setEditingItem] = useState<CollectionItem | null>(null);
   const result = useQuery({
     queryKey: ['collection'],
     queryFn: () => services.collection.listCollection(),
@@ -424,9 +759,13 @@ export function CollectionPage() {
     queryKey: ['boxes'],
     queryFn: () => services.organization.listBoxes(),
   });
+  const packs = useQuery({
+    queryKey: ['sales-packs'],
+    queryFn: () => services.organization.listSalesPacks(),
+  });
   const items = useMemo(() => result.data ?? [], [result.data]);
   const stats = calculateCollectionStats(items);
-  const filtered = useMemo(() => {
+  const filteredItems = useMemo(() => {
     const normalized = query.toLocaleLowerCase();
     return items.filter(
       (item) =>
@@ -443,6 +782,9 @@ export function CollectionPage() {
         (!filters.unassignedOnly || !item.boxId || !item.sectionId),
     );
   }, [filters, items, query, tab]);
+  const groups = useMemo(() => groupCollectionItems(items), [items]);
+  const filteredGroups = useMemo(() => groupCollectionItems(filteredItems), [filteredItems]);
+  const selectedGroup = groups.find((group) => group.catalogCardId === selectedGroupId) ?? null;
   const activeFilterCount = [
     filters.boxId,
     filters.sectionId,
@@ -473,7 +815,7 @@ export function CollectionPage() {
     return chips;
   }, [boxes.data, filters]);
   const effectiveView = tab === 'list' ? 'list' : view;
-  const loading = result.isPending || boxes.isPending;
+  const loading = result.isPending || boxes.isPending || packs.isPending;
 
   const chooseView = (nextView: 'grid' | 'list') => {
     setView(nextView);
@@ -553,7 +895,7 @@ export function CollectionPage() {
                 />
               </div>
               <p className="mt-4 text-sm text-slate-600">
-                La completitud cuenta cartas base; las variantes se muestran por separado.
+                La completitud cuenta cartas base; sus variantes se agrupan bajo la misma carta.
               </p>
             </section>
           ) : (
@@ -654,7 +996,7 @@ export function CollectionPage() {
                   </button>
                 </div>
               )}
-              {filtered.length === 0 ? (
+              {filteredGroups.length === 0 ? (
                 <EmptyState
                   title="No hay cartas aquí"
                   description="Añade cartas desde el catálogo o ajusta la búsqueda."
@@ -666,43 +1008,71 @@ export function CollectionPage() {
                 />
               ) : effectiveView === 'list' ? (
                 <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-                  {filtered.map((item) => (
-                    <button
-                      key={item.id}
-                      onClick={() => setSelected(item)}
-                      className="grid w-full grid-cols-[52px_1fr_auto] items-center gap-3 border-b border-slate-100 p-3 text-left last:border-0 hover:bg-slate-50"
-                    >
-                      <CardImage
-                        src={item.variant?.image ?? item.card.image}
-                        alt={item.card.name}
-                        className="w-11"
-                      />
-                      <span className="min-w-0">
-                        <span className="block truncate font-semibold">{item.card.name}</span>
-                        <span className="block text-xs text-slate-500">
-                          {item.card.card_number}
+                  {filteredGroups.map((group) => {
+                    const locations = new Set(
+                      group.items.map((item) =>
+                        sectionLabel(boxes.data ?? [], item.boxId, item.sectionId),
+                      ),
+                    );
+                    return (
+                      <button
+                        key={group.catalogCardId}
+                        onClick={() => setSelectedGroupId(group.catalogCardId)}
+                        className="grid w-full grid-cols-[64px_1fr_auto] items-center gap-3 border-b border-slate-100 p-3 text-left last:border-0 hover:bg-slate-50"
+                      >
+                        <div className="w-11">
+                          <CollectionArtworkStack group={group} compact />
+                        </div>
+                        <span className="min-w-0">
+                          <span className="block truncate font-semibold">{group.card.name}</span>
+                          <span className="block text-xs text-slate-500">
+                            {group.card.card_number} · {group.variants.length}{' '}
+                            {group.variants.length === 1 ? 'impresión' : 'impresiones'}
+                          </span>
+                          <span className="mt-1 flex items-center gap-1 text-xs text-violet">
+                            <Archive className="size-3" />
+                            {locations.size === 1
+                              ? Array.from(locations)[0]
+                              : `${locations.size} ubicaciones`}
+                          </span>
                         </span>
-                        <span className="mt-1 flex items-center gap-1 text-xs text-violet">
-                          <Archive className="size-3" />
-                          {sectionLabel(boxes.data ?? [], item.boxId, item.sectionId)}
+                        <span className="flex items-center gap-3">
+                          {group.favorite && <Heart className="size-4 fill-red-500 text-red-500" />}
+                          <strong>×{group.quantity}</strong>
                         </span>
-                      </span>
-                      <span className="flex items-center gap-3">
-                        {item.favorite && <Heart className="size-4 fill-red-500 text-red-500" />}
-                        <strong>×{item.quantity}</strong>
-                      </span>
-                    </button>
-                  ))}
+                      </button>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
-                  {filtered.map((item) => (
-                    <CardTile
-                      key={item.id}
-                      card={{ ...item.card, image: item.variant?.image ?? item.card.image }}
-                      quantity={item.quantity}
-                      onOpen={() => setSelected(item)}
-                    />
+                  {filteredGroups.map((group) => (
+                    <article key={group.catalogCardId} className="group min-w-0">
+                      <button
+                        onClick={() => setSelectedGroupId(group.catalogCardId)}
+                        className="relative block w-full rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet focus-visible:ring-offset-2"
+                        aria-label={`Ver ${group.card.name}, ${group.variants.length} impresiones`}
+                      >
+                        <CollectionArtworkStack group={group} />
+                        <span className="absolute right-8 top-2 z-10 rounded-full bg-ink/90 px-2 py-1 text-xs font-bold text-white">
+                          ×{group.quantity}
+                        </span>
+                        {group.variants.length > 1 && (
+                          <span className="absolute left-2 top-2 z-10 inline-flex items-center gap-1 rounded-full bg-violet/95 px-2 py-1 text-[11px] font-bold text-white shadow">
+                            <Layers3 className="size-3" />
+                            {group.variants.length} artes
+                          </span>
+                        )}
+                      </button>
+                      <div className="mt-2 min-w-0 pr-5">
+                        <p className="text-[11px] font-medium text-slate-500">
+                          {group.card.card_number}
+                        </p>
+                        <h3 className="truncate text-sm font-semibold text-slate-950">
+                          {group.card.name}
+                        </h3>
+                      </div>
+                    </article>
                   ))}
                 </div>
               )}
@@ -714,12 +1084,22 @@ export function CollectionPage() {
         open={filtersOpen}
         filters={filters}
         boxes={boxes.data ?? []}
-        resultCount={filtered.length}
+        resultCount={filteredGroups.length}
         onChange={setFilters}
         onClose={() => setFiltersOpen(false)}
         onClear={() => setFilters(emptyFilters)}
       />
-      <CollectionEditor item={selected} onClose={() => setSelected(null)} />
+      <CollectionCardDetail
+        group={selectedGroup}
+        boxes={boxes.data ?? []}
+        packs={packs.data ?? []}
+        onClose={() => setSelectedGroupId(null)}
+        onEdit={(item) => {
+          setSelectedGroupId(null);
+          setEditingItem(item);
+        }}
+      />
+      <CollectionEditor item={editingItem} onClose={() => setEditingItem(null)} />
     </div>
   );
 }
