@@ -31,7 +31,7 @@ function SidebarContent({ close }: { close?: () => void }) {
   const navigate = useNavigate();
   return (
     <div className="flex h-full flex-col">
-      <div className="flex flex-col items-center justify-start px-3 pb-2 pt-2">
+      <div className="flex flex-col items-center justify-start px-3 pb-2 pt-16 lg:pt-2">
         <p className="brand-one-piece whitespace-nowrap text-[24px] leading-none text-white">
           GRAND LINE VAULT
         </p>
