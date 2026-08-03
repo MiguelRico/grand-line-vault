@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "catalogVersion": "8b7fb161c57d7750",
-  "generatedAt": "2026-07-25T14:20:49.972Z",
+  "catalogVersion": "d416e026d64b460e",
+  "generatedAt": "2026-08-03T07:37:04.307Z",
   "source": "official-one-piece-card-game",
   "sourceUrl": "https://en.onepiece-cardgame.com/cardlist/",
   "totalCards": 4672,
@@ -11,7 +11,7 @@
   "totalColors": 6,
   "totalRarities": 9,
   "totalCategories": 4,
-  "cardsUrl": "/catalog/cards.8b7fb161c57d7750.json",
-  "setsUrl": "/catalog/sets.8b7fb161c57d7750.json",
-  "filtersUrl": "/catalog/filters.8b7fb161c57d7750.json"
+  "cardsUrl": "/catalog/cards.d416e026d64b460e.json",
+  "setsUrl": "/catalog/sets.d416e026d64b460e.json",
+  "filtersUrl": "/catalog/filters.d416e026d64b460e.json"
 }
