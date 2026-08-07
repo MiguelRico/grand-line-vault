@@ -24,9 +24,12 @@ Firebase Authentication usa correo y contraseña y mantiene la sesión local has
 la cierre. Cada cuenta dispone de un perfil `users/{uid}` inicialmente gratuito:
 `premium=false`, `cloudSync=false` y `adsEnabled=true`.
 
-La colección se guarda por usuario en IndexedDB mediante Dexie. Solo persiste referencias al
-índice y metadatos introducidos por el usuario; los precios y la disponibilidad de TCGGO viven
-únicamente en memoria mientras se visualiza el detalle.
+Las cuentas gratuitas guardan colección y lista de deseos en IndexedDB, y cajas y packs en
+`localStorage`. Cuando el perfil tiene simultáneamente `premium=true` y `cloudSync=true`, estos
+cuatro recursos se sincronizan en subcolecciones privadas de `users/{uid}` en Firestore. La
+primera activación migra los datos locales y, a partir de entonces, la copia remota es la fuente
+autoritativa. Solo se persisten referencias de catálogo y metadatos del usuario; los datos
+enriquecidos de TCGGO siguen viviendo únicamente en memoria.
 
 `VITE_USE_MOCK_CARD_DETAIL=true` sustituye únicamente el proveedor de detalle por uno
 completamente local. El listado continúa usando el índice, no se realizan peticiones de detalle a

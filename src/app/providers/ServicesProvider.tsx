@@ -1,4 +1,5 @@
-import { createContext, useContext, useMemo, type ReactNode } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { createContext, useContext, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { config } from '../config';
 import {
   LocalOrganizationRepository,
@@ -9,10 +10,16 @@ import { MockCardDetailRepository } from '../../infrastructure/MockCardDetailRep
 import { CatalogUseCases } from '../../domain/catalogUseCases';
 import { CollectionService } from '../../domain/CollectionService';
 import { WishlistService } from '../../domain/WishlistService';
+import { canUseCloudSync } from '../../domain/userCapabilities';
 import {
   IndexedDbCollectionRepository,
   IndexedDbWishlistRepository,
 } from '../../infrastructure/IndexedDbCollectionRepository';
+import {
+  CloudSyncCollectionRepository,
+  CloudSyncOrganizationRepository,
+  CloudSyncWishlistRepository,
+} from '../../infrastructure/CloudSyncRepositories';
 import { useAuth } from './AuthProvider';
 
 interface Services {
@@ -27,29 +34,49 @@ const ServicesContext = createContext<Services | null>(null);
 
 export function ServicesProvider({ children }: { children: ReactNode }) {
   const auth = useAuth();
+  const queryClient = useQueryClient();
+  const cloudSyncEnabled = canUseCloudSync(auth.profile);
+  const dataMode = `${auth.user?.uid ?? 'UNAUTHENTICATED'}:${cloudSyncEnabled ? 'cloud' : 'local'}`;
+  const previousDataMode = useRef(dataMode);
+
+  useEffect(() => {
+    if (previousDataMode.current === dataMode) return;
+    previousDataMode.current = dataMode;
+    for (const queryKey of [['collection'], ['wishlist'], ['boxes'], ['sales-packs']]) {
+      void queryClient.resetQueries({ queryKey });
+    }
+  }, [dataMode, queryClient]);
+
   const services = useMemo<Services>(() => {
+    const ownerId = auth.user?.uid ?? 'UNAUTHENTICATED';
     const catalogRepository = new HybridCatalogRepository();
     const catalog = new CatalogUseCases(
       catalogRepository,
       config.VITE_USE_MOCK_CARD_DETAIL ? new MockCardDetailRepository() : catalogRepository,
     );
+    const localCollection = new IndexedDbCollectionRepository();
+    const localWishlist = new IndexedDbWishlistRepository();
+    const localOrganization = new LocalOrganizationRepository(ownerId);
     return {
       catalog,
       catalogProvider: 'FIRESTORE_INDEX',
       collection: new CollectionService(
-        auth.user?.uid ?? 'UNAUTHENTICATED',
-        new IndexedDbCollectionRepository(),
+        ownerId,
+        cloudSyncEnabled
+          ? new CloudSyncCollectionRepository(ownerId, localCollection)
+          : localCollection,
         catalog,
       ),
       wishlist: new WishlistService(
-        auth.user?.uid ?? 'UNAUTHENTICATED',
-        new IndexedDbWishlistRepository(),
+        ownerId,
+        cloudSyncEnabled ? new CloudSyncWishlistRepository(ownerId, localWishlist) : localWishlist,
         catalog,
       ),
-      // Organización y packs siguen siendo locales hasta implementar cloudSync.
-      organization: new LocalOrganizationRepository(auth.user?.uid ?? 'UNAUTHENTICATED'),
+      organization: cloudSyncEnabled
+        ? new CloudSyncOrganizationRepository(ownerId, localOrganization)
+        : localOrganization,
     };
-  }, [auth.user?.uid]);
+  }, [auth.user?.uid, cloudSyncEnabled]);
   return <ServicesContext.Provider value={services}>{children}</ServicesContext.Provider>;
 }
 

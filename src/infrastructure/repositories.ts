@@ -1,4 +1,5 @@
 import type { SalesPack, StorageBox } from '../domain/models';
+import { salesPackSchema, storageBoxSchema } from '../domain/organizationSchema';
 
 export interface OrganizationRepository {
   listBoxes(): Promise<StorageBox[]>;
@@ -9,13 +10,14 @@ export interface OrganizationRepository {
   removeSalesPack(id: string): Promise<void>;
 }
 
-function read<T>(key: string, fallback: T): T {
+function read(key: string): unknown[] {
   const value = localStorage.getItem(key);
-  if (!value) return fallback;
+  if (!value) return [];
   try {
-    return JSON.parse(value) as T;
+    const parsed: unknown = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
-    return fallback;
+    return [];
   }
 }
 
@@ -27,39 +29,44 @@ export class LocalOrganizationRepository implements OrganizationRepository {
   }
 
   async listBoxes(): Promise<StorageBox[]> {
-    return read<StorageBox[]>(this.key('boxes'), []);
+    return read(this.key('boxes')).flatMap((value) => {
+      const parsed = storageBoxSchema.safeParse(value);
+      return parsed.success ? [parsed.data] : [];
+    });
   }
 
   async saveBox(box: StorageBox): Promise<StorageBox> {
+    const parsed = storageBoxSchema.parse(box);
     const boxes = await this.listBoxes();
-    const existing = boxes.findIndex((entry) => entry.id === box.id);
+    const existing = boxes.findIndex((entry) => entry.id === parsed.id);
     const next = [...boxes];
-    if (existing >= 0) next[existing] = box;
-    else next.push(box);
+    if (existing >= 0) next[existing] = parsed;
+    else next.push(parsed);
     localStorage.setItem(this.key('boxes'), JSON.stringify(next));
-    return box;
+    return parsed;
   }
 
   async removeBox(id: string): Promise<void> {
     const boxes = await this.listBoxes();
-    localStorage.setItem(
-      this.key('boxes'),
-      JSON.stringify(boxes.filter((box) => box.id !== id)),
-    );
+    localStorage.setItem(this.key('boxes'), JSON.stringify(boxes.filter((box) => box.id !== id)));
   }
 
   async listSalesPacks(): Promise<SalesPack[]> {
-    return read<SalesPack[]>(this.key('sales-packs'), []);
+    return read(this.key('sales-packs')).flatMap((value) => {
+      const parsed = salesPackSchema.safeParse(value);
+      return parsed.success ? [parsed.data] : [];
+    });
   }
 
   async saveSalesPack(pack: SalesPack): Promise<SalesPack> {
+    const parsed = salesPackSchema.parse(pack);
     const packs = await this.listSalesPacks();
-    const existing = packs.findIndex((entry) => entry.id === pack.id);
+    const existing = packs.findIndex((entry) => entry.id === parsed.id);
     const next = [...packs];
-    if (existing >= 0) next[existing] = pack;
-    else next.push(pack);
+    if (existing >= 0) next[existing] = parsed;
+    else next.push(parsed);
     localStorage.setItem(this.key('sales-packs'), JSON.stringify(next));
-    return pack;
+    return parsed;
   }
 
   async removeSalesPack(id: string): Promise<void> {

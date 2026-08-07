@@ -1,4 +1,4 @@
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot, setDoc } from 'firebase/firestore';
 import type { User } from 'firebase/auth';
 import type { UserProfile } from '../domain/models';
 import { firestoreClient } from './firebaseClient';
@@ -47,5 +47,25 @@ export class FirebaseUserProfileRepository {
     const profile = freeProfile(user, timestamp);
     await setDoc(reference, profile);
     return profile;
+  }
+
+  watch(
+    uid: string,
+    onProfile: (profile: UserProfile) => void,
+    onError: (error: Error) => void,
+  ): () => void {
+    const reference = doc(firestoreClient(), 'users', uid);
+    return onSnapshot(
+      reference,
+      (snapshot) => {
+        const value = snapshot.data();
+        if (!snapshot.exists() || !isUserProfile(value) || value.uid !== uid) {
+          onError(new Error('El perfil de usuario almacenado no es válido.'));
+          return;
+        }
+        onProfile(value);
+      },
+      (error) => onError(error),
+    );
   }
 }

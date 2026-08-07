@@ -37,8 +37,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 const profiles = new FirebaseUserProfileRepository();
 
 function authMessage(error: unknown): string {
-  const code =
-    error && typeof error === 'object' && 'code' in error ? String(error.code) : '';
+  const code = error && typeof error === 'object' && 'code' in error ? String(error.code) : '';
   const messages: Record<string, string> = {
     'auth/email-already-in-use': 'Ya existe una cuenta con ese correo.',
     'auth/invalid-credential': 'El correo o la contraseña no son correctos.',
@@ -47,7 +46,9 @@ function authMessage(error: unknown): string {
     'auth/weak-password': 'La contraseña debe tener al menos 6 caracteres.',
     'auth/user-disabled': 'Esta cuenta está deshabilitada.',
   };
-  return messages[code] ?? (error instanceof Error ? error.message : 'No se pudo completar el acceso.');
+  return (
+    messages[code] ?? (error instanceof Error ? error.message : 'No se pudo completar el acceso.')
+  );
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -57,10 +58,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let unsubscribe: () => void = () => undefined;
+    let unsubscribeProfile: () => void = () => undefined;
+    let active = true;
     try {
       const auth = firebaseAuth();
       void setPersistence(auth, browserLocalPersistence);
       unsubscribe = onAuthStateChanged(auth, (nextUser) => {
+        unsubscribeProfile();
+        unsubscribeProfile = () => undefined;
         setUser(nextUser);
         setProfile(null);
         if (!nextUser) {
@@ -70,17 +75,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLoading(true);
         profiles
           .getOrCreate(nextUser)
-          .then(setProfile)
+          .then((nextProfile) => {
+            if (!active || auth.currentUser?.uid !== nextUser.uid) return;
+            setProfile(nextProfile);
+            unsubscribeProfile = profiles.watch(nextUser.uid, setProfile, () => void signOut(auth));
+          })
           .catch(() => {
+            if (!active || auth.currentUser?.uid !== nextUser.uid) return;
             setProfile(null);
             void signOut(auth);
           })
-          .finally(() => setLoading(false));
+          .finally(() => {
+            if (active && auth.currentUser?.uid === nextUser.uid) setLoading(false);
+          });
       });
     } catch {
       setLoading(false);
     }
-    return unsubscribe;
+    return () => {
+      active = false;
+      unsubscribeProfile();
+      unsubscribe();
+    };
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {

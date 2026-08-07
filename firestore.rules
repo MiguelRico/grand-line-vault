@@ -23,6 +23,114 @@ service cloud.firestore {
         && request.resource.data.updatedAt is string;
     }
 
+    function ownsPremiumSync(uid) {
+      return request.auth != null
+        && request.auth.uid == uid
+        && exists(/databases/$(database)/documents/users/$(uid))
+        && get(/databases/$(database)/documents/users/$(uid)).data.premium == true
+        && get(/databases/$(database)/documents/users/$(uid)).data.cloudSync == true;
+    }
+
+    function validMoney(value) {
+      return value.keys().hasAll(['amount', 'currency'])
+        && value.keys().hasOnly(['amount', 'currency'])
+        && value.amount is number
+        && value.amount >= 0
+        && value.currency is string
+        && value.currency.size() == 3;
+    }
+
+    function validCollectionItem(uid, itemId) {
+      let data = request.resource.data;
+      return data.keys().hasAll([
+          'id', 'ownerId', 'catalogCardId', 'catalogVariantId', 'quantity',
+          'language', 'condition', 'favorite', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'ownerId', 'catalogCardId', 'catalogVariantId', 'quantity',
+          'language', 'condition', 'favorite', 'boxId', 'sectionId',
+          'acquisitionPrice', 'notes', 'createdAt', 'updatedAt'
+        ])
+        && data.id == itemId && data.id.size() > 0 && data.id.size() <= 160
+        && data.ownerId == uid
+        && data.catalogCardId is string && data.catalogCardId.size() > 0
+        && (data.catalogVariantId == null || data.catalogVariantId is string)
+        && data.quantity is int && data.quantity >= 1 && data.quantity <= 999
+        && data.language in ['EN', 'JP', 'FR', 'ES', 'IT', 'DE', 'UNKNOWN']
+        && data.condition in [
+          'MINT', 'NEAR_MINT', 'EXCELLENT', 'GOOD', 'PLAYED', 'POOR', 'UNKNOWN'
+        ]
+        && data.favorite is bool
+        && (!('boxId' in data) || data.boxId is string)
+        && (!('sectionId' in data) || (data.sectionId is string && 'boxId' in data))
+        && (!('acquisitionPrice' in data) || validMoney(data.acquisitionPrice))
+        && (!('notes' in data) || (data.notes is string && data.notes.size() <= 1000))
+        && data.createdAt is string
+        && data.updatedAt is string;
+    }
+
+    function validWishlistItem(uid, itemId) {
+      let data = request.resource.data;
+      return data.keys().hasAll([
+          'id', 'ownerId', 'catalogCardId', 'catalogVariantId', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'ownerId', 'catalogCardId', 'catalogVariantId', 'createdAt', 'updatedAt'
+        ])
+        && data.id == itemId && data.id.size() > 0
+        && data.ownerId == uid
+        && data.catalogCardId is string && data.catalogCardId.size() > 0
+        && (data.catalogVariantId == null || data.catalogVariantId is string)
+        && data.createdAt is string
+        && data.updatedAt is string;
+    }
+
+    function validStorageBox(boxId) {
+      let data = request.resource.data;
+      return data.keys().hasAll(['id', 'name', 'sections', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly([
+          'id', 'name', 'description', 'location', 'sections', 'createdAt', 'updatedAt'
+        ])
+        && data.id == boxId && data.id.size() > 0 && data.id.size() <= 160
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 160
+        && (!('description' in data)
+          || (data.description is string && data.description.size() <= 1000))
+        && (!('location' in data)
+          || (data.location is string && data.location.size() <= 300))
+        && data.sections is list && data.sections.size() <= 200
+        && data.createdAt is string
+        && data.updatedAt is string;
+    }
+
+    function validSalesPack(packId) {
+      let data = request.resource.data;
+      return data.keys().hasAll([
+          'id', 'name', 'status', 'items', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'name', 'description', 'status', 'items', 'salePrice',
+          'createdAt', 'updatedAt'
+        ])
+        && data.id == packId && data.id.size() > 0 && data.id.size() <= 160
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 160
+        && (!('description' in data)
+          || (data.description is string && data.description.size() <= 1000))
+        && data.status in ['DRAFT', 'READY', 'SOLD', 'ARCHIVED']
+        && data.items is list && data.items.size() <= 500
+        && (!('salePrice' in data) || validMoney(data.salePrice))
+        && data.createdAt is string
+        && data.updatedAt is string;
+    }
+
+    function validSyncState(resource) {
+      let data = request.resource.data;
+      return data.keys().hasAll(['schemaVersion', 'resource', 'initializedAt'])
+        && data.keys().hasOnly(['schemaVersion', 'resource', 'initializedAt'])
+        && data.schemaVersion == 1
+        && data.resource == resource
+        && data.initializedAt is string;
+    }
+
     match /users/{uid} {
       allow get: if request.auth != null && request.auth.uid == uid;
       allow create: if request.auth != null
@@ -30,6 +138,32 @@ service cloud.firestore {
         && validFreeProfile(uid);
       allow update: if false;
       allow list, delete: if false;
+
+      match /collectionItems/{itemId} {
+        allow read, delete: if ownsPremiumSync(uid);
+        allow create, update: if ownsPremiumSync(uid) && validCollectionItem(uid, itemId);
+      }
+
+      match /wishlistItems/{itemId} {
+        allow read, delete: if ownsPremiumSync(uid);
+        allow create, update: if ownsPremiumSync(uid) && validWishlistItem(uid, itemId);
+      }
+
+      match /storageBoxes/{boxId} {
+        allow read, delete: if ownsPremiumSync(uid);
+        allow create, update: if ownsPremiumSync(uid) && validStorageBox(boxId);
+      }
+
+      match /salesPacks/{packId} {
+        allow read, delete: if ownsPremiumSync(uid);
+        allow create, update: if ownsPremiumSync(uid) && validSalesPack(packId);
+      }
+
+      match /syncState/{resource} {
+        allow read: if ownsPremiumSync(uid);
+        allow create, update: if ownsPremiumSync(uid) && validSyncState(resource);
+        allow delete: if false;
+      }
     }
 
     match /{document=**} {

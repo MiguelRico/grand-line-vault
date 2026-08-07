@@ -8,9 +8,11 @@
 - `api`: confianza del servidor, sesión, validación y Firebase Admin.
 - `apps-script`: anti-corruption layer de proveedores externos.
 
-## Evolución multiusuario
+## Persistencia multiusuario
 
-La sesión ya expone una identidad/rol. Para evolucionar, añade `userId` al JWT, cambia las rutas Firestore a `users/{userId}/collectionItems`, `storageBoxes` y `salesPacks`, y deriva siempre el path desde la sesión. Las entidades del dominio y los componentes no cambian.
+Los datos privados sincronizados viven bajo `users/{userId}` en `collectionItems`, `wishlistItems`,
+`storageBoxes` y `salesPacks`. El adaptador deriva siempre el path de la sesión autenticada. Las
+reglas exigen que el usuario sea propietario y que su perfil tenga `premium && cloudSync`.
 
 ## Consistencia
 
